@@ -5,25 +5,41 @@ namespace NetworkFirewall.Models;
 /// </summary>
 public class AppSettings
 {
-    public int WebPort { get; set; } = 9764;
-    public string? NetworkInterface { get; set; }
+    public int WebPort { get; set; } = 5000;
     public string DatabasePath { get; set; } = "firewall.db";
+    public string NetworkInterface { get; set; } = "";
     public bool EnablePacketCapture { get; set; } = true;
-    public bool EnableMitm { get; set; } = false;
+    public bool EnableThreatFeeds { get; set; } = true;
     public int AlertRetentionDays { get; set; } = 30;
     public int TrafficLogRetentionDays { get; set; } = 7;
-    public List<string> TrustedMacAddresses { get; set; } = new();
-    public List<int> SuspiciousPorts { get; set; } = new() { 22, 23, 3389, 445, 135, 139 };
-    public int PortScanThreshold { get; set; } = 10;
-    public int PortScanTimeWindowSeconds { get; set; } = 60;
+    public List<int> SuspiciousPorts { get; set; } = new() { 21, 22, 23, 3389, 445, 135, 139 };
     
-    // Security settings
-    public string? AbuseIpDbApiKey { get; set; }
-    public bool EnableThreatFeeds { get; set; } = true;
-    public int ThreatFeedUpdateIntervalHours { get; set; } = 24;
-    public long HighBandwidthThresholdBytesPerSec { get; set; } = 10_000_000; // 10 MB/s
-    public long DailyBandwidthQuotaBytes { get; set; } = 10_000_000_000; // 10 GB
-    public bool EnableSecurityScanning { get; set; } = true;
-    public bool EnableAutoSecurityScan { get; set; } = true;
-    public bool AutoBlockMaliciousIps { get; set; } = false;
+    // Security Settings
+    public string AbuseIpDbApiKey { get; set; } = string.Empty;
+    public bool EnableAutoSecurityScan { get; set; } = false;
+    public int PortScanTimeWindowSeconds { get; set; } = 60;
+    public int PortScanThreshold { get; set; } = 20;
+
+    public DnsSettings Dns { get; set; } = new();
+}
+
+public class DnsSettings
+{
+    public bool Enabled { get; set; } = false;
+    public int Port { get; set; } = 53;
+    public string UpstreamDns { get; set; } = "8.8.8.8";
+    public List<BlocklistSource> Blocklists { get; set; } = new()
+    {
+        new() { Name = "Ads & Trackers", Url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Category = "Ads" },
+        new() { Name = "Malware", Url = "https://urlhaus.abuse.ch/downloads/hostfile/", Category = "Malware" },
+        new() { Name = "Adult", Url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts", Category = "Adult" }
+    };
+}
+
+public class BlocklistSource
+{
+    public string Name { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
+    public string Category { get; set; } = "General";
+    public bool Enabled { get; set; } = true;
 }
