@@ -26,7 +26,7 @@ public class NotificationService : INotificationService
 
     public Task SendAlertAsync(NetworkAlert alert)
     {
-        // Ajouter à la file des alertes récentes
+        // Ajouter a la file des alertes recentes
         _recentAlerts.Enqueue(alert);
         
         // Limiter la taille de la file
@@ -35,10 +35,10 @@ public class NotificationService : INotificationService
             _recentAlerts.TryDequeue(out _);
         }
 
-        // Déclencher l'événement pour les clients WebSocket/SSE
+        // Declencher l'evenement pour les clients WebSocket/SSE
         AlertReceived?.Invoke(this, alert);
 
-        // Log avec couleur selon la sévérité
+        // Log selon la severite
         LogAlert(alert);
 
         return Task.CompletedTask;
@@ -56,16 +56,16 @@ public class NotificationService : INotificationService
 
     private void LogAlert(NetworkAlert alert)
     {
-        var emoji = alert.Severity switch
+        var prefix = alert.Severity switch
         {
-            AlertSeverity.Critical => "??",
-            AlertSeverity.High => "??",
-            AlertSeverity.Medium => "?",
-            AlertSeverity.Low => "??",
-            _ => "??"
+            AlertSeverity.Critical => "[CRITICAL]",
+            AlertSeverity.High => "[HIGH]",
+            AlertSeverity.Medium => "[MEDIUM]",
+            AlertSeverity.Low => "[LOW]",
+            _ => "[INFO]"
         };
 
-        _logger.LogWarning("{Emoji} [{Severity}] {Type}: {Message}",
-            emoji, alert.Severity, alert.Type, alert.Message);
+        _logger.LogWarning("{Prefix} [{Severity}] {Type}: {Message}",
+            prefix, alert.Severity, alert.Type, alert.Message);
     }
 }

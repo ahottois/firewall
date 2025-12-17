@@ -82,7 +82,7 @@ public class CameraDetectionService : ICameraDetectionService
                         var saved = await cameraRepo.AddOrUpdateAsync(camera);
                         detectedCameras.Add(saved);
 
-                        // Créer une alerte si mot de passe par défaut
+                        // Create alert if default password
                         if (camera.PasswordStatus == PasswordStatus.DefaultPassword || 
                             camera.PasswordStatus == PasswordStatus.NoPassword)
                         {
@@ -106,7 +106,7 @@ public class CameraDetectionService : ICameraDetectionService
 
     public async Task<NetworkCamera?> CheckCameraAsync(string ip, int port)
     {
-        // Vérifier si le port est ouvert
+        // Check if port is open
         if (!await IsPortOpenAsync(ip, port))
             return null;
 
@@ -118,7 +118,7 @@ public class CameraDetectionService : ICameraDetectionService
             PasswordStatus = PasswordStatus.Unknown
         };
 
-        // Essayer de détecter le type de caméra
+        // Try to detect camera type
         var detectionResult = await DetectCameraTypeAsync(ip, port);
         if (detectionResult == null)
             return null;
@@ -127,7 +127,7 @@ public class CameraDetectionService : ICameraDetectionService
         camera.Model = detectionResult.Model;
         camera.Status = CameraStatus.Online;
 
-        // Tester les identifiants par défaut
+        // Test default credentials
         var credResult = await TestDefaultCredentialsAsync(ip, port);
         if (credResult.Success)
         {
@@ -187,7 +187,7 @@ public class CameraDetectionService : ICameraDetectionService
                     var content = await response.Content.ReadAsStringAsync();
                     var headers = response.Headers.ToString() + response.Content.Headers.ToString();
 
-                    // Détecter le fabricant
+                    // Detect manufacturer
                     if (HikvisionPattern.IsMatch(content) || HikvisionPattern.IsMatch(headers))
                     {
                         result.Manufacturer = "Hikvision";
@@ -248,7 +248,7 @@ public class CameraDetectionService : ICameraDetectionService
     {
         var result = new CameraCheckResult();
 
-        // Obtenir le fabricant détecté pour les identifiants spécifiques
+        // Get detected manufacturer for specific credentials
         var detection = await DetectCameraTypeAsync(ip, port);
         var manufacturer = detection?.Manufacturer ?? "Generic";
 
@@ -289,11 +289,11 @@ public class CameraDetectionService : ICameraDetectionService
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(5);
 
-            // Ajouter l'authentification Basic
+            // Add Basic authentication
             var authValue = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{username}:{password}"));
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authValue);
 
-            // URLs à tester pour l'authentification
+            // URLs to test for authentication
             var testUrls = new[]
             {
                 $"http://{ip}:{port}/",
@@ -312,7 +312,7 @@ public class CameraDetectionService : ICameraDetectionService
                     {
                         result.Success = true;
                         
-                        // Essayer de trouver l'URL de snapshot
+                        // Try to find snapshot URL
                         if (url.Contains("snapshot") || url.Contains("image"))
                         {
                             result.SnapshotUrl = url;
@@ -383,8 +383,8 @@ public class CameraDetectionService : ICameraDetectionService
         {
             Type = AlertType.UnauthorizedAccess,
             Severity = AlertSeverity.Critical,
-            Title = "Caméra avec mot de passe par défaut détectée!",
-            Message = $"La caméra {camera.Manufacturer ?? "inconnue"} à l'adresse {camera.IpAddress}:{camera.Port} utilise des identifiants par défaut ({camera.DetectedCredentials}). Changez immédiatement le mot de passe!",
+            Title = "Camera with default password detected!",
+            Message = $"Camera {camera.Manufacturer ?? "unknown"} at {camera.IpAddress}:{camera.Port} uses default credentials ({camera.DetectedCredentials}). Change password immediately!",
             SourceIp = camera.IpAddress,
             DeviceId = camera.DeviceId
         };

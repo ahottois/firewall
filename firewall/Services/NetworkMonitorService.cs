@@ -5,7 +5,7 @@ using NetworkFirewall.Models;
 namespace NetworkFirewall.Services;
 
 /// <summary>
-/// Service d'arrière-plan qui coordonne la capture de paquets et l'analyse
+/// Background service that coordinates packet capture and analysis
 /// </summary>
 public class NetworkMonitorService : BackgroundService
 {
@@ -36,31 +36,31 @@ public class NetworkMonitorService : BackgroundService
     {
         _logger.LogInformation("Network Monitor Service starting...");
 
-        // S'abonner aux événements de capture de paquets
+        // Subscribe to packet capture events
         _packetCapture.PacketCaptured += OnPacketCaptured;
 
-        // S'abonner aux événements de découverte d'appareils
+        // Subscribe to device discovery events
         _deviceDiscovery.UnknownDeviceDetected += OnUnknownDeviceDetected;
 
         try
         {
-            // Initialiser la base de données
+            // Initialize database
             await InitializeDatabaseAsync();
 
-            // Démarrer la capture de paquets
+            // Start packet capture
             if (_settings.EnablePacketCapture)
             {
                 await _packetCapture.StartAsync(stoppingToken);
             }
 
-            // Scanner le réseau au démarrage
+            // Scan network on startup
             _ = Task.Run(async () =>
             {
                 await Task.Delay(5000, stoppingToken);
                 await _deviceDiscovery.ScanNetworkAsync();
             }, stoppingToken);
 
-            // Boucle principale - nettoyage périodique
+            // Main loop - periodic cleanup
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
@@ -87,10 +87,10 @@ public class NetworkMonitorService : BackgroundService
     {
         try
         {
-            // Traiter la découverte d'appareils
+            // Process device discovery
             await _deviceDiscovery.ProcessPacketAsync(e);
 
-            // Analyser pour les anomalies
+            // Analyze for anomalies
             await _anomalyDetection.AnalyzePacketAsync(e);
         }
         catch (Exception ex)
@@ -112,7 +112,7 @@ public class NetworkMonitorService : BackgroundService
                 Type = e.IsNew ? AlertType.NewDevice : AlertType.UnknownDevice,
                 Severity = AlertSeverity.Medium,
                 Title = e.IsNew ? "New Device Detected" : "Unknown Device Active",
-                Message = $"Appareil détecté: MAC={e.Device.MacAddress}, IP={e.Device.IpAddress}, Vendor={e.Device.Vendor ?? "Unknown"}",
+                Message = $"Device detected: MAC={e.Device.MacAddress}, IP={e.Device.IpAddress}, Vendor={e.Device.Vendor ?? "Unknown"}",
                 SourceMac = e.Device.MacAddress,
                 SourceIp = e.Device.IpAddress,
                 DeviceId = e.Device.Id
