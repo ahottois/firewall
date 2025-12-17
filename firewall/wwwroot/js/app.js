@@ -35,13 +35,17 @@ const Icons = {
     key: '<i class="fas fa-key"></i>',
     checkCircle: '<i class="fas fa-check-circle" style="color: #00ff88;"></i>',
     timesCircle: '<i class="fas fa-times-circle" style="color: #ff4757;"></i>',
-    spinner: '<i class="fas fa-spinner fa-spin"></i>'
+    spinner: '<i class="fas fa-spinner fa-spin"></i>',
+    trash: '<i class="fas fa-trash"></i>',
+    redo: '<i class="fas fa-redo"></i>',
+    terminal: '<i class="fas fa-terminal"></i>'
 };
 
 class FirewallApp {
     constructor() {
         this.currentPage = 'dashboard';
         this.eventSource = null;
+        this.scanLogSource = null;
         this.currentCameraId = null;
         this.currentSnapshot = null;
         this.init();
@@ -392,6 +396,9 @@ class FirewallApp {
             document.getElementById('cameras-secured').textContent = cameras.filter(c => c.passwordStatus === 2).length;
 
             this.renderCamerasGrid(cameras);
+            
+            // Load existing scan logs
+            this.loadScanLogs();
         } catch (error) {
             console.error('Error loading cameras:', error);
             document.getElementById('cameras-grid').innerHTML = `
@@ -490,12 +497,25 @@ class FirewallApp {
         return texts[camera.passwordStatus] || 'Inconnu';
     }
 
+    // Camera Scan with real-time logs
     async scanCameras() {
         try {
             document.getElementById('scan-cameras-btn').disabled = true;
             document.getElementById('scan-cameras-btn').innerHTML = `${Icons.spinner} Scan en cours...`;
             
-            this.showToast({ title: 'Scan des cameras', message: 'Recherche en cours, cela peut prendre plusieurs minutes...', severity: 0 });
+            // Show scan logs panel
+            const logsPanel = document.getElementById('scan-logs-panel');
+            if (logsPanel) {
+                logsPanel.style.display = 'block';
+            }
+            
+            // Clear previous logs
+            this.clearScanLogs();
+            
+            // Connect to SSE for real-time logs
+            this.connectScanLogs();
+            
+            this.showToast({ title: 'Scan des cameras', message: 'Recherche en cours, suivez la progression ci-dessous...', severity: 0 });
             
             const cameras = await this.api('cameras/scan', { method: 'POST' });
             
@@ -508,9 +528,84 @@ class FirewallApp {
             this.loadCameras();
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+            this.addScanLog({ message: `? Erreur: ${error.message}`, level: 'error' });
         } finally {
             document.getElementById('scan-cameras-btn').disabled = false;
             document.getElementById('scan-cameras-btn').innerHTML = `${Icons.search} Scanner les cameras`;
+        }
+    }
+
+    // Real-time scan logs via SSE
+    connectScanLogs() {
+        if (this.scanLogSource) {
+            this.scanLogSource.close();
+        }
+
+        this.scanLogSource = new EventSource('/api/cameras/scan/logs/stream');
+
+        this.scanLogSource.addEventListener('log', (e) => {
+            const log = JSON.parse(e.data);
+            this.addScanLog(log);
+        });
+
+        this.scanLogSource.onerror = () => {
+            console.log('Scan log stream disconnected');
+        };
+    }
+
+    disconnectScanLogs() {
+        if (this.scanLogSource) {
+            this.scanLogSource.close();
+            this.scanLogSource = null;
+        }
+    }
+
+    addScanLog(log) {
+        const logsContainer = document.getElementById('scan-logs');
+        if (!logsContainer) return;
+
+        const logEntry = document.createElement('div');
+        logEntry.className = `scan-log-entry ${log.level || 'info'}`;
+        
+        const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+        
+        let progressHtml = '';
+        if (log.progress) {
+            progressHtml = `
+                <div class="scan-progress">
+                    <div class="scan-progress-bar" style="width: ${log.progress.percentage}%"></div>
+                    <span class="scan-progress-text">${log.progress.current}/${log.progress.total} (${log.progress.percentage}%)</span>
+                </div>
+            `;
+        }
+
+        logEntry.innerHTML = `
+            <span class="scan-log-time">[${time}]</span>
+            <span class="scan-log-message">${this.escapeHtml(log.message)}</span>
+            ${progressHtml}
+        `;
+
+        logsContainer.appendChild(logEntry);
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+
+    clearScanLogs() {
+        const logsContainer = document.getElementById('scan-logs');
+        if (logsContainer) {
+            logsContainer.innerHTML = '';
+        }
+    }
+
+    async loadScanLogs() {
+        try {
+            const logs = await this.api('cameras/scan/logs?count=50');
+            const logsContainer = document.getElementById('scan-logs');
+            if (logsContainer && logs.length > 0) {
+                document.getElementById('scan-logs-panel').style.display = 'block';
+                logs.reverse().forEach(log => this.addScanLog(log));
+            }
+        } catch (error) {
+            console.log('No scan logs available');
         }
     }
 
@@ -696,15 +791,16 @@ class FirewallApp {
         }
 
         container.innerHTML = alerts.map(alert => `
-            <div class="alert-item ${this.getSeverityClass(alert.severity)} ${alert.isRead ? '' : 'unread'}">
+            <div class="alert-item ${this.getSeverityClass(alert.severity)} ${alert.isRead ? '' : 'unread'} ${alert.isResolved ? 'resolved' : ''}">
                 <div class="alert-content">
                     <div class="alert-title">${this.getAlertTypeIcon(alert.type)} ${this.escapeHtml(alert.title)}</div>
                     <div class="alert-message">${this.escapeHtml(alert.message)}</div>
                     <div class="alert-time">${this.formatDate(alert.timestamp)}${alert.sourceIp ? ` - Source: ${this.escapeHtml(alert.sourceIp)}` : ''}${alert.protocol ? ` - ${this.escapeHtml(alert.protocol)}` : ''}</div>
                 </div>
                 <div class="alert-actions">
-                    ${!alert.isRead ? `<button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})">${Icons.check} Lu</button>` : ''}
-                    ${!alert.isResolved ? `<button class="btn btn-sm btn-success" onclick="app.resolveAlert(${alert.id})">Resolu</button>` : ''}
+                    ${!alert.isRead ? `<button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})" title="Marquer comme lu">${Icons.check}</button>` : ''}
+                    ${!alert.isResolved ? `<button class="btn btn-sm btn-success" onclick="app.resolveAndDeleteAlert(${alert.id})" title="Resoudre et supprimer">${Icons.checkCircle}</button>` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteAlert(${alert.id})" title="Supprimer">${Icons.trash}</button>
                 </div>
             </div>
         `).join('');
@@ -722,10 +818,64 @@ class FirewallApp {
         this.updateAlertBadge();
     }
 
+    async resolveAndDeleteAlert(id) {
+        try {
+            await this.api(`alerts/${id}`, { method: 'DELETE' });
+            this.loadAlerts();
+            this.updateAlertBadge();
+            this.showToast({ title: 'Alerte resolue', message: 'L\'alerte a ete supprimee', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async deleteAlert(id) {
+        try {
+            await this.api(`alerts/${id}`, { method: 'DELETE' });
+            this.loadAlerts();
+            this.updateAlertBadge();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
     async markAllAlertsRead() {
         await this.apiPost('alerts/read-all');
         this.loadAlerts();
         this.updateAlertBadge();
+    }
+
+    async resolveAllAlerts() {
+        if (!confirm('Resoudre et supprimer toutes les alertes ?')) return;
+        try {
+            await this.api('alerts/all', { method: 'DELETE' });
+            this.loadAlerts();
+            this.updateAlertBadge();
+            this.showToast({ title: 'Alertes resolues', message: 'Toutes les alertes ont ete supprimees', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async resetAllAlerts() {
+        if (!confirm('Reinitialiser le systeme d\'alertes ? Cela va:\n- Supprimer toutes les alertes\n- Reinitialiser les cooldowns de notifications\n- Relancer un scan reseau')) return;
+        try {
+            const result = await this.api('alerts/reset', { method: 'POST' });
+            this.loadAlerts();
+            this.updateAlertBadge();
+            this.showToast({ 
+                title: 'Reinitialisation effectuee', 
+                message: result.message || 'Le systeme a ete reinitialise', 
+                severity: 0 
+            });
+            
+            // Reload dashboard after a delay to show new scan results
+            setTimeout(() => {
+                if (this.currentPage === 'dashboard') this.loadDashboard();
+            }, 5000);
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
     }
 
     async updateAlertBadge() {

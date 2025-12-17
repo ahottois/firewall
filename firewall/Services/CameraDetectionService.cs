@@ -11,7 +11,7 @@ namespace NetworkFirewall.Services;
 
 public interface ICameraDetectionService
 {
-    Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync();
+    Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync(CancellationToken cancellationToken = default);
     Task<NetworkCamera?> CheckCameraAsync(string ip, int port);
     Task<CameraCheckResult> TestCredentialsAsync(string ip, int port, string username, string password);
     Task<CameraCheckResult> TestDefaultCredentialsAsync(string ip, int port);
@@ -37,7 +37,10 @@ public class CameraDetectionService : ICameraDetectionService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly INotificationService _notificationService;
+    private readonly IScanLogService _scanLog;
     private readonly AppSettings _settings;
+
+    private const string ScanSource = "camera-scan";
 
     private static readonly Regex HikvisionPattern = new(@"hikvision|hik|DS-\d", RegexOptions.IgnoreCase);
     private static readonly Regex DahuaPattern = new(@"dahua|DH-|IPC-", RegexOptions.IgnoreCase);
@@ -49,59 +52,111 @@ public class CameraDetectionService : ICameraDetectionService
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
         INotificationService notificationService,
+        IScanLogService scanLog,
         IOptions<AppSettings> settings)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _httpClientFactory = httpClientFactory;
         _notificationService = notificationService;
+        _scanLog = scanLog;
         _settings = settings.Value;
     }
 
-    public async Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync()
+    public async Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting camera scan...");
+        var scanId = $"camera-scan-{DateTime.UtcNow:yyyyMMddHHmmss}";
+        _scanLog.StartScan(ScanSource, "Scan des caméras réseau");
+        
         var detectedCameras = new List<NetworkCamera>();
 
-        using var scope = _scopeFactory.CreateScope();
-        var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-        var cameraRepo = scope.ServiceProvider.GetRequiredService<ICameraRepository>();
-
-        var devices = await deviceRepo.GetAllAsync();
-
-        foreach (var device in devices.Where(d => !string.IsNullOrEmpty(d.IpAddress)))
+        try
         {
-            foreach (var port in DefaultCameraCredentials.CommonCameraPorts)
+            using var scope = _scopeFactory.CreateScope();
+            var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
+            var cameraRepo = scope.ServiceProvider.GetRequiredService<ICameraRepository>();
+
+            var devices = (await deviceRepo.GetAllAsync()).Where(d => !string.IsNullOrEmpty(d.IpAddress)).ToList();
+            var ports = DefaultCameraCredentials.CommonCameraPorts;
+            var totalChecks = devices.Count * ports.Length;
+            var currentCheck = 0;
+
+            _scanLog.Log(ScanSource, $"?? {devices.Count} appareils à scanner sur {ports.Length} ports", ScanLogLevel.Info);
+            _scanLog.Log(ScanSource, $"?? Ports: {string.Join(", ", ports)}", ScanLogLevel.Debug);
+
+            foreach (var device in devices)
             {
-                try
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    var camera = await CheckCameraAsync(device.IpAddress!, port);
-                    if (camera != null)
+                    _scanLog.Log(ScanSource, "?? Scan annulé par l'utilisateur", ScanLogLevel.Warning);
+                    break;
+                }
+
+                _scanLog.Log(ScanSource, $"?? Scan de {device.IpAddress} ({device.Vendor ?? "Unknown"})", ScanLogLevel.Info);
+
+                foreach (var port in ports)
+                {
+                    currentCheck++;
+                    
+                    if (cancellationToken.IsCancellationRequested) break;
+
+                    try
                     {
-                        camera.DeviceId = device.Id;
-                        var saved = await cameraRepo.AddOrUpdateAsync(camera);
-                        detectedCameras.Add(saved);
+                        _scanLog.LogProgress(ScanSource, $"Vérification {device.IpAddress}:{port}", currentCheck, totalChecks);
 
-                        // Create alert if default password
-                        if (camera.PasswordStatus == PasswordStatus.DefaultPassword || 
-                            camera.PasswordStatus == PasswordStatus.NoPassword)
+                        var camera = await CheckCameraAsync(device.IpAddress!, port);
+                        if (camera != null)
                         {
-                            await CreateCameraAlertAsync(camera);
-                        }
+                            camera.DeviceId = device.Id;
+                            var saved = await cameraRepo.AddOrUpdateAsync(camera);
+                            detectedCameras.Add(saved);
 
-                        _logger.LogInformation("Camera detected: {Ip}:{Port} - {Manufacturer}", 
-                            device.IpAddress, port, camera.Manufacturer);
+                            var statusIcon = camera.PasswordStatus switch
+                            {
+                                PasswordStatus.DefaultPassword => "??",
+                                PasswordStatus.NoPassword => "??",
+                                PasswordStatus.CustomPassword => "??",
+                                _ => "??"
+                            };
+
+                            _scanLog.Log(ScanSource, 
+                                $"{statusIcon} CAMÉRA DÉTECTÉE: {device.IpAddress}:{port} - {camera.Manufacturer ?? "Inconnue"}", 
+                                camera.PasswordStatus == PasswordStatus.DefaultPassword || camera.PasswordStatus == PasswordStatus.NoPassword 
+                                    ? ScanLogLevel.Warning 
+                                    : ScanLogLevel.Success);
+
+                            if (camera.PasswordStatus == PasswordStatus.DefaultPassword || 
+                                camera.PasswordStatus == PasswordStatus.NoPassword)
+                            {
+                                _scanLog.Log(ScanSource, 
+                                    $"   ?? VULNÉRABLE: Mot de passe par défaut détecté ({camera.DetectedCredentials})", 
+                                    ScanLogLevel.Warning);
+                                await CreateCameraAlertAsync(camera);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _scanLog.Log(ScanSource, $"   ? Erreur {device.IpAddress}:{port}: {ex.Message}", ScanLogLevel.Debug);
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Error checking {Ip}:{Port}", device.IpAddress, port);
-                }
             }
-        }
 
-        _logger.LogInformation("Camera scan completed. Found {Count} cameras", detectedCameras.Count);
-        return detectedCameras;
+            var vulnerableCount = detectedCameras.Count(c => 
+                c.PasswordStatus == PasswordStatus.DefaultPassword || 
+                c.PasswordStatus == PasswordStatus.NoPassword);
+
+            var summary = $"{detectedCameras.Count} caméra(s) trouvée(s), {vulnerableCount} vulnérable(s)";
+            _scanLog.EndScan(ScanSource, true, summary);
+
+            return detectedCameras;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during camera scan");
+            _scanLog.EndScan(ScanSource, false, $"Erreur: {ex.Message}");
+            throw;
+        }
     }
 
     public async Task<NetworkCamera?> CheckCameraAsync(string ip, int port)

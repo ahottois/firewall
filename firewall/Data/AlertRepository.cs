@@ -12,6 +12,9 @@ public interface IAlertRepository
     Task<bool> MarkAsReadAsync(int id);
     Task<bool> MarkAllAsReadAsync();
     Task<bool> ResolveAsync(int id);
+    Task<bool> ResolveAllAsync();
+    Task<bool> DeleteAsync(int id);
+    Task<bool> DeleteAllAsync();
     Task<IEnumerable<NetworkAlert>> GetByDeviceAsync(int deviceId);
     Task CleanupOldAlertsAsync(int retentionDays);
 }
@@ -82,6 +85,32 @@ public class AlertRepository : IAlertRepository
         alert.IsResolved = true;
         alert.IsRead = true;
         await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ResolveAllAsync()
+    {
+        await _context.Alerts
+            .Where(a => !a.IsResolved)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.IsResolved, true)
+                .SetProperty(a => a.IsRead, true));
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        var alert = await _context.Alerts.FindAsync(id);
+        if (alert == null) return false;
+
+        _context.Alerts.Remove(alert);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteAllAsync()
+    {
+        await _context.Alerts.ExecuteDeleteAsync();
         return true;
     }
 
