@@ -32,7 +32,7 @@ public class SnifferController : ControllerBase
     public IActionResult GetPackets([FromQuery] int limit = 100)
     {
         var packets = _snifferService.GetPackets(limit);
-        return Ok(packets);
+        return Ok(packets); // Returning IEnumerable<SniffedPacket> from the service
     }
 
     [HttpDelete("packets")]

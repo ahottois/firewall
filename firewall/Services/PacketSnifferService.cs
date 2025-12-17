@@ -9,13 +9,14 @@ public class SnifferFilter
     public string? DestinationIp { get; set; }
     public int? Port { get; set; }
     public string? Protocol { get; set; }
+    public TrafficDirection? Direction { get; set; }
 }
 
 public interface IPacketSnifferService
 {
     void StartSniffing(SnifferFilter? filter = null);
     void StopSniffing();
-    IEnumerable<PacketCapturedEventArgs> GetPackets(int limit = 100);
+    IEnumerable<SniffedPacket> GetPackets(int limit = 100);
     void ClearPackets();
     bool IsSniffing { get; }
     SnifferFilter? CurrentFilter { get; }
@@ -24,7 +25,7 @@ public interface IPacketSnifferService
 public class PacketSnifferService : IPacketSnifferService, IDisposable
 {
     private readonly IPacketCaptureService _packetCapture;
-    private readonly ConcurrentQueue<PacketCapturedEventArgs> _packetBuffer = new();
+    private readonly ConcurrentQueue<SniffedPacket> _packetBuffer = new();
     private const int MaxBufferSize = 5000;
     private bool _isSniffing;
     private SnifferFilter? _currentFilter;
@@ -61,7 +62,7 @@ public class PacketSnifferService : IPacketSnifferService, IDisposable
         _packetBuffer.Clear();
     }
 
-    public IEnumerable<PacketCapturedEventArgs> GetPackets(int limit = 100)
+    public IEnumerable<SniffedPacket> GetPackets(int limit = 100)
     {
         return _packetBuffer.Reverse().Take(limit).ToList();
     }
@@ -70,9 +71,27 @@ public class PacketSnifferService : IPacketSnifferService, IDisposable
     {
         if (!_isSniffing) return;
 
-        if (!MatchesFilter(e)) return;
+        var direction = DetermineDirection(e);
+        
+        // Create SniffedPacket first to check filter against direction if needed
+        var sniffedPacket = new SniffedPacket
+        {
+            SourceMac = e.SourceMac,
+            DestinationMac = e.DestinationMac,
+            SourceIp = e.SourceIp,
+            DestinationIp = e.DestinationIp,
+            SourcePort = e.SourcePort,
+            DestinationPort = e.DestinationPort,
+            Protocol = e.Protocol,
+            PacketSize = e.PacketSize,
+            Timestamp = e.Timestamp,
+            RawData = e.RawData,
+            Direction = direction
+        };
 
-        _packetBuffer.Enqueue(e);
+        if (!MatchesFilter(sniffedPacket)) return;
+
+        _packetBuffer.Enqueue(sniffedPacket);
 
         // Maintain buffer size
         while (_packetBuffer.Count > MaxBufferSize)
@@ -81,7 +100,7 @@ public class PacketSnifferService : IPacketSnifferService, IDisposable
         }
     }
 
-    private bool MatchesFilter(PacketCapturedEventArgs packet)
+    private bool MatchesFilter(SniffedPacket packet)
     {
         if (_currentFilter == null) return true;
 
@@ -103,7 +122,45 @@ public class PacketSnifferService : IPacketSnifferService, IDisposable
             !string.Equals(packet.Protocol, _currentFilter.Protocol, StringComparison.OrdinalIgnoreCase))
             return false;
 
+        if (_currentFilter.Direction.HasValue && packet.Direction != _currentFilter.Direction.Value)
+            return false;
+
         return true;
+    }
+
+    private TrafficDirection DetermineDirection(PacketCapturedEventArgs packet)
+    {
+        var isSourceLocal = IsLocalIp(packet.SourceIp);
+        var isDestLocal = IsLocalIp(packet.DestinationIp);
+
+        if (isSourceLocal && isDestLocal)
+            return TrafficDirection.Internal;
+        
+        if (isSourceLocal && !isDestLocal)
+            return TrafficDirection.Outbound;
+            
+        if (!isSourceLocal && isDestLocal)
+            return TrafficDirection.Inbound;
+
+        // If neither is local (e.g. promiscuous mode seeing other traffic), treat as external/unknown or inbound?
+        // Let's assume Inbound if we are the destination, but here we don't know "us".
+        // Default to Inbound for external->external (unlikely in switched network unless ARP spoofing)
+        return TrafficDirection.Inbound;
+    }
+
+    private bool IsLocalIp(string? ip)
+    {
+        if (string.IsNullOrEmpty(ip)) return false;
+        return ip.StartsWith("192.168.") ||
+               ip.StartsWith("10.") ||
+               ip.StartsWith("172.16.") ||
+               ip.StartsWith("172.17.") ||
+               ip.StartsWith("172.18.") ||
+               ip.StartsWith("172.19.") ||
+               ip.StartsWith("172.2") ||
+               ip.StartsWith("172.30.") ||
+               ip.StartsWith("172.31.") ||
+               ip == "127.0.0.1";
     }
 
     public void Dispose()
