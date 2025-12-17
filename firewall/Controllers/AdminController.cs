@@ -27,10 +27,12 @@ public class AdminController : ControllerBase
     [HttpGet("status")]
     public async Task<IActionResult> GetServiceStatus()
     {
+        var status = await GetServiceStateAsync();
         var result = new ServiceStatus
         {
             IsInstalled = await IsServiceInstalledAsync(),
-            IsRunning = await IsServiceRunningAsync(),
+            IsRunning = status == "active",
+            Status = status,
             CurrentVersion = GetCurrentVersion(),
             InstallPath = InstallPath,
             ServiceName = ServiceName
@@ -376,6 +378,12 @@ WantedBy=multi-user.target
         return result.Output.Trim() == "active";
     }
 
+    private async Task<string> GetServiceStateAsync()
+    {
+        var result = await ExecuteCommandAsync("systemctl", $"is-active {ServiceName}");
+        return result.Output.Trim();
+    }
+
     private string GetCurrentVersion()
     {
         var assembly = System.Reflection.Assembly.GetExecutingAssembly();
@@ -474,6 +482,7 @@ WantedBy=multi-user.target
     {
         public bool IsInstalled { get; set; }
         public bool IsRunning { get; set; }
+        public string Status { get; set; } = string.Empty;
         public string CurrentVersion { get; set; } = string.Empty;
         public string InstallPath { get; set; } = string.Empty;
         public string ServiceName { get; set; } = string.Empty;

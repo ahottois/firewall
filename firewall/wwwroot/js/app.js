@@ -1015,22 +1015,74 @@ class FirewallApp {
             const statusCard = document.getElementById('service-status-card');
             const statusText = document.getElementById('service-status-text');
             
+            // Reset classes
+            statusCard.className = 'stat-card';
+
             if (!status.isInstalled) {
                 statusText.textContent = 'Non installe';
-                statusCard.className = 'stat-card not-installed';
+                statusCard.classList.add('not-installed');
+            } else if (status.status === 'failed') {
+                statusText.textContent = 'Erreur (Crash)';
+                statusCard.classList.add('offline'); // Red color
             } else if (status.isRunning) {
                 statusText.textContent = 'En cours';
-                statusCard.className = 'stat-card running';
+                statusCard.classList.add('running');
             } else {
                 statusText.textContent = 'Arrete';
-                statusCard.className = 'stat-card stopped';
+                statusCard.classList.add('stopped');
             }
 
-            // Update button states
-            document.getElementById('btn-start-service').disabled = !status.isInstalled || status.isRunning;
-            document.getElementById('btn-stop-service').disabled = !status.isInstalled || !status.isRunning;
-            document.getElementById('btn-restart-service').disabled = !status.isInstalled;
-            document.getElementById('btn-uninstall-service').disabled = !status.isInstalled;
+            // Service Management Buttons Logic
+            const btnStart = document.getElementById('btn-start-service');
+            const btnStop = document.getElementById('btn-stop-service');
+            const btnRestart = document.getElementById('btn-restart-service');
+
+            if (!status.isInstalled) {
+                // Not installed: Disable all service controls
+                btnStart.style.display = 'none';
+                btnStop.style.display = 'none';
+                btnRestart.style.display = 'none';
+            } else if (status.isRunning) {
+                // Running: Show Stop & Restart
+                btnStart.style.display = 'none';
+                btnStop.style.display = 'inline-block';
+                btnRestart.style.display = 'inline-block';
+                
+                btnStop.disabled = false;
+                btnRestart.disabled = false;
+            } else {
+                // Stopped or Failed: Show Start (and maybe Restart/Stop if failed?)
+                // User requirement: "si il a crash alors on peut ou redémarer ou arréter"
+                if (status.status === 'failed') {
+                    btnStart.style.display = 'none'; // Usually restart is better for crash, but start works too. 
+                    // Let's follow user request: "redémarer ou arréter" for crash
+                    btnStop.style.display = 'inline-block';
+                    btnRestart.style.display = 'inline-block';
+                } else {
+                    // Just stopped
+                    btnStart.style.display = 'inline-block';
+                    btnStop.style.display = 'none';
+                    btnRestart.style.display = 'none';
+                }
+                
+                btnStart.disabled = false;
+                btnStop.disabled = false;
+                btnRestart.disabled = false;
+            }
+
+            // Daemon Installation Buttons Logic
+            const btnInstall = document.getElementById('btn-install-service');
+            const btnUninstall = document.getElementById('btn-uninstall-service');
+
+            if (status.isInstalled) {
+                btnInstall.style.display = 'none';
+                btnUninstall.style.display = 'inline-block';
+                btnUninstall.disabled = false;
+            } else {
+                btnInstall.style.display = 'inline-block';
+                btnUninstall.style.display = 'none';
+                btnInstall.disabled = false;
+            }
 
             // Check for updates
             this.checkForUpdates();
