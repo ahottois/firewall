@@ -82,6 +82,7 @@ app.UseStaticFiles();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapNotificationEndpoints();
 
 // Initialize Database
 using (var scope = app.Services.CreateScope())
