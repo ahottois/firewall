@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
@@ -210,6 +211,29 @@ public class NetworkMonitorService : BackgroundService
         
         _logger.LogInformation("Ensuring database is created... Checking the treasure chest!");
         await context.Database.EnsureCreatedAsync();
+
+        // Ensure ScanSessions table exists (workaround for missing migrations)
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""ScanSessions"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ScanSessions"" PRIMARY KEY AUTOINCREMENT,
+                    ""Type"" INTEGER NOT NULL,
+                    ""StartTime"" TEXT NOT NULL,
+                    ""EndTime"" TEXT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""ItemsScanned"" INTEGER NOT NULL,
+                    ""ItemsTotal"" INTEGER NOT NULL,
+                    ""ResultSummary"" TEXT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_ScanSessions_StartTime"" ON ""ScanSessions"" (""StartTime"");
+            ");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error ensuring ScanSessions table exists");
+        }
+
         _logger.LogInformation("Database ready - Treasure secured!");
     }
 
