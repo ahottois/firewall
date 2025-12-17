@@ -63,9 +63,12 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
         var tracker = _portScanTrackers.GetOrAdd(key, _ => new PortScanTracker());
         
+        bool shouldAlert = false;
+        int uniquePorts = 0;
+
         lock (tracker)
         {
-            // Nettoyer les anciennes entrées
+            // Nettoyer les anciennes entrees
             var cutoff = now.AddSeconds(-_settings.PortScanTimeWindowSeconds);
             tracker.PortsAccessed.RemoveAll(p => p.Timestamp < cutoff);
             
@@ -76,25 +79,40 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                 Timestamp = now
             });
 
-            // Vérifier si c'est un port scan
-            var uniquePorts = tracker.PortsAccessed
+            // Verifier si c'est un port scan
+            uniquePorts = tracker.PortsAccessed
                 .Select(p => p.Port)
                 .Distinct()
                 .Count();
 
             if (uniquePorts >= _settings.PortScanThreshold && !tracker.AlertSent)
             {
-                tracker.AlertSent = true;
-                _ = CreateAlertAsync(new NetworkAlert
-                {
-                    Type = AlertType.PortScan,
-                    Severity = AlertSeverity.High,
-                    Title = "Port Scan Detected",
-                    Message = $"L'adresse {packet.SourceIp} a scanne {uniquePorts} ports differents en {_settings.PortScanTimeWindowSeconds} secondes",
-                    SourceIp = packet.SourceIp,
-                    SourceMac = packet.SourceMac
-                });
+                shouldAlert = true;
+                // We mark it as sent here to avoid multiple threads triggering it, 
+                // but we might revert if DB check says it's already active (handled outside lock)
+                tracker.AlertSent = true; 
             }
+        }
+
+        if (shouldAlert)
+        {
+            // Check DB for active alert (outside lock)
+            using var scope = _scopeFactory.CreateScope();
+            var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+            if (await alertRepo.HasActiveAlertAsync(packet.SourceMac, AlertType.PortScan))
+            {
+                return;
+            }
+
+            _ = CreateAlertAsync(new NetworkAlert
+            {
+                Type = AlertType.PortScan,
+                Severity = AlertSeverity.High,
+                Title = "Port Scan Detected",
+                Message = $"L'adresse {packet.SourceIp} a scanne {uniquePorts} ports differents en {_settings.PortScanTimeWindowSeconds} secondes",
+                SourceIp = packet.SourceIp,
+                SourceMac = packet.SourceMac
+            });
         }
     }
 
@@ -107,6 +125,14 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
         if (existingMac != packet.SourceMac)
         {
+            // Check DB for active alert
+            using var scope = _scopeFactory.CreateScope();
+            var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+            if (await alertRepo.HasActiveAlertAsync(packet.SourceMac, AlertType.ArpSpoofing))
+            {
+                return;
+            }
+
             _logger.LogWarning("Possible ARP Spoofing: IP {Ip} was {OldMac}, now {NewMac}",
                 packet.SourceIp, existingMac, packet.SourceMac);
 

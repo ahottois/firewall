@@ -16,6 +16,7 @@ public interface IAlertRepository
     Task<bool> DeleteAsync(int id);
     Task<bool> DeleteAllAsync();
     Task<IEnumerable<NetworkAlert>> GetByDeviceAsync(int deviceId);
+    Task<bool> HasActiveAlertAsync(string sourceMac, AlertType type);
     Task CleanupOldAlertsAsync(int retentionDays);
 }
 
@@ -120,6 +121,20 @@ public class AlertRepository : IAlertRepository
             .Where(a => a.DeviceId == deviceId)
             .OrderByDescending(a => a.Timestamp)
             .ToListAsync();
+    }
+
+    public async Task<bool> HasActiveAlertAsync(string sourceMac, AlertType type)
+    {
+        // Check for unresolved alerts of the same type for the same MAC address
+        // We also check if the alert is recent (e.g. last 24 hours) to avoid permanent blocking if user ignores it
+        var cutoff = DateTime.UtcNow.AddHours(-24);
+        
+        return await _context.Alerts
+            .AnyAsync(a => 
+                a.SourceMac == sourceMac && 
+                a.Type == type && 
+                !a.IsResolved &&
+                a.Timestamp > cutoff);
     }
 
     public async Task CleanupOldAlertsAsync(int retentionDays)

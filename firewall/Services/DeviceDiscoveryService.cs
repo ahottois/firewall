@@ -106,9 +106,9 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             DeviceDiscovered?.Invoke(this, eventArgs);
 
             // Déclencher UnknownDeviceDetected uniquement si :
-            // 1. L'appareil est réellement nouveau (jamais vu auparavant) - alerte unique
-            // 2. OU l'appareil n'est pas connu et nous n'avons pas alerté récemment (temps de recharge de 1 heure)
-            if (ShouldAlertForDevice(device, isNew, now))
+            // 1. L'appareil est reellement nouveau (jamais vu auparavant) - alerte unique
+            // 2. OU l'appareil n'est pas connu et nous n'avons pas alerte recemment (temps de recharge de 1 heure)
+            if (await ShouldAlertForDeviceAsync(device, isNew, now))
             {
                 _logger.LogWarning("Alerte appareil inconnu/nouveau : {Mac} ({Ip}) - EstNouveau : {IsNew}", 
                     device.MacAddress, device.IpAddress, isNew);
@@ -121,13 +121,27 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         }
     }
 
-    private bool ShouldAlertForDevice(NetworkDevice device, bool isNew, DateTime now)
+    private async Task<bool> ShouldAlertForDeviceAsync(NetworkDevice device, bool isNew, DateTime now)
     {
         var mac = device.MacAddress.ToUpperInvariant();
 
-        // Si l'appareil est marqué comme connu/fidèle, ne jamais alerter
+        // Si l'appareil est marque comme connu/fidele, ne jamais alerter
         if (device.IsKnown || device.IsTrusted)
         {
+            return false;
+        }
+
+        // Check database for existing active alerts to prevent duplicates on restart
+        using var scope = _scopeFactory.CreateScope();
+        var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+        var alertType = isNew ? AlertType.NewDevice : AlertType.UnknownDevice;
+        
+        if (await alertRepo.HasActiveAlertAsync(mac, alertType))
+        {
+            // Restore in-memory state if needed
+            if (isNew) _newDeviceAlertsSent.TryAdd(mac, true);
+            else _unknownDeviceAlertsSent.TryAdd(mac, now);
+            
             return false;
         }
 
@@ -153,7 +167,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             }
         }
 
-        // Envoyer une alerte et mettre à jour l'horodatage
+        // Envoyer une alerte et mettre a jour l'horodatage
         _unknownDeviceAlertsSent[mac] = now;
         return true;
     }

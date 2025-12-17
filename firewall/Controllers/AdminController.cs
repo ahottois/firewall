@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using NetworkFirewall.Data;
 
 namespace NetworkFirewall.Controllers;
 
@@ -323,6 +324,15 @@ WantedBy=multi-user.target
             {
                 await System.IO.File.WriteAllTextAsync(VersionFile, commitHash);
                 _logger.LogInformation("Saved version: {Commit}", commitHash);
+            }
+
+            // Clear all alerts before restarting to start fresh after update
+            _logger.LogInformation("Clearing all alerts before update restart...");
+            // We use a new scope to get the repository
+            using (var scope = HttpContext.RequestServices.CreateScope())
+            {
+                var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+                await alertRepo.DeleteAllAsync();
             }
 
             // Restart service if installed
