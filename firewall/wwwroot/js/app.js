@@ -388,6 +388,41 @@ class FirewallApp {
         }
     }
 
+    renderDevicesTable(devices) {
+        const tbody = document.getElementById('devices-table');
+        if (!tbody) return;
+
+        if (!devices.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil trouve</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => `
+            <tr>
+                <td><span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span></td>
+                <td class="device-mac">${this.escapeHtml(device.macAddress)}</td>
+                <td>${this.escapeHtml(device.ipAddress || '-')}</td>
+                <td>${this.escapeHtml(device.vendor || 'Inconnu')}</td>
+                <td>${this.escapeHtml(device.description || device.hostname || '-')}</td>
+                <td>${this.formatDate(device.lastSeen)}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})" title="Supprimer">${Icons.trash}</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async deleteDevice(id) {
+        if (!confirm('Supprimer cet appareil ?')) return;
+        try {
+            await this.api(`devices/${id}`, { method: 'DELETE' });
+            this.loadDevices();
+            this.showToast({ title: 'Succes', message: 'Appareil supprime', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
     async loadAgents() {
         try {
             const response = await fetch('/api/agents');
