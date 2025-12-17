@@ -40,6 +40,10 @@
                 <span class="nav-icon"><i class="fas fa-filter"></i></span>
                 <span>Pi-hole</span>
             </li>
+            <li class="nav-item" data-page="setup">
+                <span class="nav-icon"><i class="fas fa-book"></i></span>
+                <span>Installation</span>
+            </li>
             <!-- Legacy items kept for functionality but hidden or moved if needed -->
             <li class="nav-item" data-page="devices">
                 <span class="nav-icon"><i class="fas fa-laptop"></i></span>
@@ -471,6 +475,37 @@
                     </div>
                     
                     <div id="pihole-install-logs" class="code-block" style="margin-top: 20px; display: none; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Setup Page -->
+        <section id="setup-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-network-wired"></i> Intégration Réseau</h3>
+                </div>
+                <div class="card-body">
+                    <div class="setup-guide" style="padding: 20px;">
+                        <h4 style="margin-bottom: 10px; color: var(--accent-primary);">1. Configuration IP Statique</h4>
+                        <p style="margin-bottom: 20px;">Assurez-vous que ce serveur dispose d'une adresse IP statique sur votre réseau (ex: 192.168.1.2).</p>
+                        
+                        <h4 style="margin-bottom: 10px; color: var(--accent-primary);">2. Configuration du Routeur (Box Internet)</h4>
+                        <p style="margin-bottom: 10px;">Pour que WebGuard puisse filtrer le trafic, il doit être défini comme la passerelle par défaut ou le serveur DNS de vos appareils.</p>
+                        <ul style="margin-bottom: 20px; padding-left: 20px;">
+                            <li style="margin-bottom: 10px;"><strong>Option A (Recommandée) :</strong> Désactivez le serveur DHCP de votre Box et activez celui de WebGuard (si disponible) ou configurez manuellement vos appareils.</li>
+                            <li style="margin-bottom: 10px;"><strong>Option B (DNS Uniquement) :</strong> Changez le serveur DNS primaire de votre Box pour l'adresse IP de ce serveur. Cela permettra le blocage de publicités via Pi-hole.</li>
+                        </ul>
+
+                        <h4 style="margin-bottom: 10px; color: var(--accent-primary);">3. Configuration des Clients</h4>
+                        <p style="margin-bottom: 10px;">Si vous ne changez pas la configuration du routeur, configurez chaque appareil :</p>
+                        <div class="code-block" style="background: #1e1e1e; padding: 15px; border-radius: 5px; font-family: monospace;">
+                            IP: 192.168.1.x<br>
+                            Masque: 255.255.255.0<br>
+                            Passerelle: [IP DE CE SERVEUR]<br>
+                            DNS: [IP DE CE SERVEUR]
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
