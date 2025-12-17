@@ -5,7 +5,7 @@ using NetworkFirewall.Models;
 namespace NetworkFirewall.Services;
 
 /// <summary>
-/// ????? Background service that coordinates packet capture and analysis - The Captain of the ship!
+/// Background service that coordinates packet capture and analysis - The Captain of the ship!
 /// </summary>
 public class NetworkMonitorService : BackgroundService
 {
@@ -46,7 +46,7 @@ public class NetworkMonitorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("????? Network Monitor Service starting... Hoisting the sails!");
+        _logger.LogInformation("Network Monitor Service starting... Hoisting the sails!");
 
         // Subscribe to packet capture events
         _packetCapture.PacketCaptured += OnPacketCaptured;
@@ -65,7 +65,7 @@ public class NetworkMonitorService : BackgroundService
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(10000, stoppingToken);
-                    _logger.LogInformation("????? Updating threat intelligence feeds...");
+                    _logger.LogInformation("Updating threat intelligence feeds...");
                     await _threatIntelligence.UpdateThreatFeedsAsync();
                 }, stoppingToken);
             }
@@ -73,7 +73,7 @@ public class NetworkMonitorService : BackgroundService
             // Start packet capture
             if (_settings.EnablePacketCapture)
             {
-                _logger.LogInformation("????? Starting packet capture... Watching the waters!");
+                _logger.LogInformation("Starting packet capture... Watching the waters!");
                 await _packetCapture.StartAsync(stoppingToken);
             }
 
@@ -81,7 +81,7 @@ public class NetworkMonitorService : BackgroundService
             _ = Task.Run(async () =>
             {
                 await Task.Delay(5000, stoppingToken);
-                _logger.LogInformation("????? Scanning the network for ships... err, devices!");
+                _logger.LogInformation("Scanning the network for ships... err, devices!");
                 await _deviceDiscovery.ScanNetworkAsync();
             }, stoppingToken);
 
@@ -94,11 +94,11 @@ public class NetworkMonitorService : BackgroundService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("????? Network Monitor Service stopping... Lowering the anchor!");
+            _logger.LogInformation("Network Monitor Service stopping... Lowering the anchor!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "????? Network Monitor Service error - We've hit rough seas!");
+            _logger.LogError(ex, "Network Monitor Service error - We've hit rough seas!");
         }
         finally
         {
@@ -113,10 +113,10 @@ public class NetworkMonitorService : BackgroundService
     {
         try
         {
-            // ????? Log traffic (non-blocking, uses queue)
+            // Log traffic (non-blocking, uses queue)
             _trafficLogging.LogPacket(e);
 
-            // ????? Record in monitoring service for real-time stats
+            // Record in monitoring service for real-time stats
             _networkMonitoring.RecordConnection(e);
 
             // Track bandwidth
@@ -138,7 +138,7 @@ public class NetworkMonitorService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "????? Error processing packet - A leak in the hull!");
+            _logger.LogError(ex, "Error processing packet - A leak in the hull!");
         }
     }
 
@@ -174,7 +174,7 @@ public class NetworkMonitorService : BackgroundService
             {
                 Type = e.IsNew ? AlertType.NewDevice : AlertType.UnknownDevice,
                 Severity = AlertSeverity.Medium,
-                Title = e.IsNew ? "????? New Ship Spotted!" : "? Unknown Vessel Active",
+                Title = e.IsNew ? "New Ship Spotted!" : "Unknown Vessel Active",
                 Message = $"Device detected: MAC={e.Device.MacAddress}, IP={e.Device.IpAddress}, Vendor={e.Device.Vendor ?? "Unknown"}",
                 SourceMac = e.Device.MacAddress,
                 SourceIp = e.Device.IpAddress,
@@ -186,7 +186,7 @@ public class NetworkMonitorService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "????? Error handling unknown device");
+            _logger.LogError(ex, "Error handling unknown device");
         }
     }
 
@@ -195,14 +195,14 @@ public class NetworkMonitorService : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
         
-        _logger.LogInformation("????? Ensuring database is created... Checking the treasure chest!");
+        _logger.LogInformation("Ensuring database is created... Checking the treasure chest!");
         await context.Database.EnsureCreatedAsync();
-        _logger.LogInformation("????? Database ready - Treasure secured!");
+        _logger.LogInformation("Database ready - Treasure secured!");
     }
 
     private async Task PerformMaintenanceAsync()
     {
-        _logger.LogInformation("????? Performing maintenance tasks... Swabbing the deck!");
+        _logger.LogInformation("Performing maintenance tasks... Swabbing the deck!");
 
         try
         {
@@ -225,11 +225,11 @@ public class NetworkMonitorService : BackgroundService
             await alertRepo.CleanupOldAlertsAsync(_settings.AlertRetentionDays);
             await trafficRepo.CleanupOldLogsAsync(_settings.TrafficLogRetentionDays);
 
-            _logger.LogInformation("????? Maintenance completed - Ship in tip-top shape!");
+            _logger.LogInformation("Maintenance completed - Ship in tip-top shape!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "????? Maintenance error - The bilge pump is broken!");
+            _logger.LogError(ex, "Maintenance error - The bilge pump is broken!");
         }
     }
 }

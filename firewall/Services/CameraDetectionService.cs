@@ -66,7 +66,7 @@ public class CameraDetectionService : ICameraDetectionService
     public async Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync(CancellationToken cancellationToken = default)
     {
         var scanId = $"camera-scan-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        _scanLog.StartScan(ScanSource, "Scan des caméras réseau");
+        _scanLog.StartScan(ScanSource, "Scan des cameras reseau");
         
         var detectedCameras = new List<NetworkCamera>();
 
@@ -81,18 +81,18 @@ public class CameraDetectionService : ICameraDetectionService
             var totalChecks = devices.Count * ports.Count;
             var currentCheck = 0;
 
-            _scanLog.Log(ScanSource, $"?? {devices.Count} appareils  scanner sur {ports.Count} ports", ScanLogLevel.Info);
-            _scanLog.Log(ScanSource, $"?? Ports: {string.Join(", ", ports)}", ScanLogLevel.Debug);
+            _scanLog.Log(ScanSource, $"{devices.Count} appareils a scanner sur {ports.Count} ports", ScanLogLevel.Info);
+            _scanLog.Log(ScanSource, $"Ports: {string.Join(", ", ports)}", ScanLogLevel.Debug);
 
             foreach (var device in devices)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    _scanLog.Log(ScanSource, "?? Scan annulé par l'utilisateur", ScanLogLevel.Warning);
+                    _scanLog.Log(ScanSource, "Scan annule par l'utilisateur", ScanLogLevel.Warning);
                     break;
                 }
 
-                _scanLog.Log(ScanSource, $"?? Scan de {device.IpAddress} ({device.Vendor ?? "Unknown"})", ScanLogLevel.Info);
+                _scanLog.Log(ScanSource, $"Scan de {device.IpAddress} ({device.Vendor ?? "Unknown"})", ScanLogLevel.Info);
 
                 foreach (var port in ports)
                 {
@@ -102,7 +102,7 @@ public class CameraDetectionService : ICameraDetectionService
 
                     try
                     {
-                        _scanLog.LogProgress(ScanSource, $"Vérification {device.IpAddress}:{port}", currentCheck, totalChecks);
+                        _scanLog.LogProgress(ScanSource, $"Verification {device.IpAddress}:{port}", currentCheck, totalChecks);
 
                         var camera = await CheckCameraAsync(device.IpAddress!, port);
                         if (camera != null)
@@ -113,14 +113,14 @@ public class CameraDetectionService : ICameraDetectionService
 
                             var statusIcon = camera.PasswordStatus switch
                             {
-                                PasswordStatus.DefaultPassword => "??",
-                                PasswordStatus.NoPassword => "??",
-                                PasswordStatus.CustomPassword => "??",
-                                _ => "??"
+                                PasswordStatus.DefaultPassword => "[!]",
+                                PasswordStatus.NoPassword => "[!]",
+                                PasswordStatus.CustomPassword => "[OK]",
+                                _ => "[?]"
                             };
 
                             _scanLog.Log(ScanSource, 
-                                $"{statusIcon} CAMÉRA DÉTECTÉE: {device.IpAddress}:{port} - {camera.Manufacturer ?? "Inconnue"}", 
+                                $"{statusIcon} CAMERA DETECTEE: {device.IpAddress}:{port} - {camera.Manufacturer ?? "Inconnue"}", 
                                 camera.PasswordStatus == PasswordStatus.DefaultPassword || camera.PasswordStatus == PasswordStatus.NoPassword 
                                     ? ScanLogLevel.Warning 
                                     : ScanLogLevel.Success);
@@ -129,7 +129,7 @@ public class CameraDetectionService : ICameraDetectionService
                                 camera.PasswordStatus == PasswordStatus.NoPassword)
                             {
                                 _scanLog.Log(ScanSource, 
-                                    $"   ?? VULNÉRABLE: Mot de passe par défaut détecté ({camera.DetectedCredentials})", 
+                                    $"   [!] VULNERABLE: Mot de passe par defaut detecte ({camera.DetectedCredentials})", 
                                     ScanLogLevel.Warning);
                                 await CreateCameraAlertAsync(camera);
                             }
@@ -137,7 +137,7 @@ public class CameraDetectionService : ICameraDetectionService
                     }
                     catch (Exception ex)
                     {
-                        _scanLog.Log(ScanSource, $"   ? Erreur {device.IpAddress}:{port}: {ex.Message}", ScanLogLevel.Debug);
+                        _scanLog.Log(ScanSource, $"   Erreur {device.IpAddress}:{port}: {ex.Message}", ScanLogLevel.Debug);
                     }
                 }
             }
@@ -146,7 +146,7 @@ public class CameraDetectionService : ICameraDetectionService
                 c.PasswordStatus == PasswordStatus.DefaultPassword || 
                 c.PasswordStatus == PasswordStatus.NoPassword);
 
-            var summary = $"{detectedCameras.Count} caméra(s) trouvée(s), {vulnerableCount} vulnérable(s)";
+            var summary = $"{detectedCameras.Count} camera(s) trouvee(s), {vulnerableCount} vulnerable(s)";
             _scanLog.EndScan(ScanSource, true, summary);
 
             return detectedCameras;

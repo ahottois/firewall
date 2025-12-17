@@ -90,7 +90,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                     Type = AlertType.PortScan,
                     Severity = AlertSeverity.High,
                     Title = "Port Scan Detected",
-                    Message = $"L'adresse {packet.SourceIp} a scanné {uniquePorts} ports différents en {_settings.PortScanTimeWindowSeconds} secondes",
+                    Message = $"L'adresse {packet.SourceIp} a scanne {uniquePorts} ports differents en {_settings.PortScanTimeWindowSeconds} secondes",
                     SourceIp = packet.SourceIp,
                     SourceMac = packet.SourceMac
                 });
@@ -115,12 +115,12 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                 Type = AlertType.ArpSpoofing,
                 Severity = AlertSeverity.Critical,
                 Title = "ARP Spoofing Detected",
-                Message = $"L'adresse IP {packet.SourceIp} a changé de MAC: {existingMac} ? {packet.SourceMac}. Possible attaque Man-in-the-Middle!",
+                Message = $"L'adresse IP {packet.SourceIp} a change de MAC: {existingMac} -> {packet.SourceMac}. Possible attaque Man-in-the-Middle!",
                 SourceIp = packet.SourceIp,
                 SourceMac = packet.SourceMac
             });
 
-            // Mettre à jour la table ARP
+            // Mettre  jour la table ARP
             _arpTable[packet.SourceIp] = packet.SourceMac;
         }
     }
@@ -132,7 +132,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
         if (_settings.SuspiciousPorts.Contains(packet.DestinationPort.Value))
         {
-            // Limiter les alertes pour éviter le spam
+            // Limiter les alertes pour viter le spam
             var key = $"{packet.SourceMac}-{packet.DestinationPort}";
             var tracker = _trafficTrackers.GetOrAdd(key, _ => new TrafficVolumeTracker());
             
@@ -146,7 +146,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                 Type = AlertType.SuspiciousTraffic,
                 Severity = AlertSeverity.Medium,
                 Title = "Suspicious Port Access",
-                Message = $"Trafic détecté vers le port suspect {packet.DestinationPort} ({GetPortDescription(packet.DestinationPort.Value)})",
+                Message = $"Trafic detecte vers le port suspect {packet.DestinationPort} ({GetPortDescription(packet.DestinationPort.Value)})",
                 SourceIp = packet.SourceIp,
                 SourceMac = packet.SourceMac,
                 DestinationIp = packet.DestinationIp,
@@ -168,7 +168,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
             tracker.BytesInWindow += packet.PacketSize;
             tracker.PacketsInWindow++;
             
-            // Vérifier toutes les 10 secondes
+            // Vrifier toutes les 10 secondes
             if ((now - tracker.WindowStart).TotalSeconds >= 10)
             {
                 var bytesPerSecond = tracker.BytesInWindow / 10.0;
@@ -185,14 +185,14 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                             Type = AlertType.HighTrafficVolume,
                             Severity = AlertSeverity.Medium,
                             Title = "High Traffic Volume",
-                            Message = $"Trafic élevé détecté: {bytesPerSecond / 1_000_000:F2} MB/s, {packetsPerSecond:F0} paquets/s",
+                            Message = $"Trafic eleve detecte: {bytesPerSecond / 1_000_000:F2} MB/s, {packetsPerSecond:F0} paquets/s",
                             SourceMac = packet.SourceMac,
                             SourceIp = packet.SourceIp
                         });
                     }
                 }
                 
-                // Réinitialiser la fenêtre
+                // Rinitialiser la fentre
                 tracker.BytesInWindow = 0;
                 tracker.PacketsInWindow = 0;
                 tracker.WindowStart = now;
@@ -202,7 +202,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
     private async Task CheckMalformedPacketAsync(PacketCapturedEventArgs packet)
     {
-        // Vérifications basiques de paquets malformés
+        // Vrifications basiques de paquets malforms
         var issues = new List<string>();
 
         if (packet.SourceMac == "00:00:00:00:00:00")
