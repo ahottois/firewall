@@ -4,6 +4,8 @@ class FirewallApp {
     constructor() {
         this.currentPage = 'dashboard';
         this.eventSource = null;
+        this.currentCameraId = null;
+        this.currentSnapshot = null;
         this.init();
     }
 
@@ -48,6 +50,7 @@ class FirewallApp {
         const titles = {
             dashboard: 'Dashboard',
             devices: 'Appareils Réseau',
+            cameras: 'Caméras Réseau',
             alerts: 'Alertes',
             traffic: 'Trafic Réseau',
             settings: 'Paramètres'
@@ -66,6 +69,9 @@ class FirewallApp {
             case 'devices':
                 this.loadDevices();
                 break;
+            case 'cameras':
+                this.loadCameras();
+                break;
             case 'alerts':
                 this.loadAlerts();
                 break;
@@ -83,6 +89,10 @@ class FirewallApp {
         document.getElementById('scan-btn').addEventListener('click', () => this.scanNetwork());
         document.getElementById('mark-all-read').addEventListener('click', () => this.markAllAlertsRead());
         
+        // Camera buttons
+        document.getElementById('scan-cameras-btn')?.addEventListener('click', () => this.scanCameras());
+        document.getElementById('add-camera-btn')?.addEventListener('click', () => this.showAddCameraModal());
+        
         document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
@@ -95,6 +105,10 @@ class FirewallApp {
         document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
         document.getElementById('modal').addEventListener('click', (e) => {
             if (e.target.id === 'modal') this.closeModal();
+        });
+        
+        document.getElementById('camera-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'camera-modal') this.closeCameraModal();
         });
     }
 
@@ -148,13 +162,15 @@ class FirewallApp {
     // Dashboard
     async loadDashboard() {
         try {
-            const [devices, unknownDevices, alerts, unreadCount, stats, status] = await Promise.all([
+            const [devices, unknownDevices, alerts, unreadCount, stats, status, cameras, vulnerableCameras] = await Promise.all([
                 this.api('devices'),
                 this.api('devices/unknown'),
                 this.api('alerts?count=10'),
                 this.api('alerts/unread/count'),
                 this.api('traffic/stats?hours=1'),
-                this.api('system/status')
+                this.api('system/status'),
+                this.api('cameras').catch(() => []),
+                this.api('cameras/vulnerable').catch(() => [])
             ]);
 
             // Update stats
@@ -162,9 +178,21 @@ class FirewallApp {
             document.getElementById('online-devices').textContent = devices.filter(d => d.status === 1).length;
             document.getElementById('unknown-devices').textContent = unknownDevices.length;
             document.getElementById('unread-alerts').textContent = unreadCount;
+            
+            // Camera stats
+            document.getElementById('total-cameras').textContent = cameras.length;
+            document.getElementById('vulnerable-cameras').textContent = vulnerableCameras.length;
 
             // Update alert badge
             this.updateAlertBadgeValue(unreadCount);
+            
+            // Update camera badge
+            if (vulnerableCameras.length > 0) {
+                document.getElementById('camera-badge').textContent = vulnerableCameras.length;
+                document.getElementById('camera-badge').style.display = 'inline';
+            } else {
+                document.getElementById('camera-badge').style.display = 'none';
+            }
 
             // Update capture status
             const statusDot = document.getElementById('capture-status');
@@ -353,6 +381,388 @@ class FirewallApp {
             <button class="btn btn-sm" onclick="app.closeModal()">Fermer</button>
         `;
         document.getElementById('modal').classList.add('active');
+    }
+
+    // Cameras
+    async loadCameras() {
+        try {
+            const [cameras, vulnerableCameras] = await Promise.all([
+                this.api('cameras'),
+                this.api('cameras/vulnerable')
+            ]);
+
+            // Update stats
+            document.getElementById('cameras-total').textContent = cameras.length;
+            document.getElementById('cameras-online').textContent = cameras.filter(c => c.status === 1 || c.status === 3).length;
+            document.getElementById('cameras-vulnerable').textContent = vulnerableCameras.length;
+            document.getElementById('cameras-secured').textContent = cameras.filter(c => c.passwordStatus === 2).length;
+
+            this.renderCamerasGrid(cameras);
+        } catch (error) {
+            console.error('Error loading cameras:', error);
+            document.getElementById('cameras-grid').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">??</div>
+                    <p>Aucune caméra détectée</p>
+                    <button class="btn btn-primary" onclick="app.scanCameras()">Scanner les caméras</button>
+                </div>
+            `;
+        }
+    }
+
+    renderCamerasGrid(cameras) {
+        const container = document.getElementById('cameras-grid');
+        
+        if (!cameras.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">??</div>
+                    <p>Aucune caméra détectée</p>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary)">Cliquez sur "Scanner les caméras" pour rechercher des caméras sur votre réseau</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = cameras.map(camera => `
+            <div class="camera-card ${this.getCameraCardClass(camera)}">
+                <div class="camera-preview" onclick="app.viewCamera(${camera.id})">
+                    <div class="camera-preview-placeholder">
+                        <span>??</span>
+                        <p>Cliquez pour visualiser</p>
+                    </div>
+                    <div class="camera-status-overlay">
+                        ${this.getCameraStatusBadge(camera)}
+                        ${this.getPasswordStatusBadge(camera)}
+                    </div>
+                </div>
+                <div class="camera-info">
+                    <div class="camera-name">
+                        ${camera.manufacturer || 'Caméra'} ${camera.model || ''}
+                    </div>
+                    <div class="camera-address">${camera.ipAddress}:${camera.port}</div>
+                    <div class="camera-meta">
+                        <span>?? ${this.formatDate(camera.firstDetected)}</span>
+                        <span>?? ${this.formatDate(camera.lastChecked)}</span>
+                    </div>
+                    <div class="camera-password-status ${this.getPasswordStatusClass(camera.passwordStatus)}">
+                        ${this.getPasswordStatusText(camera)}
+                    </div>
+                    <div class="camera-actions">
+                        <button class="btn btn-sm btn-primary" onclick="app.viewCamera(${camera.id})">?? Voir</button>
+                        <button class="btn btn-sm" onclick="app.checkCamera(${camera.id})">?? Vérifier</button>
+                        <button class="btn btn-sm" onclick="app.testCameraCredentials(${camera.id})">?? Tester</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteCamera(${camera.id})">?</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    getCameraCardClass(camera) {
+        if (camera.passwordStatus === 1 || camera.passwordStatus === 3) return 'vulnerable';
+        if (camera.passwordStatus === 2) return 'secured';
+        return '';
+    }
+
+    getCameraStatusBadge(camera) {
+        const statusMap = {
+            0: '<span class="camera-status-badge">? Inconnu</span>',
+            1: '<span class="camera-status-badge online">?? En ligne</span>',
+            2: '<span class="camera-status-badge offline">?? Hors ligne</span>',
+            3: '<span class="camera-status-badge online">? Authentifié</span>',
+            4: '<span class="camera-status-badge">?? Auth requise</span>'
+        };
+        return statusMap[camera.status] || '';
+    }
+
+    getPasswordStatusBadge(camera) {
+        if (camera.passwordStatus === 1) {
+            return '<span class="camera-status-badge vulnerable">?? MDP DÉFAUT</span>';
+        }
+        if (camera.passwordStatus === 3) {
+            return '<span class="camera-status-badge vulnerable">?? SANS MDP</span>';
+        }
+        if (camera.passwordStatus === 2) {
+            return '<span class="camera-status-badge secured">?? Sécurisée</span>';
+        }
+        return '';
+    }
+
+    getPasswordStatusClass(status) {
+        const classes = { 0: 'unknown', 1: 'default', 2: 'custom', 3: 'nopassword', 4: 'unknown' };
+        return classes[status] || 'unknown';
+    }
+
+    getPasswordStatusText(camera) {
+        const texts = {
+            0: '? Status mot de passe inconnu',
+            1: `?? MOT DE PASSE PAR DÉFAUT DÉTECTÉ! (${camera.detectedCredentials || 'admin:admin'})`,
+            2: '? Mot de passe personnalisé',
+            3: '?? AUCUN MOT DE PASSE!',
+            4: '?? Mot de passe requis'
+        };
+        return texts[camera.passwordStatus] || 'Inconnu';
+    }
+
+    async scanCameras() {
+        try {
+            document.getElementById('scan-cameras-btn').disabled = true;
+            document.getElementById('scan-cameras-btn').innerHTML = '<span>?</span> Scan en cours...';
+            
+            this.showToast({ title: 'Scan des caméras', message: 'Recherche en cours, cela peut prendre plusieurs minutes...', severity: 0 });
+            
+            const cameras = await this.api('cameras/scan', { method: 'POST' });
+            
+            this.showToast({ 
+                title: 'Scan terminé', 
+                message: `${cameras.length} caméra(s) détectée(s)`, 
+                severity: cameras.some(c => c.passwordStatus === 1 || c.passwordStatus === 3) ? 3 : 0 
+            });
+            
+            this.loadCameras();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        } finally {
+            document.getElementById('scan-cameras-btn').disabled = false;
+            document.getElementById('scan-cameras-btn').innerHTML = '<span>??</span> Scanner les caméras';
+        }
+    }
+
+    async viewCamera(id) {
+        this.currentCameraId = id;
+        const camera = await this.api(`cameras/${id}`);
+        
+        document.getElementById('camera-modal-title').textContent = `${camera.manufacturer || 'Caméra'} - ${camera.ipAddress}`;
+        document.getElementById('camera-feed').innerHTML = `
+            <div class="camera-placeholder">
+                <span>?</span>
+                <p>Chargement du snapshot...</p>
+            </div>
+        `;
+        
+        document.getElementById('camera-details').innerHTML = `
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">Adresse IP</div>
+                <div class="camera-detail-value">${camera.ipAddress}:${camera.port}</div>
+            </div>
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">Fabricant</div>
+                <div class="camera-detail-value">${camera.manufacturer || 'Inconnu'}</div>
+            </div>
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">Status Mot de Passe</div>
+                <div class="camera-detail-value ${camera.passwordStatus === 1 || camera.passwordStatus === 3 ? 'danger' : camera.passwordStatus === 2 ? 'success' : ''}>
+                    ${this.getPasswordStatusText(camera)}
+                </div>
+            </div>
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">Identifiants Détectés</div>
+                <div class="camera-detail-value ${camera.passwordStatus === 1 ? 'danger' : ''}">${camera.detectedCredentials || 'Aucun'}</div>
+            </div>
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">URL Stream</div>
+                <div class="camera-detail-value" style="font-size: 0.8rem; word-break: break-all;">${camera.streamUrl || 'Non disponible'}</div>
+            </div>
+            <div class="camera-detail-item">
+                <div class="camera-detail-label">Première Détection</div>
+                <div class="camera-detail-value">${this.formatDate(camera.firstDetected)}</div>
+            </div>
+        `;
+        
+        document.getElementById('camera-modal').classList.add('active');
+        
+        // Charger le snapshot
+        await this.refreshCameraSnapshot();
+    }
+
+    async refreshCameraSnapshot() {
+        if (!this.currentCameraId) return;
+        
+        document.getElementById('camera-feed').innerHTML = `
+            <div class="camera-placeholder">
+                <span>?</span>
+                <p>Chargement...</p>
+            </div>
+        `;
+        
+        try {
+            const result = await this.api(`cameras/${this.currentCameraId}/snapshot`);
+            if (result.image) {
+                this.currentSnapshot = result.image;
+                document.getElementById('camera-feed').innerHTML = `
+                    <img src="data:image/jpeg;base64,${result.image}" alt="Camera snapshot">
+                `;
+            } else {
+                throw new Error('No image');
+            }
+        } catch (error) {
+            document.getElementById('camera-feed').innerHTML = `
+                <div class="camera-placeholder">
+                    <span>??</span>
+                    <p>Impossible de charger l'image</p>
+                    <p style="font-size: 0.8rem;">La caméra peut nécessiter une authentification ou être hors ligne</p>
+                </div>
+            `;
+        }
+    }
+
+    downloadSnapshot() {
+        if (!this.currentSnapshot) {
+            this.showToast({ title: 'Erreur', message: 'Aucune image à télécharger', severity: 2 });
+            return;
+        }
+        
+        const link = document.createElement('a');
+        link.href = `data:image/jpeg;base64,${this.currentSnapshot}`;
+        link.download = `camera_${this.currentCameraId}_${Date.now()}.jpg`;
+        link.click();
+    }
+
+    closeCameraModal() {
+        document.getElementById('camera-modal').classList.remove('active');
+        this.currentCameraId = null;
+        this.currentSnapshot = null;
+    }
+
+    async checkCamera(id) {
+        try {
+            this.showToast({ title: 'Vérification', message: 'Vérification de la caméra en cours...', severity: 0 });
+            await this.api(`cameras/${id}/check`, { method: 'POST' });
+            this.loadCameras();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async testCameraCredentials(id) {
+        const camera = await this.api(`cameras/${id}`);
+        
+        document.getElementById('modal-title').textContent = 'Tester les identifiants';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="add-camera-form">
+                <p>Tester des identifiants personnalisés pour la caméra ${camera.ipAddress}:${camera.port}</p>
+                <div class="form-group">
+                    <label>Nom d'utilisateur</label>
+                    <input type="text" id="test-username" value="admin" placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe</label>
+                    <input type="password" id="test-password" placeholder="Mot de passe">
+                </div>
+                <div id="test-result"></div>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.doTestCredentials(${id})">Tester</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async doTestCredentials(id) {
+        const username = document.getElementById('test-username').value;
+        const password = document.getElementById('test-password').value;
+        
+        document.getElementById('test-result').innerHTML = '<p>Test en cours...</p>';
+        
+        try {
+            const result = await this.api(`cameras/${id}/test-credentials`, {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+            
+            if (result.success) {
+                document.getElementById('test-result').innerHTML = `
+                    <div class="camera-password-status custom">
+                        ? Identifiants valides!
+                    </div>
+                `;
+            } else {
+                document.getElementById('test-result').innerHTML = `
+                    <div class="camera-password-status default">
+                        ? Identifiants invalides
+                    </div>
+                `;
+            }
+        } catch (error) {
+            document.getElementById('test-result').innerHTML = `
+                <div class="camera-password-status default">
+                    ? Erreur: ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    showAddCameraModal() {
+        document.getElementById('modal-title').textContent = 'Ajouter une caméra manuellement';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="add-camera-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Adresse IP</label>
+                        <input type="text" id="add-camera-ip" placeholder="192.168.1.100">
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="number" id="add-camera-port" value="80" placeholder="80">
+                    </div>
+                </div>
+                <div id="add-camera-result"></div>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.doAddCamera()">Vérifier et ajouter</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async doAddCamera() {
+        const ip = document.getElementById('add-camera-ip').value;
+        const port = parseInt(document.getElementById('add-camera-port').value) || 80;
+        
+        if (!ip) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez entrer une adresse IP', severity: 2 });
+            return;
+        }
+        
+        document.getElementById('add-camera-result').innerHTML = '<p>Vérification en cours...</p>';
+        
+        try {
+            const camera = await this.api('cameras/check', {
+                method: 'POST',
+                body: JSON.stringify({ ipAddress: ip, port })
+            });
+            
+            document.getElementById('add-camera-result').innerHTML = `
+                <div class="camera-password-status ${camera.passwordStatus === 1 ? 'default' : 'custom'}">
+                    ? Caméra ajoutée: ${camera.manufacturer || 'Inconnue'}<br>
+                    ${this.getPasswordStatusText(camera)}
+                </div>
+            `;
+            
+            setTimeout(() => {
+                this.closeModal();
+                this.loadCameras();
+            }, 2000);
+        } catch (error) {
+            document.getElementById('add-camera-result').innerHTML = `
+                <div class="camera-password-status default">
+                    ? Aucune caméra détectée à cette adresse
+                </div>
+            `;
+        }
+    }
+
+    async deleteCamera(id) {
+        if (!confirm('Supprimer cette caméra ?')) return;
+        try {
+            await this.api(`cameras/${id}`, { method: 'DELETE' });
+            this.loadCameras();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
     }
 
     // Alerts
