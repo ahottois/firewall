@@ -155,6 +155,9 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
 
     private void OnPacketArrival(object sender, PacketCapture e)
     {
+        // Optimization: Don't parse if no one is listening
+        if (PacketCaptured == null) return;
+
         try
         {
             var rawPacket = e.GetPacket();

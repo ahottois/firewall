@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 using Microsoft.Extensions.Options;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
@@ -40,6 +41,9 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     private readonly ConcurrentDictionary<string, bool> _newDeviceAlertsSent = new();
     
     private readonly SemaphoreSlim _processingLock = new(1, 1);
+
+    [DllImport("iphlpapi.dll", ExactSpelling = true)]
+    private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
 
     public event EventHandler<DeviceDiscoveredEventArgs>? DeviceDiscovered;
     public event EventHandler<DeviceDiscoveredEventArgs>? UnknownDeviceDetected;
@@ -228,6 +232,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             await _scanSessionService.StartSessionAsync(ScanType.Network, totalHosts); // Update total items
             
             int scannedCount = 0;
+            int foundCount = 0;
 
             foreach (var localAddress in localAddresses)
             {
@@ -238,24 +243,190 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 for (int i = 1; i <= 254; i++)
                 {
                     var ip = $"{subnet}.{i}";
-                    tasks.Add(PingHostAsync(ip).ContinueWith(t => 
+                    tasks.Add(Task.Run(async () => 
                     {
+                        try
+                        {
+                            if (await PingHostAsync(ip))
+                            {
+                                Interlocked.Increment(ref foundCount);
+                                var mac = await GetMacAddressAsync(ip);
+                                if (!string.IsNullOrEmpty(mac))
+                                {
+                                    await RegisterDiscoveredDeviceAsync(ip, mac);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogTrace(ex, "Error scanning host {Ip}", ip);
+                        }
+                        
                         Interlocked.Increment(ref scannedCount);
-                        if (scannedCount % 10 == 0) _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
+                        if (scannedCount % 10 == 0) await _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
                     }));
                 }
                 
                 await Task.WhenAll(tasks);
             }
             
-            _logger.LogInformation("Analyse du reseau terminee");
-            await _scanSessionService.CompleteSessionAsync(session.Id, $"Scan completed. Scanned {scannedCount} hosts.");
+            var summary = $"Scan completed. Scanned {scannedCount} hosts. Found {foundCount} active devices.";
+            _logger.LogInformation(summary);
+            await _scanSessionService.CompleteSessionAsync(session.Id, summary);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erreur lors de l'analyse du reseau");
             await _scanSessionService.FailSessionAsync(session.Id, ex.Message);
         }
+    }
+
+    private async Task RegisterDiscoveredDeviceAsync(string ip, string mac)
+    {
+        await _processingLock.WaitAsync();
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
+
+            var existingDevice = await deviceRepo.GetByMacAddressAsync(mac);
+            var isNew = existingDevice == null;
+
+            var device = new NetworkDevice
+            {
+                MacAddress = mac,
+                IpAddress = ip,
+                Vendor = GetVendorFromMac(mac),
+                Status = DeviceStatus.Online
+            };
+
+            device = await deviceRepo.AddOrUpdateAsync(device);
+
+            var eventArgs = new DeviceDiscoveredEventArgs
+            {
+                Device = device,
+                IsNew = isNew
+            };
+
+            DeviceDiscovered?.Invoke(this, eventArgs);
+
+            if (await ShouldAlertForDeviceAsync(device, isNew, DateTime.UtcNow))
+            {
+                UnknownDeviceDetected?.Invoke(this, eventArgs);
+            }
+        }
+        finally
+        {
+            _processingLock.Release();
+        }
+    }
+
+    private async Task<bool> PingHostAsync(string ip)
+    {
+        try
+        {
+            using var ping = new Ping();
+            var reply = await ping.SendPingAsync(ip, 1000);
+            
+            if (reply.Status == IPStatus.Success)
+            {
+                _logger.LogDebug("L'hte {Ip} est actif", ip);
+                return true;
+            }
+        }
+        catch
+        {
+            // Ignorer les erreurs de ping
+        }
+        return false;
+    }
+
+    private async Task<string?> GetMacAddressAsync(string ipAddress)
+    {
+        // Try Windows SendARP
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                IPAddress dst = IPAddress.Parse(ipAddress);
+                byte[] macAddr = new byte[6];
+                uint macAddrLen = (uint)macAddr.Length;
+
+                if (SendARP(BitConverter.ToInt32(dst.GetAddressBytes(), 0), 0, macAddr, ref macAddrLen) == 0)
+                {
+                    return string.Join(":", macAddr.Select(b => b.ToString("X2")));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Failed to resolve MAC for {Ip} using SendARP", ipAddress);
+            }
+        }
+
+        // Try Linux /proc/net/arp
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
+            {
+                if (File.Exists("/proc/net/arp"))
+                {
+                    var lines = await File.ReadAllLinesAsync("/proc/net/arp");
+                    foreach (var line in lines)
+                    {
+                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 4 && parts[0] == ipAddress)
+                        {
+                            var mac = parts[3];
+                            if (mac != "00:00:00:00:00:00")
+                            {
+                                return mac.ToUpperInvariant();
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogTrace(ex, "Failed to resolve MAC for {Ip} using /proc/net/arp", ipAddress);
+            }
+        }
+
+        // Fallback: Check ARP table via command line (cross-platform fallback)
+        try
+        {
+            var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "arp" : "ip",
+                    Arguments = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "-a" : "neigh show",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync();
+            process.WaitForExit();
+
+            // Parse output for IP and extract MAC
+            // This is a rough implementation, regex would be better
+            if (output.Contains(ipAddress))
+            {
+                // Simple regex for MAC address
+                var match = System.Text.RegularExpressions.Regex.Match(output, $@"{ipAddress}.*?([0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}})");
+                if (match.Success)
+                {
+                    return match.Groups[1].Value.Replace("-", ":").ToUpperInvariant();
+                }
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+
+        return null;
     }
 
     private async Task CreateDeviceModifiedAlertAsync(NetworkDevice device, string property, string? oldValue, string? newValue)
@@ -277,24 +448,6 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
         await alertRepo.AddAsync(alert);
         await notificationService.SendAlertAsync(alert);
-    }
-
-    private async Task PingHostAsync(string ip)
-    {
-        try
-        {
-            using var ping = new Ping();
-            var reply = await ping.SendPingAsync(ip, 1000);
-            
-            if (reply.Status == IPStatus.Success)
-            {
-                _logger.LogDebug("L'hôte {Ip} est actif", ip);
-            }
-        }
-        catch
-        {
-            // Ignorer les erreurs de ping
-        }
     }
 
     private static IEnumerable<string> GetLocalIPAddresses()

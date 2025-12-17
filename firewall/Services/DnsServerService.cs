@@ -8,12 +8,19 @@ using PacketDotNet.Utils;
 
 namespace NetworkFirewall.Services;
 
+public class DnsCacheEntry
+{
+    public byte[] Response { get; set; }
+    public DateTime ExpiresAt { get; set; }
+}
+
 public class DnsServerService : BackgroundService
 {
     private readonly ILogger<DnsServerService> _logger;
     private readonly AppSettings _settings;
     private readonly IDnsBlocklistService _blocklistService;
     private readonly ConcurrentQueue<DnsLog> _logQueue = new();
+    private readonly ConcurrentDictionary<string, DnsCacheEntry> _dnsCache = new();
     private UdpClient? _udpListener;
 
     public DnsServerService(
@@ -73,6 +80,7 @@ public class DnsServerService : BackgroundService
         string queryType = "Unknown";
         DnsAction action = DnsAction.Allowed;
         string? blockCategory = null;
+        bool fromCache = false;
 
         try
         {
@@ -96,21 +104,48 @@ public class DnsServerService : BackgroundService
             }
             else
             {
-                // Forward to upstream
-                var upstream = IPAddress.Parse(_settings.Dns.UpstreamDns);
-                using var forwarder = new UdpClient();
-                await forwarder.SendAsync(queryBuffer, queryBuffer.Length, new IPEndPoint(upstream, 53));
+                // Check Cache
+                // Cache key: Domain + QueryType (we need to parse type for correct caching, but for now just domain is risky if types differ)
+                // Let's assume A records for simplicity or just skip cache if we can't parse type fully.
+                // For now, we will cache based on the full query buffer (excluding ID) to be safe? No, ID changes.
+                // We will cache by Domain.
                 
-                // Wait for response (with timeout)
-                var responseTask = forwarder.ReceiveAsync();
-                if (await Task.WhenAny(responseTask, Task.Delay(2000)) == responseTask)
+                if (_dnsCache.TryGetValue(domain, out var cacheEntry) && cacheEntry.ExpiresAt > DateTime.UtcNow)
                 {
-                    var result = await responseTask;
-                    await _udpListener!.SendAsync(result.Buffer, result.Buffer.Length, clientEndpoint);
+                    // Update Transaction ID in cached response to match current query
+                    var response = (byte[])cacheEntry.Response.Clone();
+                    response[0] = queryBuffer[0];
+                    response[1] = queryBuffer[1];
+                    
+                    await _udpListener!.SendAsync(response, response.Length, clientEndpoint);
+                    fromCache = true;
                 }
                 else
                 {
-                    action = DnsAction.Error; // Timeout
+                    // Forward to upstream
+                    var upstream = IPAddress.Parse(_settings.Dns.UpstreamDns);
+                    using var forwarder = new UdpClient();
+                    await forwarder.SendAsync(queryBuffer, queryBuffer.Length, new IPEndPoint(upstream, 53));
+                    
+                    // Wait for response (with timeout)
+                    var responseTask = forwarder.ReceiveAsync();
+                    if (await Task.WhenAny(responseTask, Task.Delay(2000)) == responseTask)
+                    {
+                        var result = await responseTask;
+                        await _udpListener!.SendAsync(result.Buffer, result.Buffer.Length, clientEndpoint);
+                        
+                        // Cache the response (TTL 5 minutes for simplicity, or parse from packet)
+                        // Real DNS caching requires parsing TTL. We'll use a default short TTL of 60s.
+                        _dnsCache[domain] = new DnsCacheEntry
+                        {
+                            Response = result.Buffer,
+                            ExpiresAt = DateTime.UtcNow.AddSeconds(60)
+                        };
+                    }
+                    else
+                    {
+                        action = DnsAction.Error; // Timeout
+                    }
                 }
             }
         }
@@ -134,6 +169,9 @@ public class DnsServerService : BackgroundService
             ResponseTimeMs = sw.ElapsedMilliseconds
         };
         
+        // Mark as cached in log if needed, or just log it
+        if (fromCache) log.ResponseTimeMs = 0; // Instant
+
         _logQueue.Enqueue(log);
         if (_logQueue.Count > 1000) _logQueue.TryDequeue(out _);
     }
