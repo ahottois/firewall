@@ -202,7 +202,7 @@ class FirewallApp {
         try {
             const [devices, unknownDevices, alerts, unreadCount, stats, status, cameras, vulnerableCameras] = await Promise.all([
                 this.api('devices'),
-                this.api('devices/unknown'),
+                this.api('devices/unknown',
                 this.api('alerts?count=10'),
                 this.api('alerts/unread/count'),
                 this.api('traffic/stats?hours=1'),
@@ -701,7 +701,7 @@ class FirewallApp {
         
         document.getElementById('test-result').innerHTML = `<p>${Icons.spinner} Test en cours...</p>`;
         
-        try:
+        try {
             const result = await this.api(`cameras/${id}/test-credentials`, {
                 method: 'POST',
                 body: JSON.stringify({ username, password })
