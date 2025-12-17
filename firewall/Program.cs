@@ -40,6 +40,9 @@ builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceServ
 builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
 builder.Services.AddSingleton<IBandwidthMonitorService, BandwidthMonitorService>();
 
+// 🏴‍☠️ Monitoring Service - For watching the digital seas!
+builder.Services.AddSingleton<INetworkMonitoringService, NetworkMonitoringService>();
+
 // Background Service
 builder.Services.AddHostedService<NetworkMonitorService>();
 
@@ -78,28 +81,33 @@ app.MapNotificationEndpoints();
 // Fallback pour SPA
 app.MapFallbackToFile("index.html");
 
-// Message de demarrage
+// 🏴‍☠️ Pirate-themed startup message
 Console.WriteLine(@"
-=====================================================
-    NetGuard - Network Firewall Monitor
-=====================================================
-
-    Web Interface: http://localhost:{0}
-
-    Features:
-    - Device Discovery & Tracking
-    - Real-time Packet Analysis
-    - Anomaly Detection (Port Scan, ARP Spoofing)
-    - Camera Detection & Password Check
-    - Live Notifications
-    - Traffic Logging
-    - Threat Intelligence
-    - Security Scanning
-    - Bandwidth Monitoring
-
-    Note: Run with sudo/admin for packet capture
-
-=====================================================
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║   🏴‍☠️  NetGuard - Network Firewall Monitor  🏴‍☠️                ║
+║                                                                ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║   ⚓ Web Interface: http://localhost:{0,-5}                   ║
+║                                                                ║
+║   🗡️  Features:                                                ║
+║   • Device Discovery & Tracking                                ║
+║   • Real-time Packet Analysis                                  ║
+║   • Anomaly Detection (Port Scan, ARP Spoofing)               ║
+║   • Camera Detection & Password Check                          ║
+║   • Live Notifications                                         ║
+║   • Traffic Logging & Monitoring                               ║
+║   • Threat Intelligence                                        ║
+║   • Security Scanning                                          ║
+║   • Bandwidth Monitoring                                       ║
+║   • 🏴‍☠️ Network Health Dashboard                               ║
+║                                                                ║
+║   ⚠️  Note: Run with sudo/admin for packet capture             ║
+║                                                                ║
+║   🏴‍☠️ Arrr! Ready to patrol the digital seas, Captain!         ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
 ", appSettings.WebPort);
 
 app.Run();
