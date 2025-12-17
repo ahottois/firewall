@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace NetworkFirewall.Services;
 
 public interface IPiholeService
 {
     Task<PiholeStatus> GetStatusAsync();
+    Task<PiholeSummary?> GetSummaryAsync();
     Task<bool> InstallAsync();
     Task<bool> UninstallAsync();
     Task<bool> SetPasswordAsync(string password);
@@ -20,14 +23,52 @@ public class PiholeStatus
     public string WebUrl { get; set; } = string.Empty;
 }
 
+public class PiholeSummary
+{
+    [JsonPropertyName("domains_being_blocked")]
+    public long DomainsBeingBlocked { get; set; }
+
+    [JsonPropertyName("dns_queries_today")]
+    public long DnsQueriesToday { get; set; }
+
+    [JsonPropertyName("ads_blocked_today")]
+    public long AdsBlockedToday { get; set; }
+
+    [JsonPropertyName("ads_percentage_today")]
+    public double AdsPercentageToday { get; set; }
+
+    [JsonPropertyName("unique_clients")]
+    public int UniqueClients { get; set; }
+}
+
 public class PiholeService : IPiholeService
 {
     private readonly ILogger<PiholeService> _logger;
+    private readonly HttpClient _httpClient;
     private string _installLog = string.Empty;
 
-    public PiholeService(ILogger<PiholeService> logger)
+    public PiholeService(ILogger<PiholeService> logger, IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
+        _httpClient = httpClientFactory.CreateClient();
+    }
+
+    public async Task<PiholeSummary?> GetSummaryAsync()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return null;
+
+        try
+        {
+            // Try to fetch from local Pi-hole API
+            // We assume it's running on localhost port 80
+            var response = await _httpClient.GetStringAsync("http://127.0.0.1/admin/api.php");
+            return JsonSerializer.Deserialize<PiholeSummary>(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to fetch Pi-hole summary: {Message}", ex.Message);
+            return null;
+        }
     }
 
     public async Task<PiholeStatus> GetStatusAsync()

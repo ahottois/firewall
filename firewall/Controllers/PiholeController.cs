@@ -21,6 +21,14 @@ public class PiholeController : ControllerBase
         return Ok(status);
     }
 
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary()
+    {
+        var summary = await _piholeService.GetSummaryAsync();
+        if (summary == null) return NotFound("Pi-hole stats not available");
+        return Ok(summary);
+    }
+
     [HttpPost("install")]
     public async Task<IActionResult> Install()
     {

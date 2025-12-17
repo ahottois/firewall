@@ -81,7 +81,7 @@ class FirewallApp {
         });
     }
 
-    navigateTo(page) {
+    navigateTo(page = 'dashboard') {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.toggle('active', item.dataset.page === page);
         });
@@ -1027,17 +1027,15 @@ class FirewallApp {
                 
                 btnInstall.style.display = 'none';
                 btnOpen.style.display = 'inline-block';
-                
-                // Construct absolute URL for Pi-hole (default port 80)
-                // If webUrl is relative (e.g. /admin/), we force it to be on the same host but default HTTP port
-                let piholeUrl = status.webUrl || '/admin/';
-                if (piholeUrl.startsWith('/')) {
-                    piholeUrl = `http://${window.location.hostname}${piholeUrl}`;
-                }
-                btnOpen.href = piholeUrl;
-                
                 btnPwd.style.display = 'inline-block';
                 btnUninstall.style.display = 'inline-block';
+
+                // Load stats if running
+                if (status.isRunning) {
+                    this.loadPiholeStats();
+                } else {
+                    document.getElementById('pihole-stats-container').style.display = 'none';
+                }
             }
             
             // Load logs if installing
@@ -1045,6 +1043,21 @@ class FirewallApp {
             
         } catch (error) {
             console.error('Error loading Pi-hole status:', error);
+        }
+    }
+
+    async loadPiholeStats() {
+        try {
+            const stats = await this.api('pihole/summary');
+            document.getElementById('pihole-stats-container').style.display = 'block';
+            
+            document.getElementById('ph-queries').textContent = this.formatNumber(stats.dns_queries_today);
+            document.getElementById('ph-blocked').textContent = this.formatNumber(stats.ads_blocked_today);
+            document.getElementById('ph-percent').textContent = stats.ads_percentage_today.toFixed(1) + '%';
+            document.getElementById('ph-domains').textContent = this.formatNumber(stats.domains_being_blocked);
+        } catch (error) {
+            console.error('Error loading Pi-hole stats:', error);
+            document.getElementById('pihole-stats-container').style.display = 'none';
         }
     }
 
@@ -1421,16 +1434,13 @@ class FirewallApp {
             } else {
                 // Stopped or Failed: Show Start (and maybe Restart/Stop if failed?)
                 // User requirement: "si il a crash alors on peut ou redémarer ou arréter"
+                btnStart.style.display = 'inline-block';
+                btnStop.style.display = 'none';
+                btnRestart.style.display = 'none';
+
                 if (status.status === 'failed') {
-                    btnStart.style.display = 'none'; // Usually restart is better for crash, but start works too. 
-                    // Let's follow user request: "redémarer ou arréter" for crash
                     btnStop.style.display = 'inline-block';
                     btnRestart.style.display = 'inline-block';
-                } else {
-                    // Just stopped
-                    btnStart.style.display = 'inline-block';
-                    btnStop.style.display = 'none';
-                    btnRestart.style.display = 'none';
                 }
                 
                 btnStart.disabled = false;
@@ -1662,7 +1672,7 @@ class FirewallApp {
         
         // Try to match standard syslog format
         // Example: Dec 17 16:38:43 homeassistant firewall[213567]: warn: Message...
-        const syslogRegex = /^([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+\S+\s+([^:]+):\s+(.*)$/;
+        const syslogRegex = /^([A-Z][al]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+\S+\s+([^:]+):\s+(.*)$/;
         const match = line.match(syslogRegex);
 
         if (match) {
