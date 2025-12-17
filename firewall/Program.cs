@@ -45,6 +45,9 @@ builder.Services.AddSingleton<IScanLogService, ScanLogService>();
 builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceService>();
 builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
 
+// Packet Sniffer Service
+builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
+
 // 🏴‍☠️ Monitoring Service - For watching the digital seas!
 builder.Services.AddSingleton<INetworkMonitoringService, NetworkMonitoringService>();
 
