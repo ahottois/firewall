@@ -42,6 +42,10 @@
                 <span class="nav-icon"><i class="fas fa-cog"></i></span>
                 <span>Parametres</span>
             </li>
+            <li class="nav-item" data-page="admin">
+                <span class="nav-icon"><i class="fas fa-server"></i></span>
+                <span>Administration</span>
+            </li>
         </ul>
         <div class="status-indicator">
             <span class="status-dot" id="capture-status"></span>
@@ -299,6 +303,91 @@
                 </div>
                 <div class="card-body">
                     <div id="interfaces-list" class="interfaces-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Page -->
+        <section id="admin-page" class="page">
+            <div class="stats-grid">
+                <div class="stat-card" id="service-status-card">
+                    <div class="stat-icon"><i class="fas fa-server"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="service-status-text">--</span>
+                        <span class="stat-label">Status Service</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-code-branch"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="app-version">--</span>
+                        <span class="stat-label">Version</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cogs"></i> Gestion du Service</h3>
+                </div>
+                <div class="card-body">
+                    <div class="admin-buttons">
+                        <button class="btn btn-success" id="btn-start-service" onclick="app.startService()">
+                            <i class="fas fa-play"></i> Demarrer
+                        </button>
+                        <button class="btn btn-warning" id="btn-stop-service" onclick="app.stopService()">
+                            <i class="fas fa-stop"></i> Arreter
+                        </button>
+                        <button class="btn btn-primary" id="btn-restart-service" onclick="app.restartService()">
+                            <i class="fas fa-sync"></i> Redemarrer
+                        </button>
+                    </div>
+                    <div id="service-result" class="admin-result"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-download"></i> Installation du Daemon</h3>
+                </div>
+                <div class="card-body">
+                    <p class="admin-info">Installez NetGuard comme service systemd pour qu'il demarre automatiquement au boot.</p>
+                    <div class="admin-buttons">
+                        <button class="btn btn-success" id="btn-install-service" onclick="app.installService()">
+                            <i class="fas fa-plus-circle"></i> Installer comme Daemon
+                        </button>
+                        <button class="btn btn-danger" id="btn-uninstall-service" onclick="app.uninstallService()">
+                            <i class="fas fa-trash"></i> Desinstaller le Daemon
+                        </button>
+                    </div>
+                    <div id="install-result" class="admin-result"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cloud-download-alt"></i> Mise a jour</h3>
+                </div>
+                <div class="card-body">
+                    <p class="admin-info">Telecharger et installer la derniere version depuis GitHub.</p>
+                    <div class="admin-buttons">
+                        <button class="btn btn-primary" id="btn-update" onclick="app.updateFromGithub()">
+                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour depuis GitHub
+                        </button>
+                    </div>
+                    <div id="update-result" class="admin-result"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-file-alt"></i> Logs du Service</h3>
+                    <button class="btn btn-sm" onclick="app.loadServiceLogs()">
+                        <i class="fas fa-sync"></i> Rafraichir
+                    </button>
+                </div>
+                <div class="card-body">
+                    <pre id="service-logs" class="log-viewer">Cliquez sur Rafraichir pour charger les logs...</pre>
                 </div>
             </div>
         </section>

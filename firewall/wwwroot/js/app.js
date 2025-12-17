@@ -34,7 +34,8 @@ const Icons = {
     clock: '<i class="fas fa-clock"></i>',
     key: '<i class="fas fa-key"></i>',
     checkCircle: '<i class="fas fa-check-circle" style="color: #00ff88;"></i>',
-    timesCircle: '<i class="fas fa-times-circle" style="color: #ff4757;"></i>'
+    timesCircle: '<i class="fas fa-times-circle" style="color: #ff4757;"></i>',
+    spinner: '<i class="fas fa-spinner fa-spin"></i>'
 };
 
 class FirewallApp {
@@ -73,24 +74,22 @@ class FirewallApp {
     }
 
     navigateTo(page) {
-        // Update nav
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.toggle('active', item.dataset.page === page);
         });
 
-        // Update pages
         document.querySelectorAll('.page').forEach(p => {
             p.classList.toggle('active', p.id === `${page}-page`);
         });
 
-        // Update title
         const titles = {
             dashboard: 'Dashboard',
             devices: 'Appareils Reseau',
             cameras: 'Cameras Reseau',
             alerts: 'Alertes',
             traffic: 'Trafic Reseau',
-            settings: 'Parametres'
+            settings: 'Parametres',
+            admin: 'Administration'
         };
         document.getElementById('page-title').textContent = titles[page] || page;
 
@@ -106,15 +105,14 @@ class FirewallApp {
             case 'alerts': this.loadAlerts(); break;
             case 'traffic': this.loadTraffic(); break;
             case 'settings': this.loadSettings(); break;
+            case 'admin': this.loadAdmin(); break;
         }
     }
 
-    // Event Listeners
     setupEventListeners() {
         document.getElementById('scan-btn').addEventListener('click', () => this.scanNetwork());
         document.getElementById('mark-all-read').addEventListener('click', () => this.markAllAlertsRead());
         
-        // Camera buttons
         document.getElementById('scan-cameras-btn')?.addEventListener('click', () => this.scanCameras());
         document.getElementById('add-camera-btn')?.addEventListener('click', () => this.showAddCameraModal());
         
@@ -126,7 +124,6 @@ class FirewallApp {
             });
         });
 
-        // Modal close
         document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
         document.getElementById('modal').addEventListener('click', (e) => {
             if (e.target.id === 'modal') this.closeModal();
@@ -412,9 +409,7 @@ class FirewallApp {
                     </div>
                 </div>
                 <div class="camera-info">
-                    <div class="camera-name">
-                        ${camera.manufacturer || 'Camera'} ${camera.model || ''}
-                    </div>
+                    <div class="camera-name">${camera.manufacturer || 'Camera'} ${camera.model || ''}</div>
                     <div class="camera-address">${camera.ipAddress}:${camera.port}</div>
                     <div class="camera-meta">
                         <span>${Icons.calendar} ${this.formatDate(camera.firstDetected)}</span>
@@ -476,7 +471,7 @@ class FirewallApp {
     async scanCameras() {
         try {
             document.getElementById('scan-cameras-btn').disabled = true;
-            document.getElementById('scan-cameras-btn').innerHTML = `<i class="fas fa-spinner fa-spin"></i> Scan en cours...`;
+            document.getElementById('scan-cameras-btn').innerHTML = `${Icons.spinner} Scan en cours...`;
             
             this.showToast({ title: 'Scan des cameras', message: 'Recherche en cours, cela peut prendre plusieurs minutes...', severity: 0 });
             
@@ -502,7 +497,7 @@ class FirewallApp {
         const camera = await this.api(`cameras/${id}`);
         
         document.getElementById('camera-modal-title').textContent = `${camera.manufacturer || 'Camera'} - ${camera.ipAddress}`;
-        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder"><i class="fas fa-spinner fa-spin fa-3x"></i><p>Chargement du snapshot...</p></div>`;
+        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder">${Icons.spinner}<p>Chargement du snapshot...</p></div>`;
         
         document.getElementById('camera-details').innerHTML = `
             <div class="camera-detail-item"><div class="camera-detail-label">Adresse IP</div><div class="camera-detail-value">${camera.ipAddress}:${camera.port}</div></div>
@@ -522,7 +517,7 @@ class FirewallApp {
     async refreshCameraSnapshot() {
         if (!this.currentCameraId) return;
         
-        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder"><i class="fas fa-spinner fa-spin fa-3x"></i><p>Chargement...</p></div>`;
+        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder">${Icons.spinner}<p>Chargement...</p></div>`;
         
         try {
             const result = await this.api(`cameras/${this.currentCameraId}/snapshot`);
@@ -587,7 +582,7 @@ class FirewallApp {
         const username = document.getElementById('test-username').value;
         const password = document.getElementById('test-password').value;
         
-        document.getElementById('test-result').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Test en cours...</p>';
+        document.getElementById('test-result').innerHTML = `<p>${Icons.spinner} Test en cours...</p>`;
         
         try {
             const result = await this.api(`cameras/${id}/test-credentials`, {
@@ -630,7 +625,7 @@ class FirewallApp {
             return;
         }
         
-        document.getElementById('add-camera-result').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Verification en cours...</p>';
+        document.getElementById('add-camera-result').innerHTML = `<p>${Icons.spinner} Verification en cours...</p>`;
         
         try {
             const camera = await this.api('cameras/check', {
@@ -782,11 +777,147 @@ class FirewallApp {
         }
     }
 
-    // Network Scan
+    // Admin Page
+    async loadAdmin() {
+        try {
+            const status = await this.api('admin/status');
+            
+            document.getElementById('app-version').textContent = status.currentVersion;
+            
+            const statusCard = document.getElementById('service-status-card');
+            const statusText = document.getElementById('service-status-text');
+            
+            if (!status.isInstalled) {
+                statusText.textContent = 'Non installe';
+                statusCard.className = 'stat-card not-installed';
+            } else if (status.isRunning) {
+                statusText.textContent = 'En cours';
+                statusCard.className = 'stat-card running';
+            } else {
+                statusText.textContent = 'Arrete';
+                statusCard.className = 'stat-card stopped';
+            }
+
+            // Update button states
+            document.getElementById('btn-start-service').disabled = !status.isInstalled || status.isRunning;
+            document.getElementById('btn-stop-service').disabled = !status.isInstalled || !status.isRunning;
+            document.getElementById('btn-restart-service').disabled = !status.isInstalled;
+            document.getElementById('btn-uninstall-service').disabled = !status.isInstalled;
+            
+        } catch (error) {
+            console.error('Error loading admin:', error);
+        }
+    }
+
+    async startService() {
+        this.setAdminResult('service-result', 'loading', `${Icons.spinner} Demarrage du service...`);
+        try {
+            const result = await this.api('admin/service/start', { method: 'POST' });
+            this.setAdminResult('service-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} Service demarre` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            this.loadAdmin();
+        } catch (error) {
+            this.setAdminResult('service-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        }
+    }
+
+    async stopService() {
+        this.setAdminResult('service-result', 'loading', `${Icons.spinner} Arret du service...`);
+        try {
+            const result = await this.api('admin/service/stop', { method: 'POST' });
+            this.setAdminResult('service-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} Service arrete` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            this.loadAdmin();
+        } catch (error) {
+            this.setAdminResult('service-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        }
+    }
+
+    async restartService() {
+        this.setAdminResult('service-result', 'loading', `${Icons.spinner} Redemarrage du service...`);
+        try {
+            const result = await this.api('admin/service/restart', { method: 'POST' });
+            this.setAdminResult('service-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} Service redemarre` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            setTimeout(() => this.loadAdmin(), 2000);
+        } catch (error) {
+            this.setAdminResult('service-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        }
+    }
+
+    async installService() {
+        if (!confirm('Installer NetGuard comme service systemd ?')) return;
+        
+        this.setAdminResult('install-result', 'loading', `${Icons.spinner} Installation du service...`);
+        try {
+            const result = await this.api('admin/service/install', { method: 'POST' });
+            this.setAdminResult('install-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} ${result.output}` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            this.loadAdmin();
+        } catch (error) {
+            this.setAdminResult('install-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        }
+    }
+
+    async uninstallService() {
+        if (!confirm('Desinstaller le service NetGuard ? L\'application continuera a fonctionner mais ne demarrera plus automatiquement.')) return;
+        
+        this.setAdminResult('install-result', 'loading', `${Icons.spinner} Desinstallation du service...`);
+        try {
+            const result = await this.api('admin/service/uninstall', { method: 'POST' });
+            this.setAdminResult('install-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} ${result.output}` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            this.loadAdmin();
+        } catch (error) {
+            this.setAdminResult('install-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        }
+    }
+
+    async updateFromGithub() {
+        if (!confirm('Mettre a jour depuis GitHub ? L\'application va redemarrer.')) return;
+        
+        this.setAdminResult('update-result', 'loading', `${Icons.spinner} Mise a jour en cours... Cela peut prendre plusieurs minutes.`);
+        document.getElementById('btn-update').disabled = true;
+        
+        try {
+            const result = await this.api('admin/update', { method: 'POST' });
+            this.setAdminResult('update-result', result.success ? 'success' : 'error', 
+                result.success ? `${Icons.checkCircle} ${result.output}` : `${Icons.timesCircle} Erreur: ${result.error}`);
+            
+            if (result.success) {
+                this.setAdminResult('update-result', 'success', `${Icons.checkCircle} Mise a jour terminee. Rechargement dans 5 secondes...`);
+                setTimeout(() => location.reload(), 5000);
+            }
+        } catch (error) {
+            this.setAdminResult('update-result', 'error', `${Icons.timesCircle} Erreur: ${error.message}`);
+        } finally {
+            document.getElementById('btn-update').disabled = false;
+        }
+    }
+
+    async loadServiceLogs() {
+        const logsElement = document.getElementById('service-logs');
+        logsElement.textContent = 'Chargement des logs...';
+        
+        try {
+            const result = await this.api('admin/logs?lines=100');
+            logsElement.textContent = result.logs || result.error || 'Aucun log disponible';
+            logsElement.scrollTop = logsElement.scrollHeight;
+        } catch (error) {
+            logsElement.textContent = `Erreur: ${error.message}`;
+        }
+    }
+
+    setAdminResult(elementId, type, message) {
+        const element = document.getElementById(elementId);
+        element.className = `admin-result ${type}`;
+        element.innerHTML = message;
+    }
+
     async scanNetwork() {
         try {
             document.getElementById('scan-btn').disabled = true;
-            document.getElementById('scan-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scan en cours...';
+            document.getElementById('scan-btn').innerHTML = `${Icons.spinner} Scan en cours...`;
             
             await this.api('system/scan', { method: 'POST' });
             this.showToast({ title: 'Scan reseau', message: 'Scan initie avec succes', severity: 0 });

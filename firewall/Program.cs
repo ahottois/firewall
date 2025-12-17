@@ -3,6 +3,7 @@ using NetworkFirewall.Controllers;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,7 +42,9 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
 // CORS pour le développement
@@ -71,24 +74,22 @@ app.MapFallbackToFile("index.html");
 
 // Message de démarrage
 Console.WriteLine(@"
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║   🛡️  NetGuard - Network Firewall Monitor                ║
-║                                                           ║
-╠═══════════════════════════════════════════════════════════╣
-║                                                           ║
-║   Web Interface: http://localhost:{0,-5}                 ║
-║                                                           ║
-║   Features:                                               ║
-║   • Device Discovery & Tracking                          ║
-║   • Real-time Packet Analysis                            ║
-║   • Anomaly Detection (Port Scan, ARP Spoofing)          ║
-║   • Camera Detection & Password Check                    ║
-║   • Live Notifications                                   ║
-║                                                           ║
-║   Note: Run with sudo/admin for packet capture           ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
+=====================================================
+    NetGuard - Network Firewall Monitor
+=====================================================
+
+    Web Interface: http://localhost:{0}
+
+    Features:
+    - Device Discovery & Tracking
+    - Real-time Packet Analysis
+    - Anomaly Detection (Port Scan, ARP Spoofing)
+    - Camera Detection & Password Check
+    - Live Notifications
+
+    Note: Run with sudo/admin for packet capture
+
+=====================================================
 ", appSettings.WebPort);
 
 app.Run();
