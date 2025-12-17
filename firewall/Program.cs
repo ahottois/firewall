@@ -58,6 +58,10 @@ builder.Services.AddHostedService<PortMappingService>(provider => provider.GetRe
 // Packet Sniffer Service
 builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
 
+// DHCP Service
+builder.Services.AddSingleton<IDhcpService, DhcpService>();
+builder.Services.AddHostedService<DhcpService>(provider => (DhcpService)provider.GetRequiredService<IDhcpService>());
+
 // Add Controllers
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -119,6 +123,30 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
