@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "firewall": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:59593;http://localhost:59594"
+    }
+  }
+}

@@ -7,57 +7,44 @@ namespace NetworkFirewall.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AlertsController : ControllerBase
+public class AlertsController(
+    IAlertRepository alertRepository,
+    INotificationService notificationService,
+    IDeviceDiscoveryService deviceDiscovery,
+    IAnomalyDetectionService anomalyDetection) : ControllerBase
 {
-    private readonly IAlertRepository _alertRepository;
-    private readonly INotificationService _notificationService;
-    private readonly IDeviceDiscoveryService _deviceDiscovery;
-    private readonly IAnomalyDetectionService _anomalyDetection;
-
-    public AlertsController(
-        IAlertRepository alertRepository,
-        INotificationService notificationService,
-        IDeviceDiscoveryService deviceDiscovery,
-        IAnomalyDetectionService anomalyDetection)
-    {
-        _alertRepository = alertRepository;
-        _notificationService = notificationService;
-        _deviceDiscovery = deviceDiscovery;
-        _anomalyDetection = anomalyDetection;
-    }
-
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetRecent([FromQuery] int count = 50)
     {
-        var alerts = await _alertRepository.GetRecentAsync(count);
+        var alerts = await alertRepository.GetRecentAsync(count);
         return Ok(alerts);
     }
 
     [HttpGet("unread")]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetUnread()
     {
-        var alerts = await _alertRepository.GetUnreadAsync();
+        var alerts = await alertRepository.GetUnreadAsync();
         return Ok(alerts);
     }
 
     [HttpGet("unread/count")]
     public async Task<ActionResult<int>> GetUnreadCount()
     {
-        var count = await _alertRepository.GetUnreadCountAsync();
+        var count = await alertRepository.GetUnreadCountAsync();
         return Ok(count);
     }
 
     [HttpGet("device/{deviceId}")]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetByDevice(int deviceId)
     {
-        var alerts = await _alertRepository.GetByDeviceAsync(deviceId);
+        var alerts = await alertRepository.GetByDeviceAsync(deviceId);
         return Ok(alerts);
     }
 
     [HttpPost("{id}/read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
-        var result = await _alertRepository.MarkAsReadAsync(id);
+        var result = await alertRepository.MarkAsReadAsync(id);
         if (!result) return NotFound();
         return Ok();
     }
@@ -65,14 +52,14 @@ public class AlertsController : ControllerBase
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        await _alertRepository.MarkAllAsReadAsync();
+        await alertRepository.MarkAllAsReadAsync();
         return Ok();
     }
 
     [HttpPost("{id}/resolve")]
     public async Task<IActionResult> Resolve(int id)
     {
-        var result = await _alertRepository.ResolveAsync(id);
+        var result = await alertRepository.ResolveAsync(id);
         if (!result) return NotFound();
         return Ok();
     }
@@ -83,7 +70,7 @@ public class AlertsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _alertRepository.DeleteAsync(id);
+        var result = await alertRepository.DeleteAsync(id);
         if (!result) return NotFound();
         return Ok();
     }
@@ -94,7 +81,7 @@ public class AlertsController : ControllerBase
     [HttpPost("resolve-all")]
     public async Task<IActionResult> ResolveAll()
     {
-        await _alertRepository.ResolveAllAsync();
+        await alertRepository.ResolveAllAsync();
         return Ok(new { message = "Toutes les alertes ont été résolues" });
     }
 
@@ -104,7 +91,7 @@ public class AlertsController : ControllerBase
     [HttpDelete("all")]
     public async Task<IActionResult> DeleteAll()
     {
-        await _alertRepository.DeleteAllAsync();
+        await alertRepository.DeleteAllAsync();
         return Ok(new { message = "Toutes les alertes ont été supprimées" });
     }
 
@@ -115,19 +102,19 @@ public class AlertsController : ControllerBase
     public async Task<IActionResult> Reset()
     {
         // 1. Supprimer toutes les alertes
-        await _alertRepository.DeleteAllAsync();
+        await alertRepository.DeleteAllAsync();
 
         // 2. Clear notification cooldowns
-        _notificationService.ClearNotifications();
+        notificationService.ClearNotifications();
 
         // 3. Reset anomaly detection trackers
-        _anomalyDetection.Reset();
+        anomalyDetection.Reset();
 
         // 4. Relancer un scan réseau
         _ = Task.Run(async () =>
         {
             await Task.Delay(1000);
-            await _deviceDiscovery.ScanNetworkAsync();
+            await deviceDiscovery.ScanNetworkAsync();
         });
 
         return Ok(new { 
@@ -148,7 +135,7 @@ public class AlertsController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var alerts = await _alertRepository.GetRecentAsync(1000);
+        var alerts = await alertRepository.GetRecentAsync(1000);
         var alertList = alerts.ToList();
 
         var stats = new
@@ -161,7 +148,7 @@ public class AlertsController : ControllerBase
             ByType = alertList.GroupBy(a => a.Type)
                 .ToDictionary(g => g.Key.ToString(), g => g.Count()),
             Last24Hours = alertList.Count(a => a.Timestamp > DateTime.UtcNow.AddHours(-24)),
-            NotificationStats = _notificationService.GetStats()
+            NotificationStats = notificationService.GetStats()
         };
 
         return Ok(stats);

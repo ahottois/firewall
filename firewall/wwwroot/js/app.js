@@ -1233,9 +1233,14 @@ class FirewallApp {
 
     escapeHtml(str) {
         if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return str.toString().replace(/[&<>"']/g, m => map[m]);
     }
 }
 

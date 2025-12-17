@@ -78,10 +78,10 @@ public class CameraDetectionService : ICameraDetectionService
 
             var devices = (await deviceRepo.GetAllAsync()).Where(d => !string.IsNullOrEmpty(d.IpAddress)).ToList();
             var ports = DefaultCameraCredentials.CommonCameraPorts;
-            var totalChecks = devices.Count * ports.Length;
+            var totalChecks = devices.Count * ports.Count;
             var currentCheck = 0;
 
-            _scanLog.Log(ScanSource, $"?? {devices.Count} appareils à scanner sur {ports.Length} ports", ScanLogLevel.Info);
+            _scanLog.Log(ScanSource, $"?? {devices.Count} appareils  scanner sur {ports.Count} ports", ScanLogLevel.Info);
             _scanLog.Log(ScanSource, $"?? Ports: {string.Join(", ", ports)}", ScanLogLevel.Debug);
 
             foreach (var device in devices)

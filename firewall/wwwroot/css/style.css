@@ -1119,3 +1119,225 @@ body {
         box-shadow: 0 0 0 0 rgba(0, 163, 255, 0);
     }
 }
+
+/* Sortable Table Headers */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.sortable-table th.sortable:hover {
+    background: rgba(0, 217, 255, 0.1);
+}
+
+.sortable-table th.sortable i {
+    margin-left: 8px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.sortable-table th.sortable.asc i,
+.sortable-table th.sortable.desc i {
+    opacity: 1;
+    color: var(--accent-primary);
+}
+
+.sortable-table th.sortable.asc i::before {
+    content: "\f0de"; /* fa-sort-up */
+}
+
+.sortable-table th.sortable.desc i::before {
+    content: "\f0dd"; /* fa-sort-down */
+}
+
+/* Scan Logs Panel */
+.scan-logs-panel {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.scan-logs-header {
+    padding: 12px 15px;
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.scan-logs-header h4 {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scan-logs {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.8rem;
+    padding: 10px;
+}
+
+.scan-log-entry {
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.scan-log-entry.info {
+    background: rgba(0, 217, 255, 0.1);
+    border-left: 3px solid var(--accent-primary);
+}
+
+.scan-log-entry.success {
+    background: rgba(0, 255, 136, 0.1);
+    border-left: 3px solid var(--success);
+}
+
+.scan-log-entry.warning {
+    background: rgba(255, 170, 0, 0.1);
+    border-left: 3px solid var(--warning);
+}
+
+.scan-log-entry.error {
+    background: rgba(255, 71, 87, 0.1);
+    border-left: 3px solid var(--danger);
+}
+
+.scan-log-entry.progress {
+    background: rgba(123, 44, 191, 0.1);
+    border-left: 3px solid var(--accent-secondary);
+}
+
+.scan-log-entry.debug {
+    background: rgba(160, 160, 160, 0.1);
+    border-left: 3px solid var(--text-secondary);
+    color: var(--text-secondary);
+}
+
+.scan-log-time {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    min-width: 70px;
+}
+
+.scan-log-message {
+    flex: 1;
+}
+
+.scan-progress {
+    width: 100%;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.scan-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border-color);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.scan-progress-bar > div {
+    height: 100%;
+    background: var(--accent-primary);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.scan-progress-text {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    min-width: 80px;
+    text-align: right;
+}
+
+/* Edit button in table */
+.btn-edit {
+    background: var(--accent-secondary);
+    color: white;
+}
+
+.btn-edit:hover {
+    background: #9b4dca;
+}
+
+/* Inline edit form */
+.inline-edit-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.inline-edit-form input {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.inline-edit-form input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+/* Header actions with filter buttons */
+.card-header .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Device description editable */
+.device-description-cell {
+    max-width: 150px;
+}
+
+.device-description-cell input {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    border-radius: 4px;
+}
+
+.device-description-cell input:hover {
+    border-color: var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.device-description-cell input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    background: var(--bg-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .scan-logs {
+        max-height: 200px;
+    }
+    
+    .scan-log-entry {
+        font-size: 0.75rem;
+    }
+}
