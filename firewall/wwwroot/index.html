@@ -24,6 +24,10 @@
                 <span class="nav-icon"><i class="fas fa-laptop"></i></span>
                 <span>Appareils</span>
             </li>
+            <li class="nav-item" data-page="agents">
+                <span class="nav-icon"><i class="fas fa-server"></i></span>
+                <span>Agents Distants</span>
+            </li>
             <li class="nav-item" data-page="cameras">
                 <span class="nav-icon"><i class="fas fa-video"></i></span>
                 <span>Cam&eacute;ras</span>
@@ -196,6 +200,33 @@
                         </thead>
                         <tbody id="devices-table"></tbody>
                     </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agents Page -->
+        <section id="agents-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Agents Distants</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="app.showInstallAgentModal()">
+                            <i class="fas fa-plus"></i> Installer un Agent
+                        </button>
+                        <button class="btn btn-sm" onclick="app.loadAgents()">
+                            <i class="fas fa-sync"></i> Rafra&icirc;chir
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="agents-grid" class="dashboard-grid">
+                        <!-- Agents will be loaded here -->
+                    </div>
+                    <div id="agents-empty" class="empty-state" style="display: none;">
+                        <i class="fas fa-server empty-state-icon"></i>
+                        <p>Aucun agent install&eacute;.</p>
+                        <p>Installez un agent sur vos serveurs pour les monitorer ici.</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -655,6 +686,34 @@
             </div>
             <div class="modal-body" id="modal-body"></div>
             <div class="modal-footer" id="modal-footer"></div>
+        </div>
+    </div>
+
+    <!-- Install Agent Modal -->
+    <div id="install-agent-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Installer un Agent</h3>
+                <button class="modal-close" onclick="document.getElementById('install-agent-modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>S&eacute;lectionnez votre syst&egrave;me d'exploitation pour g&eacute;n&eacute;rer le script d'installation :</p>
+                <div class="admin-buttons" style="justify-content: center; margin: 20px 0;">
+                    <button class="btn btn-primary" onclick="app.getInstallScript('linux')">
+                        <i class="fab fa-linux"></i> Linux / Mac
+                    </button>
+                    <button class="btn btn-primary" onclick="app.getInstallScript('windows')">
+                        <i class="fab fa-windows"></i> Windows
+                    </button>
+                </div>
+                <div id="install-script-container" style="display: none;">
+                    <p>Copiez et ex&eacute;cutez cette commande sur votre machine :</p>
+                    <div class="code-block" id="install-command"></div>
+                    <button class="btn btn-sm" onclick="app.copyInstallCommand()" style="margin-top: 10px;">
+                        <i class="fas fa-copy"></i> Copier
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 

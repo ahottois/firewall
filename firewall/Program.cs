@@ -45,6 +45,9 @@ builder.Services.AddSingleton<IScanLogService, ScanLogService>();
 builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceService>();
 builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
 
+// Agent Services
+builder.Services.AddSingleton<IAgentService, AgentService>();
+
 // Pi-hole Services
 builder.Services.AddSingleton<IPiholeService, PiholeService>();
 
@@ -115,6 +118,12 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
 
 
 

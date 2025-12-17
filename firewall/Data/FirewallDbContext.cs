@@ -14,6 +14,7 @@ public class FirewallDbContext : DbContext
     public DbSet<TrafficLog> TrafficLogs { get; set; }
     public DbSet<NetworkCamera> Cameras { get; set; }
     public DbSet<ScanSession> ScanSessions { get; set; }
+    public DbSet<Agent> Agents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +85,16 @@ public class FirewallDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.StartTime);
             entity.Property(e => e.ResultSummary).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<Agent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Hostname);
+            entity.HasIndex(e => e.LastSeen);
+            entity.Property(e => e.Hostname).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.OS).HasMaxLength(50);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
         });
     }
 }

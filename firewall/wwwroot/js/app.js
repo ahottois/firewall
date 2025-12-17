@@ -118,6 +118,7 @@ class FirewallApp {
         switch (page) {
             case 'dashboard': this.loadDashboard(); break;
             case 'devices': this.loadDevices(); break;
+            case 'agents': this.loadAgents(); break;
             case 'cameras': this.loadCameras(); break;
             case 'alerts': this.loadAlerts(); break;
             case 'traffic': this.loadTraffic(); break;
@@ -387,70 +388,145 @@ class FirewallApp {
         }
     }
 
-    renderDevicesTable(devices) {
-        const tbody = document.getElementById('devices-table');
-        if (!devices.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil trouve</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = devices.map(device => `
-            <tr>
-                <td><span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span></td>
-                <td><code>${this.escapeHtml(device.macAddress)}</code></td>
-                <td>${this.escapeHtml(device.ipAddress || 'N/A')}</td>
-                <td>${this.escapeHtml(device.vendor || 'Unknown')}</td>
-                <td>${this.escapeHtml(device.description || '-')}</td>
-                <td>${this.formatDate(device.lastSeen)}</td>
-                <td>
-                    <div class="alert-actions">
-                        ${!device.isKnown ? `<button class="btn btn-sm btn-success" onclick="app.trustDevice(${device.id})">${Icons.check}</button>` : ''}
-                        <button class="btn btn-sm" onclick="app.showDeviceDetails(${device.id})">${Icons.eye}</button>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})">${Icons.times}</button>
+    async loadAgents() {
+        try {
+            const response = await fetch('/api/agents');
+            const agents = await response.json();
+            
+            const grid = document.getElementById('agents-grid');
+            const empty = document.getElementById('agents-empty');
+            
+            grid.innerHTML = '';
+            
+            if (agents.length === 0) {
+                grid.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+            
+            grid.style.display = 'grid';
+            empty.style.display = 'none';
+            
+            agents.forEach(agent => {
+                const statusClass = agent.status === 'Online' ? 'success' : 'danger';
+                const statusIcon = agent.status === 'Online' ? 'check-circle' : 'times-circle';
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <h3 style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-${agent.os.toLowerCase().includes('windows') ? 'windows' : 'linux'}"></i>
+                            ${agent.hostname}
+                        </h3>
+                        <span class="badge" style="background: var(--${statusClass})">
+                            <i class="fas fa-${statusIcon}"></i> ${agent.status}
+                        </span>
                     </div>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    async trustDevice(id) {
-        try {
-            await this.api(`devices/${id}/trust`, { method: 'POST', body: JSON.stringify({ trusted: true }) });
-            this.showToast({ title: 'Appareil approuve', severity: 0 });
-            this.loadPageData(this.currentPage);
+                    <div class="card-body">
+                        <div class="settings-info">
+                            <div class="settings-item">
+                                <div class="settings-label">IP Address</div>
+                                <div class="settings-value">${agent.ipAddress}</div>
+                            </div>
+                            <div class="settings-item">
+                                <div class="settings-label">OS</div>
+                                <div class="settings-value">${agent.os}</div>
+                            </div>
+                            <div class="settings-item">
+                                <div class="settings-label">CPU Usage</div>
+                                <div class="settings-value">
+                                    <div class="protocol-bar" style="width: 100%; margin-top: 5px;">
+                                        <div class="protocol-bar-fill" style="width: ${agent.cpuUsage}%; background: ${this.getColorForUsage(agent.cpuUsage)}"></div>
+                                    </div>
+                                    <small>${agent.cpuUsage.toFixed(1)}%</small>
+                                </div>
+                            </div>
+                            <div class="settings-item">
+                                <div class="settings-label">Memory Usage</div>
+                                <div class="settings-value">
+                                    <div class="protocol-bar" style="width: 100%; margin-top: 5px;">
+                                        <div class="protocol-bar-fill" style="width: ${agent.memoryUsage}%; background: ${this.getColorForUsage(agent.memoryUsage)}"></div>
+                                    </div>
+                                    <small>${agent.memoryUsage.toFixed(1)}%</small>
+                                </div>
+                            </div>
+                            <div class="settings-item">
+                                <div class="settings-label">Disk Usage</div>
+                                <div class="settings-value">
+                                    <div class="protocol-bar" style="width: 100%; margin-top: 5px;">
+                                        <div class="protocol-bar-fill" style="width: ${agent.diskUsage}%; background: ${this.getColorForUsage(agent.diskUsage)}"></div>
+                                    </div>
+                                    <small>${agent.diskUsage.toFixed(1)}%</small>
+                                </div>
+                            </div>
+                            <div class="settings-item">
+                                <div class="settings-label">Last Seen</div>
+                                <div class="settings-value">${new Date(agent.lastSeen).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; text-align: right;">
+                            <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+            console.error('Error loading agents:', error);
+            this.showToast('Error loading agents', 'error');
         }
     }
 
-    async deleteDevice(id) {
-        if (!confirm('Supprimer cet appareil ?')) return;
+    getColorForUsage(usage) {
+        if (usage > 90) return 'var(--danger)';
+        if (usage > 70) return 'var(--warning)';
+        return 'var(--success)';
+    }
+
+    showInstallAgentModal() {
+        document.getElementById('install-agent-modal').classList.add('active');
+        document.getElementById('install-script-container').style.display = 'none';
+    }
+
+    getInstallScript(platform) {
+        const container = document.getElementById('install-script-container');
+        const commandDiv = document.getElementById('install-command');
+        const host = window.location.origin;
+        
+        let command = '';
+        if (platform === 'linux') {
+            command = `curl -sSL ${host}/api/agents/install/linux | sudo bash`;
+        } else {
+            command = `iwr -UseBasicParsing ${host}/api/agents/install/windows | iex`;
+        }
+        
+        commandDiv.textContent = command;
+        container.style.display = 'block';
+    }
+
+    copyInstallCommand() {
+        const command = document.getElementById('install-command').textContent;
+        navigator.clipboard.writeText(command).then(() => {
+            this.showToast('Commande copiée !', 'success');
+        });
+    }
+
+    async deleteAgent(id) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cet agent ?')) return;
+        
         try {
-            await this.api(`devices/${id}`, { method: 'DELETE' });
-            this.loadPageData(this.currentPage);
+            await fetch(`/api/agents/${id}`, { method: 'DELETE' });
+            this.showToast('Agent supprimé', 'success');
+            this.loadAgents();
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+            console.error('Error deleting agent:', error);
+            this.showToast('Erreur lors de la suppression', 'error');
         }
     }
 
-    async showDeviceDetails(id) {
-        const device = await this.api(`devices/${id}`);
-        document.getElementById('modal-title').textContent = 'Details Appareil';
-        document.getElementById('modal-body').innerHTML = `
-            <div class="settings-info">
-                <div class="settings-item"><div class="settings-label">MAC Address</div><div class="settings-value"><code>${this.escapeHtml(device.macAddress)}</code></div></div>
-                <div class="settings-item"><div class="settings-label">IP Address</div><div class="settings-value">${this.escapeHtml(device.ipAddress || 'N/A')}</div></div>
-                <div class="settings-item"><div class="settings-label">Fabricant</div><div class="settings-value">${this.escapeHtml(device.vendor || 'Unknown')}</div></div>
-                <div class="settings-item"><div class="settings-label">Premiere Vue</div><div class="settings-value">${this.formatDate(device.firstSeen)}</div></div>
-                <div class="settings-item"><div class="settings-label">Derniere Vue</div><div class="settings-value">${this.formatDate(device.lastSeen)}</div></div>
-                <div class="settings-item"><div class="settings-label">Status</div><div class="settings-value">${device.isKnown ? Icons.checkCircle + ' Connu' : Icons.warning + ' Inconnu'} ${device.isTrusted ? '- ' + Icons.lock + ' Approuve' : ''}</div></div>
-            </div>
-        `;
-        document.getElementById('modal-footer').innerHTML = `<button class="btn btn-sm" onclick="app.closeModal()">Fermer</button>`;
-        document.getElementById('modal').classList.add('active');
-    }
-
-    // Cameras
     async loadCameras() {
         try {
             const [cameras, vulnerableCameras] = await Promise.all([
