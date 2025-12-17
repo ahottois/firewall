@@ -196,7 +196,8 @@ public class PiholeService : IPiholeService
         try
         {
             _installLog = "Starting uninstallation...\n";
-            var output = await RunCommandAsync("pihole", "uninstall");
+            // Use --unattended flag to skip confirmation prompts
+            var output = await RunCommandAsync("pihole", "uninstall --unattended");
             _installLog += output;
             return true;
         }
