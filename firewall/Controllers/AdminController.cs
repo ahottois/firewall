@@ -14,6 +14,7 @@ public class AdminController : ControllerBase
     private const string InstallPath = "/opt/netguard";
     private const string GitRepoUrl = "https://github.com/ahottois/firewall.git";
     private const string GitApiUrl = "https://api.github.com/repos/ahottois/firewall/commits/master";
+    private const string GitRepoApiUrl = "https://api.github.com/repos/ahottois/firewall";
     private const string VersionFile = "/opt/netguard/.version";
 
     public AdminController(ILogger<AdminController> logger, IHttpClientFactory httpClientFactory)
@@ -81,6 +82,64 @@ public class AdminController : ControllerBase
                                     (!remoteCommit.StartsWith(localCommit, StringComparison.OrdinalIgnoreCase) &&
                                      !localCommit.StartsWith(remoteCommit, StringComparison.OrdinalIgnoreCase));
 
+            var commits = new List<CommitInfo>();
+
+            if (isUpdateAvailable)
+            {
+                try 
+                {
+                    if (!string.IsNullOrEmpty(localCommit) && localCommit.Length >= 7)
+                    {
+                        // Try to get comparison
+                        var compareUrl = $"{GitRepoApiUrl}/compare/{localCommit}...{remoteCommit}";
+                        var compareResponse = await client.GetAsync(compareUrl);
+                        if (compareResponse.IsSuccessStatusCode)
+                        {
+                            var compareJson = await compareResponse.Content.ReadAsStringAsync();
+                            var compareData = JsonSerializer.Deserialize<GitHubCompareResult>(compareJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            
+                            if (compareData?.Commits != null)
+                            {
+                                commits = compareData.Commits.Select(c => new CommitInfo 
+                                {
+                                    Sha = c.Sha,
+                                    Message = c.Commit?.Message?.Split('\n').FirstOrDefault(),
+                                    Author = c.Commit?.Author?.Name,
+                                    Date = c.Commit?.Author?.Date
+                                }).OrderByDescending(c => c.Date).ToList();
+                            }
+                        }
+                    }
+
+                    // Fallback: get recent commits if comparison failed or returned nothing (but update is available)
+                    if (commits.Count == 0)
+                    {
+                        var commitsUrl = $"{GitRepoApiUrl}/commits?per_page=5";
+                        var commitsResponse = await client.GetAsync(commitsUrl);
+                        if (commitsResponse.IsSuccessStatusCode)
+                        {
+                            var commitsJson = await commitsResponse.Content.ReadAsStringAsync();
+                            var recentCommits = JsonSerializer.Deserialize<List<GitHubCommit>>(commitsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            
+                            if (recentCommits != null)
+                            {
+                                commits = recentCommits.Select(c => new CommitInfo 
+                                {
+                                    Sha = c.Sha,
+                                    Message = c.Commit?.Message?.Split('\n').FirstOrDefault(),
+                                    Author = c.Commit?.Author?.Name,
+                                    Date = c.Commit?.Author?.Date
+                                }).ToList();
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to fetch commit history");
+                }
+            }
+
             return Ok(new UpdateCheckResult
             {
                 Success = true,
@@ -89,7 +148,8 @@ public class AdminController : ControllerBase
                 RemoteCommit = remoteCommit.Length > 7 ? remoteCommit[..7] : remoteCommit,
                 LatestCommitMessage = commitInfo.Commit?.Message?.Split('\n').FirstOrDefault() ?? "No message",
                 LatestCommitDate = commitInfo.Commit?.Author?.Date,
-                LatestCommitAuthor = commitInfo.Commit?.Author?.Name ?? "Unknown"
+                LatestCommitAuthor = commitInfo.Commit?.Author?.Name ?? "Unknown",
+                Commits = commits
             });
         }
         catch (Exception ex)
@@ -418,7 +478,21 @@ WantedBy=multi-user.target
         public string? LatestCommitMessage { get; set; }
         public DateTime? LatestCommitDate { get; set; }
         public string? LatestCommitAuthor { get; set; }
+        public List<CommitInfo>? Commits { get; set; }
         public string? Error { get; set; }
+    }
+
+    public class CommitInfo
+    {
+        public string? Sha { get; set; }
+        public string? Message { get; set; }
+        public string? Author { get; set; }
+        public DateTime? Date { get; set; }
+    }
+
+    public class GitHubCompareResult
+    {
+        public List<GitHubCommit>? Commits { get; set; }
     }
 
     public class GitHubCommit

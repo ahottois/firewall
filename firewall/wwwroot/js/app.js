@@ -1062,15 +1062,31 @@ class FirewallApp {
 
             if (result.updateAvailable) {
                 if (updateStatusEl) {
+                    let commitsHtml = '';
+                    if (result.commits && result.commits.length > 0) {
+                        commitsHtml = `
+                            <div class="update-commits">
+                                <strong>Changements recents:</strong>
+                                <ul>
+                                    ${result.commits.map(c => `
+                                        <li>
+                                            <span class="commit-hash">${c.sha ? c.sha.substring(0, 7) : ''}</span>
+                                            <span class="commit-message">${this.escapeHtml(c.message)}</span>
+                                            <span class="commit-meta">(${this.escapeHtml(c.author)}, ${this.formatDate(c.date)})</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+
                     updateStatusEl.innerHTML = `
                         ${Icons.info} <strong>Mise a jour disponible!</strong><br>
                         <small>
                             Version locale: <code>${result.localCommit}</code><br>
                             Derniere version: <code>${result.remoteCommit}</code><br>
-                            ${result.latestCommitMessage ? `Message: ${this.escapeHtml(result.latestCommitMessage)}<br>` : ''}
-                            ${result.latestCommitAuthor ? `Auteur: ${this.escapeHtml(result.latestCommitAuthor)}<br>` : ''}
-                            ${result.latestCommitDate ? `Date: ${this.formatDate(result.latestCommitDate)}` : ''}
                         </small>
+                        ${commitsHtml}
                     `;
                     updateStatusEl.className = 'update-status available';
                 }

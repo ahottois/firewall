@@ -1399,13 +1399,45 @@ body {
     background: var(--bg-primary);
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .scan-logs {
-        max-height: 200px;
-    }
-    
-    .scan-log-entry {
-        font-size: 0.75rem;
-    }
+/* Update commit styles */
+.update-commits {
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.update-commits ul {
+    list-style: none;
+    padding: 0;
+    margin: 5px 0 0 0;
+}
+
+.update-commits li {
+    margin-bottom: 5px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 5px;
+}
+
+.update-commits li:last-child {
+    border-bottom: none;
+}
+
+.commit-hash {
+    font-family: monospace;
+    color: var(--accent-color);
+    margin-right: 5px;
+}
+
+.commit-message {
+    color: var(--text-primary);
+}
+
+.commit-meta {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin-left: 5px;
 }
