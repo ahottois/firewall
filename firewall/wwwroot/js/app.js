@@ -98,6 +98,7 @@ class FirewallApp {
             traffic: 'Trafic Reseau',
             dns: 'DNS Shield',
             sniffer: 'Packet Sniffer',
+            router: 'Routeur / NAT',
             settings: 'Parametres',
             admin: 'Administration'
         };
@@ -122,6 +123,7 @@ class FirewallApp {
             case 'traffic': this.loadTraffic(); break;
             case 'dns': this.loadDns(); break;
             case 'sniffer': this.loadSniffer(); break;
+            case 'router': this.loadRouter(); break;
             case 'settings': this.loadSettings(); break;
             case 'admin': this.loadAdmin(); break;
         }
@@ -1162,6 +1164,118 @@ class FirewallApp {
             case 'Outbound': return 'offline'; // Red/Orange
             case 'Internal': return 'unknown'; // Grey
             default: return '';
+        }
+    }
+
+    // Router
+    async loadRouter() {
+        this.loadRouterInterfaces();
+        this.loadRouterMappings();
+    }
+
+    async loadRouterInterfaces() {
+        try {
+            const interfaces = await this.api('router/interfaces');
+            document.getElementById('router-interfaces-list').innerHTML = interfaces.map(iface => `
+                <div class="interface-item">
+                    <div>
+                        <strong>${this.escapeHtml(iface.name)}</strong>
+                        <div class="device-ip">${this.escapeHtml(iface.description)}</div>
+                        ${iface.macAddress ? `<div class="device-ip">MAC: ${this.escapeHtml(iface.macAddress)}</div>` : ''}
+                    </div>
+                    <span class="status-badge ${iface.isUp ? 'online' : 'offline'}">${iface.isUp ? 'Up' : 'Down'}</span>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading interfaces:', error);
+        }
+    }
+
+    async loadRouterMappings() {
+        try {
+            const mappings = await this.api('router/mappings');
+            const tbody = document.getElementById('router-mappings-table');
+            
+            if (!mappings.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucune regle de mapping</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = mappings.map(m => `
+                <tr>
+                    <td>${this.escapeHtml(m.name)}</td>
+                    <td>${m.listenPort}</td>
+                    <td>${this.escapeHtml(m.targetIp)}:${m.targetPort}</td>
+                    <td>${this.escapeHtml(m.protocol)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteMapping('${m.id}')">${Icons.trash}</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading mappings:', error);
+        }
+    }
+
+    showAddMappingModal() {
+        document.getElementById('modal-title').textContent = 'Ajouter une regle de Port Mapping';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="add-camera-form">
+                <div class="form-group"><label>Nom</label><input type="text" id="map-name" placeholder="Ex: Web Server"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Port Local</label><input type="number" id="map-listen-port" placeholder="8080"></div>
+                    <div class="form-group"><label>Protocole</label>
+                        <select id="map-protocol" class="form-control">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>IP Cible</label><input type="text" id="map-target-ip" placeholder="192.168.1.50"></div>
+                    <div class="form-group"><label>Port Cible</label><input type="number" id="map-target-port" placeholder="80"></div>
+                </div>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.addMapping()">${Icons.plus} Ajouter</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async addMapping() {
+        const rule = {
+            name: document.getElementById('map-name').value,
+            listenPort: parseInt(document.getElementById('map-listen-port').value),
+            targetIp: document.getElementById('map-target-ip').value,
+            targetPort: parseInt(document.getElementById('map-target-port').value),
+            protocol: document.getElementById('map-protocol').value,
+            enabled: true
+        };
+
+        if (!rule.name || !rule.listenPort || !rule.targetIp || !rule.targetPort) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez remplir tous les champs', severity: 2 });
+            return;
+        }
+
+        try {
+            await this.api('router/mappings', { method: 'POST', body: JSON.stringify(rule) });
+            this.closeModal();
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succes', message: 'Regle ajoutee', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async deleteMapping(id) {
+        if (!confirm('Supprimer cette regle ?')) return;
+        try {
+            await this.api(`router/mappings/${id}`, { method: 'DELETE' });
+            this.loadRouterMappings();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 

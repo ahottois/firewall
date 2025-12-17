@@ -21,6 +21,24 @@ public class AppSettings
     public int PortScanThreshold { get; set; } = 20;
 
     public DnsSettings Dns { get; set; } = new();
+    public RouterSettings Router { get; set; } = new();
+}
+
+public class RouterSettings
+{
+    public bool EnableIpForwarding { get; set; } = false;
+    public List<PortMappingRule> PortMappings { get; set; } = new();
+}
+
+public class PortMappingRule
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Name { get; set; } = string.Empty;
+    public int ListenPort { get; set; }
+    public string TargetIp { get; set; } = string.Empty;
+    public int TargetPort { get; set; }
+    public string Protocol { get; set; } = "TCP"; // TCP, UDP
+    public bool Enabled { get; set; } = true;
 }
 
 public class DnsSettings

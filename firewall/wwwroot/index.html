@@ -46,6 +46,10 @@
                 <span class="nav-icon"><i class="fas fa-microscope"></i></span>
                 <span>Packet Sniffer</span>
             </li>
+            <li class="nav-item" data-page="router">
+                <span class="nav-icon"><i class="fas fa-random"></i></span>
+                <span>Routeur / NAT</span>
+            </li>
             <li class="nav-item" data-page="settings">
                 <span class="nav-icon"><i class="fas fa-cog"></i></span>
                 <span>Param&egrave;tres</span>
@@ -431,6 +435,44 @@
                             <tbody id="sniffer-packets-table"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Router Page -->
+        <section id="router-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-network-wired"></i> Interfaces R&eacute;seau</h3>
+                    <button class="btn btn-sm" onclick="app.loadRouterInterfaces()">
+                        <i class="fas fa-sync"></i> Rafra&icirc;chir
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="router-interfaces-list" class="interfaces-list"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-exchange-alt"></i> Port Mapping (NAT)</h3>
+                    <button class="btn btn-primary" onclick="app.showAddMappingModal()">
+                        <i class="fas fa-plus"></i> Ajouter une r&egrave;gle
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Port Local</th>
+                                <th>Cible</th>
+                                <th>Protocole</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="router-mappings-table"></tbody>
+                    </table>
                 </div>
             </div>
         </section>
