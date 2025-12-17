@@ -38,6 +38,14 @@
                 <span class="nav-icon"><i class="fas fa-network-wired"></i></span>
                 <span>Trafic</span>
             </li>
+            <li class="nav-item" data-page="dns">
+                <span class="nav-icon"><i class="fas fa-shield-virus"></i></span>
+                <span>DNS Shield</span>
+            </li>
+            <li class="nav-item" data-page="sniffer">
+                <span class="nav-icon"><i class="fas fa-microscope"></i></span>
+                <span>Packet Sniffer</span>
+            </li>
             <li class="nav-item" data-page="settings">
                 <span class="nav-icon"><i class="fas fa-cog"></i></span>
                 <span>Param&egrave;tres</span>
@@ -310,6 +318,119 @@
                 </div>
                 <div class="card-body">
                     <div id="protocols-chart" class="protocols-grid"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DNS Page -->
+        <section id="dns-page" class="page">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-ban"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="dns-blocked-total">0</span>
+                        <span class="stat-label">Domaines Bloqu&eacute;s</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-list"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="dns-lists-count">0</span>
+                        <span class="stat-label">Listes Actives</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> Contr&ocirc;le DNS</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" onclick="app.refreshDnsLists()">
+                            <i class="fas fa-sync"></i> Mettre &agrave; jour les listes
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="dns-stats-chart" class="protocols-grid"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Logs DNS R&eacute;cents</h3>
+                    <button class="btn btn-sm" onclick="app.loadDnsLogs()">
+                        <i class="fas fa-sync"></i> Rafra&icirc;chir
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Heure</th>
+                                <th>Client</th>
+                                <th>Domaine</th>
+                                <th>Action</th>
+                                <th>Cat&eacute;gorie</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dns-logs-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sniffer Page -->
+        <section id="sniffer-page" class="page">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-microscope"></i> Packet Sniffer</h3>
+                    <div class="header-actions">
+                        <div id="sniffer-controls">
+                            <button class="btn btn-success" id="btn-start-sniffer" onclick="app.startSniffer()">
+                                <i class="fas fa-play"></i> D&eacute;marrer
+                            </button>
+                            <button class="btn btn-danger" id="btn-stop-sniffer" onclick="app.stopSniffer()" style="display:none;">
+                                <i class="fas fa-stop"></i> Arr&ecirc;ter
+                            </button>
+                            <button class="btn btn-warning" onclick="app.clearSnifferPackets()">
+                                <i class="fas fa-trash"></i> Effacer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="filter-bar" style="margin-bottom: 15px; display: flex; gap: 10px;">
+                        <input type="text" id="sniffer-filter-ip" placeholder="IP Source/Dest" class="form-control">
+                        <input type="number" id="sniffer-filter-port" placeholder="Port" class="form-control" style="width: 100px;">
+                        <select id="sniffer-filter-proto" class="form-control" style="width: 120px;">
+                            <option value="">Protocole</option>
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                            <option value="ICMP">ICMP</option>
+                        </select>
+                        <select id="sniffer-filter-direction" class="form-control" style="width: 120px;">
+                            <option value="">Direction</option>
+                            <option value="Inbound">Entrant</option>
+                            <option value="Outbound">Sortant</option>
+                            <option value="Internal">Interne</option>
+                        </select>
+                    </div>
+                    
+                    <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Heure</th>
+                                    <th>Source</th>
+                                    <th>Destination</th>
+                                    <th>Proto</th>
+                                    <th>Taille</th>
+                                    <th>Direction</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sniffer-packets-table"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>

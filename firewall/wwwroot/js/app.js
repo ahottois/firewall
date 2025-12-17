@@ -50,6 +50,7 @@ class FirewallApp {
         this.currentSnapshot = null;
         this.currentDevices = [];
         this.sortDirection = {};
+        this.snifferInterval = null;
         this.init();
     }
 
@@ -95,6 +96,8 @@ class FirewallApp {
             cameras: 'Cameras Reseau',
             alerts: 'Alertes',
             traffic: 'Trafic Reseau',
+            dns: 'DNS Shield',
+            sniffer: 'Packet Sniffer',
             settings: 'Parametres',
             admin: 'Administration'
         };
@@ -102,6 +105,12 @@ class FirewallApp {
 
         this.currentPage = page;
         this.loadPageData(page);
+        
+        // Stop sniffer polling if leaving sniffer page
+        if (page !== 'sniffer' && this.snifferInterval) {
+            clearInterval(this.snifferInterval);
+            this.snifferInterval = null;
+        }
     }
 
     loadPageData(page) {
@@ -111,6 +120,8 @@ class FirewallApp {
             case 'cameras': this.loadCameras(); break;
             case 'alerts': this.loadAlerts(); break;
             case 'traffic': this.loadTraffic(); break;
+            case 'dns': this.loadDns(); break;
+            case 'sniffer': this.loadSniffer(); break;
             case 'settings': this.loadSettings(); break;
             case 'admin': this.loadAdmin(); break;
         }
@@ -973,6 +984,185 @@ class FirewallApp {
                 <span>${this.formatNumber(count)}</span>
             </div>
         `).join('') || '<div class="empty-state">Aucune donnee de protocole</div>';
+    }
+
+    // DNS Shield
+    async loadDns() {
+        try {
+            const [stats, logs] = await Promise.all([
+                this.api('dns/stats'),
+                this.api('dns/logs?count=50')
+            ]);
+
+            document.getElementById('dns-blocked-total').textContent = this.formatNumber(stats.totalBlockedDomains);
+            document.getElementById('dns-lists-count').textContent = stats.settings.blocklists.filter(b => b.enabled).length;
+
+            // Render category stats
+            const chartContainer = document.getElementById('dns-stats-chart');
+            const total = Object.values(stats.categoryStats).reduce((a, b) => a + b, 0) || 1;
+            
+            chartContainer.innerHTML = Object.entries(stats.categoryStats).map(([name, count]) => `
+                <div class="protocol-item">
+                    <span>${this.escapeHtml(name)}</span>
+                    <div class="protocol-bar"><div class="protocol-bar-fill" style="width: ${(count / total) * 100}%"></div></div>
+                    <span>${this.formatNumber(count)}</span>
+                </div>
+            `).join('') || '<div class="empty-state">Aucune donnee</div>';
+
+            this.renderDnsLogs(logs);
+        } catch (error) {
+            console.error('Error loading DNS data:', error);
+        }
+    }
+
+    async loadDnsLogs() {
+        try {
+            const logs = await this.api('dns/logs?count=50');
+            this.renderDnsLogs(logs);
+        } catch (error) {
+            console.error('Error loading DNS logs:', error);
+        }
+    }
+
+    renderDnsLogs(logs) {
+        const tbody = document.getElementById('dns-logs-table');
+        if (!logs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucun log DNS</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = logs.map(log => `
+            <tr>
+                <td>${this.formatDate(log.timestamp)}</td>
+                <td>${this.escapeHtml(log.clientIp)}</td>
+                <td>${this.escapeHtml(log.domain)}</td>
+                <td><span class="status-badge ${log.action === 1 ? 'offline' : 'online'}">${log.action === 1 ? 'Bloque' : 'Autorise'}</span></td>
+                <td>${this.escapeHtml(log.blocklistCategory || '-')}</td>
+            </tr>
+        `).join('');
+    }
+
+    async refreshDnsLists() {
+        try {
+            this.showToast({ title: 'DNS', message: 'Mise a jour des listes...', severity: 0 });
+            await this.api('dns/refresh', { method: 'POST' });
+            this.showToast({ title: 'DNS', message: 'Listes mises a jour', severity: 0 });
+            this.loadDns();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    // Packet Sniffer
+    async loadSniffer() {
+        try {
+            const status = await this.api('sniffer/status');
+            this.updateSnifferControls(status.isSniffing);
+            
+            // Start polling if sniffing
+            if (status.isSniffing && !this.snifferInterval) {
+                this.startSnifferPolling();
+            }
+            
+            // Load initial packets
+            this.loadSnifferPackets();
+        } catch (error) {
+            console.error('Error loading sniffer:', error);
+        }
+    }
+
+    async startSniffer() {
+        const filter = {
+            sourceIp: document.getElementById('sniffer-filter-ip').value || null,
+            port: parseInt(document.getElementById('sniffer-filter-port').value) || null,
+            protocol: document.getElementById('sniffer-filter-proto').value || null,
+            direction: document.getElementById('sniffer-filter-direction').value || null
+        };
+
+        try {
+            await this.api('sniffer/start', { method: 'POST', body: JSON.stringify(filter) });
+            this.updateSnifferControls(true);
+            this.startSnifferPolling();
+            this.showToast({ title: 'Sniffer', message: 'Capture demarree', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async stopSniffer() {
+        try {
+            await this.api('sniffer/stop', { method: 'POST' });
+            this.updateSnifferControls(false);
+            if (this.snifferInterval) {
+                clearInterval(this.snifferInterval);
+                this.snifferInterval = null;
+            }
+            this.showToast({ title: 'Sniffer', message: 'Capture arretee', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async clearSnifferPackets() {
+        try {
+            await this.api('sniffer/packets', { method: 'DELETE' });
+            this.loadSnifferPackets();
+        } catch (error) {
+            console.error('Error clearing packets:', error);
+        }
+    }
+
+    updateSnifferControls(isSniffing) {
+        document.getElementById('btn-start-sniffer').style.display = isSniffing ? 'none' : 'inline-block';
+        document.getElementById('btn-stop-sniffer').style.display = isSniffing ? 'inline-block' : 'none';
+        
+        // Disable filters while sniffing
+        document.getElementById('sniffer-filter-ip').disabled = isSniffing;
+        document.getElementById('sniffer-filter-port').disabled = isSniffing;
+        document.getElementById('sniffer-filter-proto').disabled = isSniffing;
+        document.getElementById('sniffer-filter-direction').disabled = isSniffing;
+    }
+
+    startSnifferPolling() {
+        if (this.snifferInterval) clearInterval(this.snifferInterval);
+        this.snifferInterval = setInterval(() => this.loadSnifferPackets(), 1000);
+    }
+
+    async loadSnifferPackets() {
+        try {
+            const packets = await this.api('sniffer/packets?limit=100');
+            this.renderSnifferPackets(packets);
+        } catch (error) {
+            console.error('Error loading packets:', error);
+        }
+    }
+
+    renderSnifferPackets(packets) {
+        const tbody = document.getElementById('sniffer-packets-table');
+        if (!packets.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun paquet capture</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = packets.map(p => `
+            <tr>
+                <td>${new Date(p.timestamp).toLocaleTimeString()}</td>
+                <td>${this.escapeHtml(p.sourceIp || p.sourceMac)}:${p.sourcePort || ''}</td>
+                <td>${this.escapeHtml(p.destinationIp || p.destinationMac)}:${p.destinationPort || ''}</td>
+                <td>${this.escapeHtml(p.protocol)}</td>
+                <td>${p.packetSize} B</td>
+                <td><span class="status-badge ${this.getDirectionClass(p.direction)}">${p.direction}</span></td>
+            </tr>
+        `).join('');
+    }
+
+    getDirectionClass(direction) {
+        switch (direction) {
+            case 'Inbound': return 'online'; // Green
+            case 'Outbound': return 'offline'; // Red/Orange
+            case 'Internal': return 'unknown'; // Grey
+            default: return '';
+        }
     }
 
     // Settings
