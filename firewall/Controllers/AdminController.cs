@@ -14,6 +14,7 @@ public class AdminController : ControllerBase
     private const string InstallPath = "/opt/netguard";
     private const string GitRepoUrl = "https://github.com/ahottois/firewall.git";
     private const string GitApiUrl = "https://api.github.com/repos/ahottois/firewall/commits/master";
+    private const string VersionFile = "/opt/netguard/.version";
 
     public AdminController(ILogger<AdminController> logger, IHttpClientFactory httpClientFactory)
     {
@@ -43,7 +44,7 @@ public class AdminController : ControllerBase
         {
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Add("User-Agent", "NetGuard-Updater");
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(15);
 
             // Get latest commit from GitHub API
             var response = await client.GetAsync(GitApiUrl);
@@ -71,29 +72,20 @@ public class AdminController : ControllerBase
                 });
             }
 
-            // Get local commit hash
-            var localCommitResult = await ExecuteCommandAsync("git", "rev-parse HEAD", workingDirectory: InstallPath);
-            var localCommit = localCommitResult.Output.Trim();
-
-            // Compare commits
+            // Get local version from version file
+            var localCommit = GetLocalCommit();
             var remoteCommit = commitInfo.Sha ?? "";
-            var isUpdateAvailable = !string.IsNullOrEmpty(remoteCommit) && 
-                                    !remoteCommit.StartsWith(localCommit, StringComparison.OrdinalIgnoreCase) &&
-                                    !localCommit.StartsWith(remoteCommit, StringComparison.OrdinalIgnoreCase);
-
-            // If we can't get local commit, check by date
-            if (string.IsNullOrEmpty(localCommit) || localCommitResult.ExitCode != 0)
-            {
-                // Fallback: assume update available if we can't determine
-                isUpdateAvailable = true;
-                localCommit = "unknown";
-            }
+            
+            // Compare commits
+            var isUpdateAvailable = string.IsNullOrEmpty(localCommit) || 
+                                    (!remoteCommit.StartsWith(localCommit, StringComparison.OrdinalIgnoreCase) &&
+                                     !localCommit.StartsWith(remoteCommit, StringComparison.OrdinalIgnoreCase));
 
             return Ok(new UpdateCheckResult
             {
                 Success = true,
                 UpdateAvailable = isUpdateAvailable,
-                LocalCommit = localCommit.Length > 7 ? localCommit[..7] : localCommit,
+                LocalCommit = string.IsNullOrEmpty(localCommit) ? "non installe" : (localCommit.Length > 7 ? localCommit[..7] : localCommit),
                 RemoteCommit = remoteCommit.Length > 7 ? remoteCommit[..7] : remoteCommit,
                 LatestCommitMessage = commitInfo.Commit?.Message?.Split('\n').FirstOrDefault() ?? "No message",
                 LatestCommitDate = commitInfo.Commit?.Author?.Date,
@@ -213,7 +205,7 @@ WantedBy=multi-user.target
             await ExecuteCommandAsync("systemctl", $"disable {ServiceName}");
 
             // Remove service file
-            var removeResult = await ExecuteCommandAsync("rm", $"-f /etc/systemd/system/{ServiceName}.service");
+            await ExecuteCommandAsync("rm", $"-f /etc/systemd/system/{ServiceName}.service");
 
             // Reload systemd
             await ExecuteCommandAsync("systemctl", "daemon-reload");
@@ -237,21 +229,25 @@ WantedBy=multi-user.target
 
         try
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), "netguard-update");
+            var tempDir = Path.Combine(Path.GetTempPath(), $"netguard-update-{DateTime.Now.Ticks}");
 
-            // Clean temp directory
+            // Clean temp directory if exists
             if (Directory.Exists(tempDir))
             {
                 Directory.Delete(tempDir, true);
             }
 
-            // Clone repository
-            _logger.LogInformation("Cloning repository...");
-            var cloneResult = await ExecuteCommandAsync("git", $"clone {GitRepoUrl} {tempDir}", timeoutSeconds: 120);
+            // Clone repository with longer timeout
+            _logger.LogInformation("Cloning repository to {TempDir}...", tempDir);
+            var cloneResult = await ExecuteCommandAsync("git", $"clone --depth 1 {GitRepoUrl} {tempDir}", timeoutSeconds: 180);
             if (cloneResult.ExitCode != 0)
             {
-                return Ok(new { Success = false, Error = "Git clone failed: " + cloneResult.Error });
+                return Ok(new { Success = false, Error = "Git clone failed: " + cloneResult.Error + " " + cloneResult.Output });
             }
+
+            // Get the commit hash before building
+            var commitResult = await ExecuteCommandAsync("git", "rev-parse HEAD", workingDirectory: tempDir, timeoutSeconds: 10);
+            var commitHash = commitResult.Output.Trim();
 
             // Build project
             _logger.LogInformation("Building project...");
@@ -259,7 +255,14 @@ WantedBy=multi-user.target
                 workingDirectory: Path.Combine(tempDir, "firewall"), timeoutSeconds: 300);
             if (buildResult.ExitCode != 0)
             {
-                return Ok(new { Success = false, Error = "Build failed: " + buildResult.Error });
+                return Ok(new { Success = false, Error = "Build failed: " + buildResult.Error + " " + buildResult.Output });
+            }
+
+            // Save version info
+            if (!string.IsNullOrEmpty(commitHash))
+            {
+                await System.IO.File.WriteAllTextAsync(VersionFile, commitHash);
+                _logger.LogInformation("Saved version: {Commit}", commitHash);
             }
 
             // Restart service if installed
@@ -274,7 +277,7 @@ WantedBy=multi-user.target
 
             return Ok(new { 
                 Success = true, 
-                Output = "Update completed successfully. Application will restart." 
+                Output = $"Update completed successfully (commit: {commitHash[..7]}). Application will restart." 
             });
         }
         catch (Exception ex)
@@ -310,6 +313,26 @@ WantedBy=multi-user.target
         return version?.ToString() ?? "1.0.0";
     }
 
+    private string GetLocalCommit()
+    {
+        try
+        {
+            // First try to read from version file
+            if (System.IO.File.Exists(VersionFile))
+            {
+                var commit = System.IO.File.ReadAllText(VersionFile).Trim();
+                if (!string.IsNullOrEmpty(commit))
+                    return commit;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Could not read version file");
+        }
+
+        return string.Empty;
+    }
+
     private async Task<CommandResult> ExecuteCommandAsync(string command, string arguments, 
         string? workingDirectory = null, int timeoutSeconds = 30)
     {
@@ -332,34 +355,39 @@ WantedBy=multi-user.target
                 psi.WorkingDirectory = workingDirectory;
             }
 
+            _logger.LogDebug("Executing: {Command} {Args}", command, arguments);
+
             using var process = new Process { StartInfo = psi };
             process.Start();
 
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
-
-            var completed = await Task.WhenAny(
-                Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync()),
-                Task.Delay(TimeSpan.FromSeconds(timeoutSeconds))
-            );
-
-            if (completed is Task<Task[]>)
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            
+            try
             {
+                var outputTask = process.StandardOutput.ReadToEndAsync(cts.Token);
+                var errorTask = process.StandardError.ReadToEndAsync(cts.Token);
+                
+                await process.WaitForExitAsync(cts.Token);
+                
                 result.Output = await outputTask;
                 result.Error = await errorTask;
                 result.ExitCode = process.ExitCode;
             }
-            else
+            catch (OperationCanceledException)
             {
-                process.Kill();
+                try { process.Kill(true); } catch { }
                 result.ExitCode = -1;
-                result.Error = "Command timed out";
+                result.Error = $"Command timed out after {timeoutSeconds} seconds";
             }
+
+            _logger.LogDebug("Command result: Exit={Exit}, Output={Output}, Error={Error}", 
+                result.ExitCode, result.Output.Length > 100 ? result.Output[..100] + "..." : result.Output, result.Error);
         }
         catch (Exception ex)
         {
             result.ExitCode = -1;
             result.Error = ex.Message;
+            _logger.LogError(ex, "Command execution failed");
         }
 
         return result;
