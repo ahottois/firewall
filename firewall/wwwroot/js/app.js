@@ -235,7 +235,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -422,7 +424,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -609,7 +613,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -796,7 +802,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -983,7 +991,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -1170,7 +1180,9 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -1357,7 +1369,2466 @@ class FirewallApp {
             }
             return {};
         } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
             console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // Real-time Notifications
+    connectNotifications() {
+        if (this.eventSource) this.eventSource.close();
+
+        this.eventSource = new EventSource('/api/notifications/stream');
+
+        this.eventSource.addEventListener('alert', (e) => {
+            const alert = JSON.parse(e.data);
+            this.showToast(alert);
+            this.updateAlertBadge();
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
+        });
+
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
+
+        this.eventSource.onerror = () => {
+            console.log('Notification stream disconnected, reconnecting...');
+            setTimeout(() => this.connectNotifications(), 5000);
+        };
+    }
+
+    // Dashboard
+    async loadDashboard() {
+        try {
+            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
+                this.api('traffic/stats?hours=24'),
+                this.api('alerts?count=10'),
+                this.api('router/mappings'),
+                this.api('system/status')
+            ]);
+
+            this.renderTrafficOverview(trafficStats);
+            this.renderTopThreats(alerts);
+            this.renderFirewallRules(rules);
+            this.renderSystemStatus(systemStatus);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    renderTrafficOverview(stats) {
+        const total = stats.totalPackets || 1;
+        const blocked = stats.suspiciousPackets || 0;
+        const allowed = total - blocked;
+        
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        // Update Charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
+            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        }
+        
+        if (blockedChart) {
+            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
+            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+        }
+
+        // Update Sparkline (Simulated for now based on protocol distribution or random)
+        const sparkline = document.getElementById('traffic-sparkline');
+        if (sparkline) {
+            // Generate some fake bars for visual effect if no historical data
+            let barsHtml = '';
+            for (let i = 0; i < 20; i++) {
+                const height = Math.floor(Math.random() * 80) + 20;
+                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
+            }
+            sparkline.innerHTML = barsHtml;
+        }
+    }
+
+    renderTopThreats(alerts) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        // Filter for high severity or just take top 4
+        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+
+        if (threats.length === 0) {
+            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+            return;
+        }
+
+        container.innerHTML = threats.map(alert => `
+            <div class="threat-item">
+                <div class="threat-info">
+                    <div class="threat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="threat-details">
+                        <h4>${this.escapeHtml(alert.title)}</h4>
+                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            </div>
+        `).join('');
+    }
+
+    renderFirewallRules(rules) {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+            <tr>
+                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
+                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
+                <td>Any</td>
+                <td>${this.escapeHtml(rule.targetIp)}</td>
+                <td>${rule.listenPort}/${rule.protocol}</td>
+                <td class="status-active">Active</td>
+            </tr>
+        `).join('');
+    }
+
+    renderSystemStatus(status) {
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
+    }
+
+    // API Calls
+    async api(endpoint, options = {}) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...options.headers }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            if (!options.suppressErrorLog) {
+                console.error(`API Error (${endpoint}):`, error);
+            }
             throw error;
         }
     }
@@ -2361,7 +4832,7 @@ class FirewallApp {
 
     async loadPiholeStats() {
         try {
-            const stats = await this.api('pihole/summary');
+            const stats = await this.api('pihole/summary', { suppressErrorLog: true });
             document.getElementById('pihole-stats-container').style.display = 'block';
             
             document.getElementById('ph-queries').textContent = this.formatNumber(stats.dns_queries_today);
