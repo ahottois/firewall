@@ -116,15 +116,15 @@ OS=""Linux $(uname -r)""
 
 while true; do
     # Gather stats
-    CPU=$(top -bn1 | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{print 100 - $1}')
-    MEM=$(free | grep Mem | awk '{print $3/$2 * 100.0}')
-    DISK=$(df -h / | tail -1 | awk '{print $5}' | sed 's/%//')
-    IP=$(hostname -I | awk '{print $1}')
+    CPU=$(top -bn1 | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{{print 100 - $1}}')
+    MEM=$(free | grep Mem | awk '{{print $3/$2 * 100.0}}')
+    DISK=$(df -h / | tail -1 | awk '{{print $5}}' | sed 's/%//')
+    IP=$(hostname -I | awk '{{print $1}}')
 
     # Send heartbeat
     curl -s -X POST ""$SERVER_URL/api/agents/heartbeat"" \
         -H ""Content-Type: application/json"" \
-        -d ""{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.0.0\""}""
+        -d ""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.0.0\""}}""
 
     sleep 60
 done
