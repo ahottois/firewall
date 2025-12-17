@@ -983,37 +983,105 @@ body {
     color: var(--accent-primary);
 }
 
+/* Log Viewer */
 .log-viewer {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 15px;
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 0.8rem;
-    line-height: 1.5;
-    max-height: 400px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    color: var(--text-secondary);
-}
-
-.log-viewer::-webkit-scrollbar {
-    width: 8px;
-}
-
-.log-viewer::-webkit-scrollbar-track {
-    background: var(--bg-primary);
-}
-
-.log-viewer::-webkit-scrollbar-thumb {
-    background: var(--border-color);
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 0;
     border-radius: 4px;
+    height: 400px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color);
 }
 
-.log-viewer::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+.log-entry {
+    padding: 4px 8px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    transition: background-color 0.2s;
 }
+
+.log-entry:hover {
+    background-color: #2d2d2d;
+}
+
+.log-entry.error { color: #ff6b6b; }
+.log-entry.warning { color: #feca57; }
+.log-entry.debug { color: #a5b1c2; }
+
+.log-time {
+    color: #54a0ff;
+    white-space: nowrap;
+    margin-right: 8px;
+    min-width: 140px;
+}
+
+.log-separator {
+    color: #666;
+    margin-right: 8px;
+}
+
+.log-message {
+    word-break: break-all;
+}
+
+.log-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.log-detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.log-detail-item.full-width {
+    grid-column: span 2;
+}
+
+.log-detail-item .label {
+    font-weight: bold;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+}
+
+.log-detail-item .value {
+    color: var(--text-primary);
+}
+
+.code-block {
+    background: #1e1e1e;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border: 1px solid var(--border-color);
+}
+
+.code-block.small {
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+.log-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.log-badge.info { background: rgba(84, 160, 255, 0.2); color: #54a0ff; }
+.log-badge.warning { background: rgba(254, 202, 87, 0.2); color: #feca57; }
+.log-badge.error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+.log-badge.debug { background: rgba(165, 177, 194, 0.2); color: #a5b1c2; }
 
 #service-status-card.running {
     border-color: var(--success);

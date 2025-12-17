@@ -701,7 +701,7 @@ class FirewallApp {
         
         document.getElementById('test-result').innerHTML = `<p>${Icons.spinner} Test en cours...</p>`;
         
-        try {
+        try:
             const result = await this.api(`cameras/${id}/test-credentials`, {
                 method: 'POST',
                 body: JSON.stringify({ username, password })
@@ -1126,14 +1126,132 @@ class FirewallApp {
 
     async loadServiceLogs() {
         const logsElement = document.getElementById('service-logs');
-        logsElement.textContent = 'Chargement des logs...';
+        logsElement.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Chargement des logs...</div>';
         
         try {
             const result = await this.api('admin/logs?lines=100');
-            logsElement.textContent = result.logs || result.error || 'Aucun log disponible';
+            
+            if (result.error) {
+                logsElement.innerHTML = `<div class="error-message">Erreur: ${this.escapeHtml(result.error)}</div>`;
+                return;
+            }
+
+            if (!result.logs) {
+                logsElement.innerHTML = '<div class="empty-state">Aucun log disponible</div>';
+                return;
+            }
+
+            // Parse logs
+            const logLines = result.logs.split('\n').filter(line => line.trim());
+            const parsedLogs = logLines.map(line => this.parseLogLine(line));
+
+            // Render logs
+            logsElement.innerHTML = parsedLogs.map((log, index) => `
+                <div class="log-entry ${log.level}" onclick="app.showLogDetails(${index})">
+                    <span class="log-time">${this.escapeHtml(log.timestamp)}</span>
+                    <span class="log-separator">|</span>
+                    <span class="log-message">${this.escapeHtml(log.message)}</span>
+                </div>
+            `).join('');
+            
+            // Store logs for modal access
+            this.currentLogs = parsedLogs;
+            
             logsElement.scrollTop = logsElement.scrollHeight;
         } catch (error) {
-            logsElement.textContent = `Erreur: ${error.message}`;
+            logsElement.innerHTML = `<div class="error-message">Erreur: ${this.escapeHtml(error.message)}</div>`;
+        }
+    }
+
+    parseLogLine(line) {
+        // Regex to parse journalctl output: "Dec 17 16:38:43 hostname process[pid]: message"
+        // Or simpler: "Date Time Hostname Process: Message"
+        // We want to extract Date+Time and Message.
+        
+        // Try to match standard syslog format
+        // Example: Dec 17 16:38:43 homeassistant firewall[213567]: warn: Message...
+        const syslogRegex = /^([A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+\S+\s+([^:]+):\s+(.*)$/;
+        const match = line.match(syslogRegex);
+
+        if (match) {
+            const timestamp = match[1];
+            const processInfo = match[2]; // e.g., firewall[213567]
+            let message = match[3];
+            
+            // Detect level from message if present (e.g., "warn: ...", "error: ...")
+            let level = 'info';
+            if (message.toLowerCase().startsWith('warn:') || message.toLowerCase().startsWith('warning:')) level = 'warning';
+            else if (message.toLowerCase().startsWith('err:') || message.toLowerCase().startsWith('error:')) level = 'error';
+            else if (message.toLowerCase().startsWith('fail:')) level = 'error';
+            else if (message.toLowerCase().startsWith('crit:')) level = 'critical';
+            else if (message.toLowerCase().startsWith('dbug:') || message.toLowerCase().startsWith('debug:')) level = 'debug';
+
+            return {
+                raw: line,
+                timestamp: timestamp,
+                process: processInfo,
+                message: message,
+                level: level
+            };
+        }
+
+        // Fallback for other formats
+        return {
+            raw: line,
+            timestamp: '',
+            process: '',
+            message: line,
+            level: 'info'
+        };
+    }
+
+    showLogDetails(index) {
+        const log = this.currentLogs[index];
+        if (!log) return;
+
+        document.getElementById('modal-title').textContent = 'Details du Log';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="log-details">
+                <div class="log-detail-item">
+                    <span class="label">Date:</span>
+                    <span class="value">${this.escapeHtml(log.timestamp || 'N/A')}</span>
+                </div>
+                <div class="log-detail-item">
+                    <span class="label">Processus:</span>
+                    <span class="value">${this.escapeHtml(log.process || 'N/A')}</span>
+                </div>
+                <div class="log-detail-item">
+                    <span class="label">Niveau:</span>
+                    <span class="value"><span class="log-badge ${log.level}">${log.level.toUpperCase()}</span></span>
+                </div>
+                <div class="log-detail-item full-width">
+                    <span class="label">Message:</span>
+                    <div class="value code-block">${this.escapeHtml(log.message)}</div>
+                </div>
+                <div class="log-detail-item full-width">
+                    <span class="label">Ligne brute:</span>
+                    <div class="value code-block small">${this.escapeHtml(log.raw)}</div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.copyToClipboard('${this.escapeHtml(log.raw).replace(/'/g, "\\'")}')">
+                <i class="fas fa-copy"></i> Copier
+            </button>
+            <button class="btn btn-sm" onclick="app.closeModal()">Fermer</button>
+        `;
+        
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.showToast({ title: 'Copie', message: 'Log copie dans le presse-papier', severity: 0 });
+        } catch (err) {
+            console.error('Failed to copy:', err);
+            this.showToast({ title: 'Erreur', message: 'Impossible de copier', severity: 2 });
         }
     }
 
