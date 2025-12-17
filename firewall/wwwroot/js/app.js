@@ -48,12 +48,15 @@ class FirewallApp {
         this.scanLogSource = null;
         this.currentCameraId = null;
         this.currentSnapshot = null;
+        this.currentDevices = [];
+        this.sortDirection = {};
         this.init();
     }
 
     init() {
         this.setupNavigation();
         this.setupEventListeners();
+        this.setupSorting();
         this.connectNotifications();
         this.loadDashboard();
         this.startAutoRefresh();
@@ -136,6 +139,58 @@ class FirewallApp {
         document.getElementById('camera-modal').addEventListener('click', (e) => {
             if (e.target.id === 'camera-modal') this.closeCameraModal();
         });
+    }
+
+    setupSorting() {
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.dataset.sort;
+                this.sortDevices(column);
+            });
+        });
+    }
+
+    sortDevices(column) {
+        // Toggle sort direction
+        this.sortDirection[column] = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
+        const direction = this.sortDirection[column];
+
+        // Update icons
+        document.querySelectorAll('.sortable i').forEach(icon => icon.className = 'fas fa-sort');
+        const activeHeader = document.querySelector(`.sortable[data-sort="${column}"] i`);
+        if (activeHeader) {
+            activeHeader.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+        }
+
+        // Sort data
+        this.currentDevices.sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+
+            // Handle specific columns
+            if (column === 'ip') {
+                // Simple IP sort (can be improved for numeric sort)
+                valA = valA || '';
+                valB = valB || '';
+            } else if (column === 'lastSeen') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            } else if (column === 'status') {
+                // Sort by status enum value
+                valA = valA || 0;
+                valB = valB || 0;
+            } else {
+                // String sort
+                valA = (valA || '').toString().toLowerCase();
+                valB = (valB || '').toString().toLowerCase();
+            }
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        this.renderDevicesTable(this.currentDevices);
     }
 
     // API Calls
@@ -312,6 +367,7 @@ class FirewallApp {
                 default: devices = await this.api('devices');
             }
 
+            this.currentDevices = devices;
             this.renderDevicesTable(devices);
         } catch (error) {
             console.error('Error loading devices:', error);
