@@ -1,5 +1,42 @@
 // Network Firewall Monitor - Frontend Application
 
+// Icon mapping - Font Awesome classes
+const Icons = {
+    shield: '<i class="fas fa-shield-alt"></i>',
+    dashboard: '<i class="fas fa-chart-line"></i>',
+    laptop: '<i class="fas fa-laptop"></i>',
+    video: '<i class="fas fa-video"></i>',
+    bell: '<i class="fas fa-bell"></i>',
+    network: '<i class="fas fa-network-wired"></i>',
+    settings: '<i class="fas fa-cog"></i>',
+    search: '<i class="fas fa-search"></i>',
+    check: '<i class="fas fa-check"></i>',
+    times: '<i class="fas fa-times"></i>',
+    eye: '<i class="fas fa-eye"></i>',
+    sync: '<i class="fas fa-sync"></i>',
+    download: '<i class="fas fa-download"></i>',
+    upload: '<i class="fas fa-upload"></i>',
+    plus: '<i class="fas fa-plus"></i>',
+    lock: '<i class="fas fa-lock"></i>',
+    unlock: '<i class="fas fa-unlock"></i>',
+    warning: '<i class="fas fa-exclamation-triangle"></i>',
+    danger: '<i class="fas fa-exclamation-circle"></i>',
+    info: '<i class="fas fa-info-circle"></i>',
+    online: '<i class="fas fa-circle" style="color: #00ff88;"></i>',
+    offline: '<i class="fas fa-circle" style="color: #ff4757;"></i>',
+    unknown: '<i class="fas fa-question-circle"></i>',
+    newDevice: '<i class="fas fa-plus-circle"></i>',
+    portScan: '<i class="fas fa-search"></i>',
+    arpSpoof: '<i class="fas fa-user-secret"></i>',
+    traffic: '<i class="fas fa-chart-bar"></i>',
+    box: '<i class="fas fa-box"></i>',
+    calendar: '<i class="fas fa-calendar"></i>',
+    clock: '<i class="fas fa-clock"></i>',
+    key: '<i class="fas fa-key"></i>',
+    checkCircle: '<i class="fas fa-check-circle" style="color: #00ff88;"></i>',
+    timesCircle: '<i class="fas fa-times-circle" style="color: #ff4757;"></i>'
+};
+
 class FirewallApp {
     constructor() {
         this.currentPage = 'dashboard';
@@ -49,11 +86,11 @@ class FirewallApp {
         // Update title
         const titles = {
             dashboard: 'Dashboard',
-            devices: 'Appareils Réseau',
-            cameras: 'Caméras Réseau',
+            devices: 'Appareils Reseau',
+            cameras: 'Cameras Reseau',
             alerts: 'Alertes',
-            traffic: 'Trafic Réseau',
-            settings: 'Paramètres'
+            traffic: 'Trafic Reseau',
+            settings: 'Parametres'
         };
         document.getElementById('page-title').textContent = titles[page] || page;
 
@@ -63,24 +100,12 @@ class FirewallApp {
 
     loadPageData(page) {
         switch (page) {
-            case 'dashboard':
-                this.loadDashboard();
-                break;
-            case 'devices':
-                this.loadDevices();
-                break;
-            case 'cameras':
-                this.loadCameras();
-                break;
-            case 'alerts':
-                this.loadAlerts();
-                break;
-            case 'traffic':
-                this.loadTraffic();
-                break;
-            case 'settings':
-                this.loadSettings();
-                break;
+            case 'dashboard': this.loadDashboard(); break;
+            case 'devices': this.loadDevices(); break;
+            case 'cameras': this.loadCameras(); break;
+            case 'alerts': this.loadAlerts(); break;
+            case 'traffic': this.loadTraffic(); break;
+            case 'settings': this.loadSettings(); break;
         }
     }
 
@@ -117,10 +142,7 @@ class FirewallApp {
         try {
             const response = await fetch(`/api/${endpoint}`, {
                 ...options,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                }
+                headers: { 'Content-Type': 'application/json', ...options.headers }
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return await response.json();
@@ -132,9 +154,7 @@ class FirewallApp {
 
     // Real-time Notifications
     connectNotifications() {
-        if (this.eventSource) {
-            this.eventSource.close();
-        }
+        if (this.eventSource) this.eventSource.close();
 
         this.eventSource = new EventSource('/api/notifications/stream');
 
@@ -142,16 +162,11 @@ class FirewallApp {
             const alert = JSON.parse(e.data);
             this.showToast(alert);
             this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') {
-                this.loadDashboard();
-            } else if (this.currentPage === 'alerts') {
-                this.loadAlerts();
-            }
+            if (this.currentPage === 'dashboard') this.loadDashboard();
+            else if (this.currentPage === 'alerts') this.loadAlerts();
         });
 
-        this.eventSource.addEventListener('connected', () => {
-            console.log('Connected to notification stream');
-        });
+        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
 
         this.eventSource.onerror = () => {
             console.log('Notification stream disconnected, reconnecting...');
@@ -221,7 +236,7 @@ class FirewallApp {
     renderRecentAlerts(alerts) {
         const container = document.getElementById('recent-alerts');
         if (!alerts.length) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">?</div><p>Aucune alerte récente</p></div>';
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${Icons.checkCircle}</div><p>Aucune alerte recente</p></div>`;
             return;
         }
 
@@ -239,7 +254,7 @@ class FirewallApp {
     renderUnknownDevices(devices) {
         const container = document.getElementById('unknown-devices-list');
         if (!devices.length) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">?</div><p>Tous les appareils sont connus</p></div>';
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${Icons.checkCircle}</div><p>Tous les appareils sont connus</p></div>`;
             return;
         }
 
@@ -247,9 +262,9 @@ class FirewallApp {
             <div class="device-item">
                 <div class="device-info">
                     <div class="device-mac">${this.escapeHtml(device.macAddress)}</div>
-                    <div class="device-ip">${this.escapeHtml(device.ipAddress || 'N/A')} • ${this.escapeHtml(device.vendor || 'Unknown')}</div>
+                    <div class="device-ip">${this.escapeHtml(device.ipAddress || 'N/A')} - ${this.escapeHtml(device.vendor || 'Unknown')}</div>
                 </div>
-                <button class="btn btn-sm btn-success" onclick="app.trustDevice(${device.id})">Approuver</button>
+                <button class="btn btn-sm btn-success" onclick="app.trustDevice(${device.id})">${Icons.check} Approuver</button>
             </div>
         `).join('');
     }
@@ -257,22 +272,10 @@ class FirewallApp {
     renderTrafficStats(stats) {
         const container = document.getElementById('traffic-stats');
         container.innerHTML = `
-            <div class="stat-item">
-                <div class="stat-label">Paquets Total</div>
-                <div class="stat-value">${this.formatNumber(stats.totalPackets)}</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Données</div>
-                <div class="stat-value">${this.formatBytes(stats.totalBytes)}</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Appareils Uniques</div>
-                <div class="stat-value">${stats.uniqueDevices}</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Suspects</div>
-                <div class="stat-value">${stats.suspiciousPackets}</div>
-            </div>
+            <div class="stat-item"><div class="stat-label">Paquets Total</div><div class="stat-value">${this.formatNumber(stats.totalPackets)}</div></div>
+            <div class="stat-item"><div class="stat-label">Donnees</div><div class="stat-value">${this.formatBytes(stats.totalBytes)}</div></div>
+            <div class="stat-item"><div class="stat-label">Appareils Uniques</div><div class="stat-value">${stats.uniqueDevices}</div></div>
+            <div class="stat-item"><div class="stat-label">Suspects</div><div class="stat-value">${stats.suspiciousPackets}</div></div>
         `;
     }
 
@@ -281,14 +284,9 @@ class FirewallApp {
         try {
             let devices;
             switch (filter) {
-                case 'online':
-                    devices = await this.api('devices/online');
-                    break;
-                case 'unknown':
-                    devices = await this.api('devices/unknown');
-                    break;
-                default:
-                    devices = await this.api('devices');
+                case 'online': devices = await this.api('devices/online'); break;
+                case 'unknown': devices = await this.api('devices/unknown'); break;
+                default: devices = await this.api('devices');
             }
 
             this.renderDevicesTable(devices);
@@ -300,7 +298,7 @@ class FirewallApp {
     renderDevicesTable(devices) {
         const tbody = document.getElementById('devices-table');
         if (!devices.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil trouvé</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil trouve</td></tr>';
             return;
         }
 
@@ -314,9 +312,9 @@ class FirewallApp {
                 <td>${this.formatDate(device.lastSeen)}</td>
                 <td>
                     <div class="alert-actions">
-                        ${!device.isKnown ? `<button class="btn btn-sm btn-success" onclick="app.trustDevice(${device.id})">?</button>` : ''}
-                        <button class="btn btn-sm" onclick="app.showDeviceDetails(${device.id})">??</button>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})">?</button>
+                        ${!device.isKnown ? `<button class="btn btn-sm btn-success" onclick="app.trustDevice(${device.id})">${Icons.check}</button>` : ''}
+                        <button class="btn btn-sm" onclick="app.showDeviceDetails(${device.id})">${Icons.eye}</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})">${Icons.times}</button>
                     </div>
                 </td>
             </tr>
@@ -325,11 +323,8 @@ class FirewallApp {
 
     async trustDevice(id) {
         try {
-            await this.api(`devices/${id}/trust`, {
-                method: 'POST',
-                body: JSON.stringify({ trusted: true })
-            });
-            this.showToast({ title: 'Appareil approuvé', severity: 0 });
+            await this.api(`devices/${id}/trust`, { method: 'POST', body: JSON.stringify({ trusted: true }) });
+            this.showToast({ title: 'Appareil approuve', severity: 0 });
             this.loadPageData(this.currentPage);
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
@@ -348,38 +343,18 @@ class FirewallApp {
 
     async showDeviceDetails(id) {
         const device = await this.api(`devices/${id}`);
-        document.getElementById('modal-title').textContent = 'Détails Appareil';
+        document.getElementById('modal-title').textContent = 'Details Appareil';
         document.getElementById('modal-body').innerHTML = `
             <div class="settings-info">
-                <div class="settings-item">
-                    <div class="settings-label">MAC Address</div>
-                    <div class="settings-value"><code>${this.escapeHtml(device.macAddress)}</code></div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">IP Address</div>
-                    <div class="settings-value">${this.escapeHtml(device.ipAddress || 'N/A')}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Fabricant</div>
-                    <div class="settings-value">${this.escapeHtml(device.vendor || 'Unknown')}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Première Vue</div>
-                    <div class="settings-value">${this.formatDate(device.firstSeen)}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Dernière Vue</div>
-                    <div class="settings-value">${this.formatDate(device.lastSeen)}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Status</div>
-                    <div class="settings-value">${device.isKnown ? '? Connu' : '?? Inconnu'} ${device.isTrusted ? '• ?? Approuvé' : ''}</div>
-                </div>
+                <div class="settings-item"><div class="settings-label">MAC Address</div><div class="settings-value"><code>${this.escapeHtml(device.macAddress)}</code></div></div>
+                <div class="settings-item"><div class="settings-label">IP Address</div><div class="settings-value">${this.escapeHtml(device.ipAddress || 'N/A')}</div></div>
+                <div class="settings-item"><div class="settings-label">Fabricant</div><div class="settings-value">${this.escapeHtml(device.vendor || 'Unknown')}</div></div>
+                <div class="settings-item"><div class="settings-label">Premiere Vue</div><div class="settings-value">${this.formatDate(device.firstSeen)}</div></div>
+                <div class="settings-item"><div class="settings-label">Derniere Vue</div><div class="settings-value">${this.formatDate(device.lastSeen)}</div></div>
+                <div class="settings-item"><div class="settings-label">Status</div><div class="settings-value">${device.isKnown ? Icons.checkCircle + ' Connu' : Icons.warning + ' Inconnu'} ${device.isTrusted ? '- ' + Icons.lock + ' Approuve' : ''}</div></div>
             </div>
         `;
-        document.getElementById('modal-footer').innerHTML = `
-            <button class="btn btn-sm" onclick="app.closeModal()">Fermer</button>
-        `;
+        document.getElementById('modal-footer').innerHTML = `<button class="btn btn-sm" onclick="app.closeModal()">Fermer</button>`;
         document.getElementById('modal').classList.add('active');
     }
 
@@ -402,9 +377,9 @@ class FirewallApp {
             console.error('Error loading cameras:', error);
             document.getElementById('cameras-grid').innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">??</div>
-                    <p>Aucune caméra détectée</p>
-                    <button class="btn btn-primary" onclick="app.scanCameras()">Scanner les caméras</button>
+                    <div class="empty-state-icon">${Icons.video}</div>
+                    <p>Aucune camera detectee</p>
+                    <button class="btn btn-primary" onclick="app.scanCameras()">${Icons.search} Scanner les cameras</button>
                 </div>
             `;
         }
@@ -416,9 +391,9 @@ class FirewallApp {
         if (!cameras.length) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">??</div>
-                    <p>Aucune caméra détectée</p>
-                    <p style="font-size: 0.85rem; color: var(--text-secondary)">Cliquez sur "Scanner les caméras" pour rechercher des caméras sur votre réseau</p>
+                    <div class="empty-state-icon">${Icons.video}</div>
+                    <p>Aucune camera detectee</p>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary)">Cliquez sur "Scanner les cameras" pour rechercher des cameras sur votre reseau</p>
                 </div>
             `;
             return;
@@ -428,7 +403,7 @@ class FirewallApp {
             <div class="camera-card ${this.getCameraCardClass(camera)}">
                 <div class="camera-preview" onclick="app.viewCamera(${camera.id})">
                     <div class="camera-preview-placeholder">
-                        <span>??</span>
+                        ${Icons.video}
                         <p>Cliquez pour visualiser</p>
                     </div>
                     <div class="camera-status-overlay">
@@ -438,21 +413,21 @@ class FirewallApp {
                 </div>
                 <div class="camera-info">
                     <div class="camera-name">
-                        ${camera.manufacturer || 'Caméra'} ${camera.model || ''}
+                        ${camera.manufacturer || 'Camera'} ${camera.model || ''}
                     </div>
                     <div class="camera-address">${camera.ipAddress}:${camera.port}</div>
                     <div class="camera-meta">
-                        <span>?? ${this.formatDate(camera.firstDetected)}</span>
-                        <span>?? ${this.formatDate(camera.lastChecked)}</span>
+                        <span>${Icons.calendar} ${this.formatDate(camera.firstDetected)}</span>
+                        <span>${Icons.sync} ${this.formatDate(camera.lastChecked)}</span>
                     </div>
                     <div class="camera-password-status ${this.getPasswordStatusClass(camera.passwordStatus)}">
                         ${this.getPasswordStatusText(camera)}
                     </div>
                     <div class="camera-actions">
-                        <button class="btn btn-sm btn-primary" onclick="app.viewCamera(${camera.id})">?? Voir</button>
-                        <button class="btn btn-sm" onclick="app.checkCamera(${camera.id})">?? Vérifier</button>
-                        <button class="btn btn-sm" onclick="app.testCameraCredentials(${camera.id})">?? Tester</button>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteCamera(${camera.id})">?</button>
+                        <button class="btn btn-sm btn-primary" onclick="app.viewCamera(${camera.id})">${Icons.eye} Voir</button>
+                        <button class="btn btn-sm" onclick="app.checkCamera(${camera.id})">${Icons.sync} Verifier</button>
+                        <button class="btn btn-sm" onclick="app.testCameraCredentials(${camera.id})">${Icons.key} Tester</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteCamera(${camera.id})">${Icons.times}</button>
                     </div>
                 </div>
             </div>
@@ -467,40 +442,33 @@ class FirewallApp {
 
     getCameraStatusBadge(camera) {
         const statusMap = {
-            0: '<span class="camera-status-badge">? Inconnu</span>',
-            1: '<span class="camera-status-badge online">?? En ligne</span>',
-            2: '<span class="camera-status-badge offline">?? Hors ligne</span>',
-            3: '<span class="camera-status-badge online">? Authentifié</span>',
-            4: '<span class="camera-status-badge">?? Auth requise</span>'
+            0: `<span class="camera-status-badge">${Icons.unknown} Inconnu</span>`,
+            1: `<span class="camera-status-badge online">${Icons.online} En ligne</span>`,
+            2: `<span class="camera-status-badge offline">${Icons.offline} Hors ligne</span>`,
+            3: `<span class="camera-status-badge online">${Icons.check} Authentifie</span>`,
+            4: `<span class="camera-status-badge">${Icons.lock} Auth requise</span>`
         };
         return statusMap[camera.status] || '';
     }
 
     getPasswordStatusBadge(camera) {
-        if (camera.passwordStatus === 1) {
-            return '<span class="camera-status-badge vulnerable">?? MDP DÉFAUT</span>';
-        }
-        if (camera.passwordStatus === 3) {
-            return '<span class="camera-status-badge vulnerable">?? SANS MDP</span>';
-        }
-        if (camera.passwordStatus === 2) {
-            return '<span class="camera-status-badge secured">?? Sécurisée</span>';
-        }
+        if (camera.passwordStatus === 1) return `<span class="camera-status-badge vulnerable">${Icons.warning} MDP DEFAUT</span>`;
+        if (camera.passwordStatus === 3) return `<span class="camera-status-badge vulnerable">${Icons.unlock} SANS MDP</span>`;
+        if (camera.passwordStatus === 2) return `<span class="camera-status-badge secured">${Icons.lock} Securisee</span>`;
         return '';
     }
 
     getPasswordStatusClass(status) {
-        const classes = { 0: 'unknown', 1: 'default', 2: 'custom', 3: 'nopassword', 4: 'unknown' };
-        return classes[status] || 'unknown';
+        return { 0: 'unknown', 1: 'default', 2: 'custom', 3: 'nopassword', 4: 'unknown' }[status] || 'unknown';
     }
 
     getPasswordStatusText(camera) {
         const texts = {
-            0: '? Status mot de passe inconnu',
-            1: `?? MOT DE PASSE PAR DÉFAUT DÉTECTÉ! (${camera.detectedCredentials || 'admin:admin'})`,
-            2: '? Mot de passe personnalisé',
-            3: '?? AUCUN MOT DE PASSE!',
-            4: '?? Mot de passe requis'
+            0: `${Icons.unknown} Status mot de passe inconnu`,
+            1: `${Icons.warning} MOT DE PASSE PAR DEFAUT DETECTE! (${camera.detectedCredentials || 'admin:admin'})`,
+            2: `${Icons.checkCircle} Mot de passe personnalise`,
+            3: `${Icons.unlock} AUCUN MOT DE PASSE!`,
+            4: `${Icons.lock} Mot de passe requis`
         };
         return texts[camera.passwordStatus] || 'Inconnu';
     }
@@ -508,15 +476,15 @@ class FirewallApp {
     async scanCameras() {
         try {
             document.getElementById('scan-cameras-btn').disabled = true;
-            document.getElementById('scan-cameras-btn').innerHTML = '<span>?</span> Scan en cours...';
+            document.getElementById('scan-cameras-btn').innerHTML = `<i class="fas fa-spinner fa-spin"></i> Scan en cours...`;
             
-            this.showToast({ title: 'Scan des caméras', message: 'Recherche en cours, cela peut prendre plusieurs minutes...', severity: 0 });
+            this.showToast({ title: 'Scan des cameras', message: 'Recherche en cours, cela peut prendre plusieurs minutes...', severity: 0 });
             
             const cameras = await this.api('cameras/scan', { method: 'POST' });
             
             this.showToast({ 
-                title: 'Scan terminé', 
-                message: `${cameras.length} caméra(s) détectée(s)`, 
+                title: 'Scan termine', 
+                message: `${cameras.length} camera(s) detectee(s)`, 
                 severity: cameras.some(c => c.passwordStatus === 1 || c.passwordStatus === 3) ? 3 : 0 
             });
             
@@ -525,7 +493,7 @@ class FirewallApp {
             this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         } finally {
             document.getElementById('scan-cameras-btn').disabled = false;
-            document.getElementById('scan-cameras-btn').innerHTML = '<span>??</span> Scanner les caméras';
+            document.getElementById('scan-cameras-btn').innerHTML = `${Icons.search} Scanner les cameras`;
         }
     }
 
@@ -533,41 +501,16 @@ class FirewallApp {
         this.currentCameraId = id;
         const camera = await this.api(`cameras/${id}`);
         
-        document.getElementById('camera-modal-title').textContent = `${camera.manufacturer || 'Caméra'} - ${camera.ipAddress}`;
-        document.getElementById('camera-feed').innerHTML = `
-            <div class="camera-placeholder">
-                <span>?</span>
-                <p>Chargement du snapshot...</p>
-            </div>
-        `;
+        document.getElementById('camera-modal-title').textContent = `${camera.manufacturer || 'Camera'} - ${camera.ipAddress}`;
+        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder"><i class="fas fa-spinner fa-spin fa-3x"></i><p>Chargement du snapshot...</p></div>`;
         
         document.getElementById('camera-details').innerHTML = `
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">Adresse IP</div>
-                <div class="camera-detail-value">${camera.ipAddress}:${camera.port}</div>
-            </div>
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">Fabricant</div>
-                <div class="camera-detail-value">${camera.manufacturer || 'Inconnu'}</div>
-            </div>
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">Status Mot de Passe</div>
-                <div class="camera-detail-value ${camera.passwordStatus === 1 || camera.passwordStatus === 3 ? 'danger' : camera.passwordStatus === 2 ? 'success' : ''}>
-                    ${this.getPasswordStatusText(camera)}
-                </div>
-            </div>
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">Identifiants Détectés</div>
-                <div class="camera-detail-value ${camera.passwordStatus === 1 ? 'danger' : ''}">${camera.detectedCredentials || 'Aucun'}</div>
-            </div>
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">URL Stream</div>
-                <div class="camera-detail-value" style="font-size: 0.8rem; word-break: break-all;">${camera.streamUrl || 'Non disponible'}</div>
-            </div>
-            <div class="camera-detail-item">
-                <div class="camera-detail-label">Première Détection</div>
-                <div class="camera-detail-value">${this.formatDate(camera.firstDetected)}</div>
-            </div>
+            <div class="camera-detail-item"><div class="camera-detail-label">Adresse IP</div><div class="camera-detail-value">${camera.ipAddress}:${camera.port}</div></div>
+            <div class="camera-detail-item"><div class="camera-detail-label">Fabricant</div><div class="camera-detail-value">${camera.manufacturer || 'Inconnu'}</div></div>
+            <div class="camera-detail-item"><div class="camera-detail-label">Status Mot de Passe</div><div class="camera-detail-value ${camera.passwordStatus === 1 || camera.passwordStatus === 3 ? 'danger' : camera.passwordStatus === 2 ? 'success' : ''}">${this.getPasswordStatusText(camera)}</div></div>
+            <div class="camera-detail-item"><div class="camera-detail-label">Identifiants Detectes</div><div class="camera-detail-value ${camera.passwordStatus === 1 ? 'danger' : ''}">${camera.detectedCredentials || 'Aucun'}</div></div>
+            <div class="camera-detail-item"><div class="camera-detail-label">URL Stream</div><div class="camera-detail-value" style="font-size: 0.8rem; word-break: break-all;">${camera.streamUrl || 'Non disponible'}</div></div>
+            <div class="camera-detail-item"><div class="camera-detail-label">Premiere Detection</div><div class="camera-detail-value">${this.formatDate(camera.firstDetected)}</div></div>
         `;
         
         document.getElementById('camera-modal').classList.add('active');
@@ -579,40 +522,26 @@ class FirewallApp {
     async refreshCameraSnapshot() {
         if (!this.currentCameraId) return;
         
-        document.getElementById('camera-feed').innerHTML = `
-            <div class="camera-placeholder">
-                <span>?</span>
-                <p>Chargement...</p>
-            </div>
-        `;
+        document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder"><i class="fas fa-spinner fa-spin fa-3x"></i><p>Chargement...</p></div>`;
         
         try {
             const result = await this.api(`cameras/${this.currentCameraId}/snapshot`);
             if (result.image) {
                 this.currentSnapshot = result.image;
-                document.getElementById('camera-feed').innerHTML = `
-                    <img src="data:image/jpeg;base64,${result.image}" alt="Camera snapshot">
-                `;
+                document.getElementById('camera-feed').innerHTML = `<img src="data:image/jpeg;base64,${result.image}" alt="Camera snapshot">`;
             } else {
                 throw new Error('No image');
             }
         } catch (error) {
-            document.getElementById('camera-feed').innerHTML = `
-                <div class="camera-placeholder">
-                    <span>??</span>
-                    <p>Impossible de charger l'image</p>
-                    <p style="font-size: 0.8rem;">La caméra peut nécessiter une authentification ou être hors ligne</p>
-                </div>
-            `;
+            document.getElementById('camera-feed').innerHTML = `<div class="camera-placeholder">${Icons.video}<p>Impossible de charger l'image</p><p style="font-size: 0.8rem;">La camera peut necessiter une authentification ou etre hors ligne</p></div>`;
         }
     }
 
     downloadSnapshot() {
         if (!this.currentSnapshot) {
-            this.showToast({ title: 'Erreur', message: 'Aucune image à télécharger', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Aucune image a telecharger', severity: 2 });
             return;
         }
-        
         const link = document.createElement('a');
         link.href = `data:image/jpeg;base64,${this.currentSnapshot}`;
         link.download = `camera_${this.currentCameraId}_${Date.now()}.jpg`;
@@ -627,7 +556,7 @@ class FirewallApp {
 
     async checkCamera(id) {
         try {
-            this.showToast({ title: 'Vérification', message: 'Vérification de la caméra en cours...', severity: 0 });
+            this.showToast({ title: 'Verification', message: 'Verification de la camera en cours...', severity: 0 });
             await this.api(`cameras/${id}/check`, { method: 'POST' });
             this.loadCameras();
         } catch (error) {
@@ -641,21 +570,15 @@ class FirewallApp {
         document.getElementById('modal-title').textContent = 'Tester les identifiants';
         document.getElementById('modal-body').innerHTML = `
             <div class="add-camera-form">
-                <p>Tester des identifiants personnalisés pour la caméra ${camera.ipAddress}:${camera.port}</p>
-                <div class="form-group">
-                    <label>Nom d'utilisateur</label>
-                    <input type="text" id="test-username" value="admin" placeholder="admin">
-                </div>
-                <div class="form-group">
-                    <label>Mot de passe</label>
-                    <input type="password" id="test-password" placeholder="Mot de passe">
-                </div>
+                <p>Tester des identifiants personnalises pour la camera ${camera.ipAddress}:${camera.port}</p>
+                <div class="form-group"><label>Nom d'utilisateur</label><input type="text" id="test-username" value="admin" placeholder="admin"></div>
+                <div class="form-group"><label>Mot de passe</label><input type="password" id="test-password" placeholder="Mot de passe"></div>
                 <div id="test-result"></div>
             </div>
         `;
         document.getElementById('modal-footer').innerHTML = `
             <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
-            <button class="btn btn-primary" onclick="app.doTestCredentials(${id})">Tester</button>
+            <button class="btn btn-primary" onclick="app.doTestCredentials(${id})">${Icons.key} Tester</button>
         `;
         document.getElementById('modal').classList.add('active');
     }
@@ -664,7 +587,7 @@ class FirewallApp {
         const username = document.getElementById('test-username').value;
         const password = document.getElementById('test-password').value;
         
-        document.getElementById('test-result').innerHTML = '<p>Test en cours...</p>';
+        document.getElementById('test-result').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Test en cours...</p>';
         
         try {
             const result = await this.api(`cameras/${id}/test-credentials`, {
@@ -672,48 +595,28 @@ class FirewallApp {
                 body: JSON.stringify({ username, password })
             });
             
-            if (result.success) {
-                document.getElementById('test-result').innerHTML = `
-                    <div class="camera-password-status custom">
-                        ? Identifiants valides!
-                    </div>
-                `;
-            } else {
-                document.getElementById('test-result').innerHTML = `
-                    <div class="camera-password-status default">
-                        ? Identifiants invalides
-                    </div>
-                `;
-            }
+            document.getElementById('test-result').innerHTML = result.success 
+                ? `<div class="camera-password-status custom">${Icons.checkCircle} Identifiants valides!</div>`
+                : `<div class="camera-password-status default">${Icons.timesCircle} Identifiants invalides</div>`;
         } catch (error) {
-            document.getElementById('test-result').innerHTML = `
-                <div class="camera-password-status default">
-                    ? Erreur: ${error.message}
-                </div>
-            `;
+            document.getElementById('test-result').innerHTML = `<div class="camera-password-status default">${Icons.timesCircle} Erreur: ${error.message}</div>`;
         }
     }
 
     showAddCameraModal() {
-        document.getElementById('modal-title').textContent = 'Ajouter une caméra manuellement';
+        document.getElementById('modal-title').textContent = 'Ajouter une camera manuellement';
         document.getElementById('modal-body').innerHTML = `
             <div class="add-camera-form">
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Adresse IP</label>
-                        <input type="text" id="add-camera-ip" placeholder="192.168.1.100">
-                    </div>
-                    <div class="form-group">
-                        <label>Port</label>
-                        <input type="number" id="add-camera-port" value="80" placeholder="80">
-                    </div>
+                    <div class="form-group"><label>Adresse IP</label><input type="text" id="add-camera-ip" placeholder="192.168.1.100"></div>
+                    <div class="form-group"><label>Port</label><input type="number" id="add-camera-port" value="80" placeholder="80"></div>
                 </div>
                 <div id="add-camera-result"></div>
             </div>
         `;
         document.getElementById('modal-footer').innerHTML = `
             <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
-            <button class="btn btn-primary" onclick="app.doAddCamera()">Vérifier et ajouter</button>
+            <button class="btn btn-primary" onclick="app.doAddCamera()">${Icons.search} Verifier et ajouter</button>
         `;
         document.getElementById('modal').classList.add('active');
     }
@@ -727,7 +630,7 @@ class FirewallApp {
             return;
         }
         
-        document.getElementById('add-camera-result').innerHTML = '<p>Vérification en cours...</p>';
+        document.getElementById('add-camera-result').innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> Verification en cours...</p>';
         
         try {
             const camera = await this.api('cameras/check', {
@@ -737,26 +640,19 @@ class FirewallApp {
             
             document.getElementById('add-camera-result').innerHTML = `
                 <div class="camera-password-status ${camera.passwordStatus === 1 ? 'default' : 'custom'}">
-                    ? Caméra ajoutée: ${camera.manufacturer || 'Inconnue'}<br>
+                    ${Icons.checkCircle} Camera ajoutee: ${camera.manufacturer || 'Inconnue'}<br>
                     ${this.getPasswordStatusText(camera)}
                 </div>
             `;
             
-            setTimeout(() => {
-                this.closeModal();
-                this.loadCameras();
-            }, 2000);
+            setTimeout(() => { this.closeModal(); this.loadCameras(); }, 2000);
         } catch (error) {
-            document.getElementById('add-camera-result').innerHTML = `
-                <div class="camera-password-status default">
-                    ? Aucune caméra détectée à cette adresse
-                </div>
-            `;
+            document.getElementById('add-camera-result').innerHTML = `<div class="camera-password-status default">${Icons.timesCircle} Aucune camera detectee a cette adresse</div>`;
         }
     }
 
     async deleteCamera(id) {
-        if (!confirm('Supprimer cette caméra ?')) return;
+        if (!confirm('Supprimer cette camera ?')) return;
         try {
             await this.api(`cameras/${id}`, { method: 'DELETE' });
             this.loadCameras();
@@ -778,24 +674,20 @@ class FirewallApp {
     renderAlertsList(alerts) {
         const container = document.getElementById('alerts-list');
         if (!alerts.length) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">?</div><p>Aucune alerte</p></div>';
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${Icons.checkCircle}</div><p>Aucune alerte</p></div>`;
             return;
         }
 
         container.innerHTML = alerts.map(alert => `
             <div class="alert-item ${this.getSeverityClass(alert.severity)} ${alert.isRead ? '' : 'unread'}">
                 <div class="alert-content">
-                    <div class="alert-title">${this.getAlertTypeEmoji(alert.type)} ${this.escapeHtml(alert.title)}</div>
+                    <div class="alert-title">${this.getAlertTypeIcon(alert.type)} ${this.escapeHtml(alert.title)}</div>
                     <div class="alert-message">${this.escapeHtml(alert.message)}</div>
-                    <div class="alert-time">
-                        ${this.formatDate(alert.timestamp)}
-                        ${alert.sourceIp ? ` • Source: ${this.escapeHtml(alert.sourceIp)}` : ''}
-                        ${alert.protocol ? ` • ${this.escapeHtml(alert.protocol)}` : ''}
-                    </div>
+                    <div class="alert-time">${this.formatDate(alert.timestamp)}${alert.sourceIp ? ` - Source: ${this.escapeHtml(alert.sourceIp)}` : ''}${alert.protocol ? ` - ${this.escapeHtml(alert.protocol)}` : ''}</div>
                 </div>
                 <div class="alert-actions">
-                    ${!alert.isRead ? `<button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})">? Lu</button>` : ''}
-                    ${!alert.isResolved ? `<button class="btn btn-sm btn-success" onclick="app.resolveAlert(${alert.id})">Résolu</button>` : ''}
+                    ${!alert.isRead ? `<button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})">${Icons.check} Lu</button>` : ''}
+                    ${!alert.isResolved ? `<button class="btn btn-sm btn-success" onclick="app.resolveAlert(${alert.id})">Resolu</button>` : ''}
                 </div>
             </div>
         `).join('');
@@ -854,12 +746,10 @@ class FirewallApp {
         container.innerHTML = Object.entries(protocols).map(([name, count]) => `
             <div class="protocol-item">
                 <span>${this.escapeHtml(name)}</span>
-                <div class="protocol-bar">
-                    <div class="protocol-bar-fill" style="width: ${(count / total) * 100}%"></div>
-                </div>
+                <div class="protocol-bar"><div class="protocol-bar-fill" style="width: ${(count / total) * 100}%"></div></div>
                 <span>${this.formatNumber(count)}</span>
             </div>
-        `).join('') || '<div class="empty-state">Aucune donnée de protocole</div>';
+        `).join('') || '<div class="empty-state">Aucune donnee de protocole</div>';
     }
 
     // Settings
@@ -871,22 +761,10 @@ class FirewallApp {
             ]);
 
             document.getElementById('system-info').innerHTML = `
-                <div class="settings-item">
-                    <div class="settings-label">Status Capture</div>
-                    <div class="settings-value">${status.isCapturing ? '?? Active' : '?? Inactive'}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Interface</div>
-                    <div class="settings-value">${this.escapeHtml(status.currentInterface || 'Non sélectionnée')}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Version</div>
-                    <div class="settings-value">${status.version}</div>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-label">Heure Serveur</div>
-                    <div class="settings-value">${this.formatDate(status.serverTime)}</div>
-                </div>
+                <div class="settings-item"><div class="settings-label">Status Capture</div><div class="settings-value">${status.isCapturing ? Icons.online + ' Active' : Icons.offline + ' Inactive'}</div></div>
+                <div class="settings-item"><div class="settings-label">Interface</div><div class="settings-value">${this.escapeHtml(status.currentInterface || 'Non selectionnee')}</div></div>
+                <div class="settings-item"><div class="settings-label">Version</div><div class="settings-value">${status.version}</div></div>
+                <div class="settings-item"><div class="settings-label">Heure Serveur</div><div class="settings-value">${this.formatDate(status.serverTime)}</div></div>
             `;
 
             document.getElementById('interfaces-list').innerHTML = interfaces.map(iface => `
@@ -908,20 +786,17 @@ class FirewallApp {
     async scanNetwork() {
         try {
             document.getElementById('scan-btn').disabled = true;
-            document.getElementById('scan-btn').innerHTML = '<span>?</span> Scan en cours...';
+            document.getElementById('scan-btn').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scan en cours...';
             
             await this.api('system/scan', { method: 'POST' });
+            this.showToast({ title: 'Scan reseau', message: 'Scan initie avec succes', severity: 0 });
             
-            this.showToast({ title: 'Scan réseau', message: 'Scan initié avec succès', severity: 0 });
-            
-            setTimeout(() => {
-                this.loadPageData(this.currentPage);
-            }, 5000);
+            setTimeout(() => this.loadPageData(this.currentPage), 5000);
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         } finally {
             document.getElementById('scan-btn').disabled = false;
-            document.getElementById('scan-btn').innerHTML = '<span>??</span> Scanner le réseau';
+            document.getElementById('scan-btn').innerHTML = `${Icons.search} Scanner le reseau`;
         }
     }
 
@@ -931,15 +806,11 @@ class FirewallApp {
         const toast = document.createElement('div');
         toast.className = `toast ${this.getSeverityClass(alert.severity)}`;
         toast.innerHTML = `
-            <div class="toast-title">${this.getAlertTypeEmoji(alert.type)} ${this.escapeHtml(alert.title)}</div>
+            <div class="toast-title">${this.getAlertTypeIcon(alert.type)} ${this.escapeHtml(alert.title)}</div>
             <div class="toast-message">${this.escapeHtml(alert.message || '')}</div>
         `;
         container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, 5000);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 5000);
     }
 
     // Modal
@@ -949,43 +820,29 @@ class FirewallApp {
 
     // Auto Refresh
     startAutoRefresh() {
-        setInterval(() => {
-            if (this.currentPage === 'dashboard') {
-                this.loadDashboard();
-            }
-        }, 30000);
+        setInterval(() => { if (this.currentPage === 'dashboard') this.loadDashboard(); }, 30000);
     }
 
     // Helpers
     getSeverityClass(severity) {
-        const classes = ['info', 'low', 'medium', 'high', 'critical'];
-        return classes[severity] || 'info';
+        return ['info', 'low', 'medium', 'high', 'critical'][severity] || 'info';
     }
 
     getStatusClass(status) {
-        const classes = ['unknown', 'online', 'offline', 'blocked'];
-        return classes[status] || 'unknown';
+        return ['unknown', 'online', 'offline', 'blocked'][status] || 'unknown';
     }
 
     getStatusText(status) {
-        const texts = ['Inconnu', 'En ligne', 'Hors ligne', 'Bloqué'];
-        return texts[status] || 'Inconnu';
+        return ['Inconnu', 'En ligne', 'Hors ligne', 'Bloque'][status] || 'Inconnu';
     }
 
-    getAlertTypeEmoji(type) {
-        const emojis = {
-            0: '??', // NewDevice
-            1: '?', // UnknownDevice
-            2: '??', // SuspiciousTraffic
-            3: '??', // PortScan
-            4: '??', // ArpSpoofing
-            5: '??', // DnsAnomaly
-            6: '??', // HighTrafficVolume
-            7: '??', // MalformedPacket
-            8: '??', // UnauthorizedAccess
-            9: '??'  // ManInTheMiddle
+    getAlertTypeIcon(type) {
+        const icons = {
+            0: Icons.newDevice, 1: Icons.unknown, 2: Icons.warning, 3: Icons.portScan,
+            4: Icons.arpSpoof, 5: Icons.network, 6: Icons.traffic, 7: Icons.danger,
+            8: Icons.lock, 9: Icons.arpSpoof
         };
-        return emojis[type] || '??';
+        return icons[type] || Icons.bell;
     }
 
     formatDate(dateStr) {
@@ -994,17 +851,11 @@ class FirewallApp {
         const now = new Date();
         const diff = now - date;
         
-        if (diff < 60000) return 'À l\'instant';
+        if (diff < 60000) return 'A l\'instant';
         if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
         if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)} h`;
         
-        return date.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
     formatNumber(num) {

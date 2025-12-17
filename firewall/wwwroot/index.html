@@ -2,42 +2,45 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Firewall Monitor</title>
     <link rel="stylesheet" href="css/style.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
     <nav class="sidebar">
         <div class="logo">
-            <span class="logo-icon">???</span>
+            <span class="logo-icon"><i class="fas fa-shield-alt"></i></span>
             <span>NetGuard</span>
         </div>
         <ul class="nav-menu">
             <li class="nav-item active" data-page="dashboard">
-                <span class="nav-icon">??</span>
+                <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
                 <span>Dashboard</span>
             </li>
             <li class="nav-item" data-page="devices">
-                <span class="nav-icon">??</span>
+                <span class="nav-icon"><i class="fas fa-laptop"></i></span>
                 <span>Appareils</span>
             </li>
             <li class="nav-item" data-page="cameras">
-                <span class="nav-icon">??</span>
-                <span>Caméras</span>
+                <span class="nav-icon"><i class="fas fa-video"></i></span>
+                <span>Cameras</span>
                 <span class="badge warning-badge" id="camera-badge" style="display:none;">0</span>
             </li>
             <li class="nav-item" data-page="alerts">
-                <span class="nav-icon">??</span>
+                <span class="nav-icon"><i class="fas fa-bell"></i></span>
                 <span>Alertes</span>
                 <span class="badge" id="alert-badge">0</span>
             </li>
             <li class="nav-item" data-page="traffic">
-                <span class="nav-icon">??</span>
+                <span class="nav-icon"><i class="fas fa-network-wired"></i></span>
                 <span>Trafic</span>
             </li>
             <li class="nav-item" data-page="settings">
-                <span class="nav-icon">??</span>
-                <span>Paramètres</span>
+                <span class="nav-icon"><i class="fas fa-cog"></i></span>
+                <span>Parametres</span>
             </li>
         </ul>
         <div class="status-indicator">
@@ -51,10 +54,10 @@
             <h1 id="page-title">Dashboard</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="scan-btn">
-                    <span>??</span> Scanner le réseau
+                    <i class="fas fa-search"></i> Scanner le reseau
                 </button>
                 <div class="notification-bell" id="notification-bell">
-                    ??
+                    <i class="fas fa-bell"></i>
                     <span class="notification-count" id="notification-count">0</span>
                 </div>
             </div>
@@ -64,28 +67,28 @@
         <section id="dashboard-page" class="page active">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-laptop"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-devices">0</span>
                         <span class="stat-label">Appareils Total</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon" style="color: #00ff88;"><i class="fas fa-circle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="online-devices">0</span>
                         <span class="stat-label">En Ligne</span>
                     </div>
                 </div>
                 <div class="stat-card warning">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="unknown-devices">0</span>
                         <span class="stat-label">Inconnus</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="unread-alerts">0</span>
                         <span class="stat-label">Alertes Non Lues</span>
@@ -95,17 +98,17 @@
 
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-video"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-cameras">0</span>
-                        <span class="stat-label">Caméras Détectées</span>
+                        <span class="stat-label">Cameras Detectees</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-unlock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="vulnerable-cameras">0</span>
-                        <span class="stat-label">Caméras Vulnérables</span>
+                        <span class="stat-label">Cameras Vulnerables</span>
                     </div>
                 </div>
             </div>
@@ -113,8 +116,8 @@
             <div class="dashboard-grid">
                 <div class="card">
                     <div class="card-header">
-                        <h3>Alertes Récentes</h3>
-                        <a href="#" class="view-all" data-page="alerts">Voir tout ?</a>
+                        <h3>Alertes Recentes</h3>
+                        <a href="#" class="view-all" data-page="alerts">Voir tout <i class="fas fa-arrow-right"></i></a>
                     </div>
                     <div class="card-body">
                         <div id="recent-alerts" class="alert-list"></div>
@@ -124,7 +127,7 @@
                 <div class="card">
                     <div class="card-header">
                         <h3>Appareils Inconnus</h3>
-                        <a href="#" class="view-all" data-page="devices">Voir tout ?</a>
+                        <a href="#" class="view-all" data-page="devices">Voir tout <i class="fas fa-arrow-right"></i></a>
                     </div>
                     <div class="card-body">
                         <div id="unknown-devices-list" class="device-list"></div>
@@ -162,7 +165,7 @@
                                 <th>IP</th>
                                 <th>Fabricant</th>
                                 <th>Description</th>
-                                <th>Dernière Activité</th>
+                                <th>Derniere Activite</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -176,44 +179,44 @@
         <section id="cameras-page" class="page">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-video"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-total">0</span>
-                        <span class="stat-label">Total Caméras</span>
+                        <span class="stat-label">Total Cameras</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon" style="color: #00ff88;"><i class="fas fa-circle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-online">0</span>
                         <span class="stat-label">En Ligne</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-unlock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-vulnerable">0</span>
-                        <span class="stat-label">Mot de passe par défaut</span>
+                        <span class="stat-label">Mot de passe par defaut</span>
                     </div>
                 </div>
                 <div class="stat-card warning">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-lock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-secured">0</span>
-                        <span class="stat-label">Sécurisées</span>
+                        <span class="stat-label">Securisees</span>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Gestion des Caméras</h3>
+                    <h3>Gestion des Cameras</h3>
                     <div class="header-actions">
                         <button class="btn btn-primary" id="scan-cameras-btn">
-                            <span>??</span> Scanner les caméras
+                            <i class="fas fa-search"></i> Scanner les cameras
                         </button>
                         <button class="btn btn-sm" id="add-camera-btn">
-                            <span>?</span> Ajouter manuellement
+                            <i class="fas fa-plus"></i> Ajouter manuellement
                         </button>
                     </div>
                 </div>
@@ -240,28 +243,28 @@
         <section id="traffic-page" class="page">
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-box"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-packets">0</span>
                         <span class="stat-label">Paquets Total</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-download"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="inbound-packets">0</span>
                         <span class="stat-label">Entrants</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-upload"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="outbound-packets">0</span>
                         <span class="stat-label">Sortants</span>
                     </div>
                 </div>
                 <div class="stat-card warning">
-                    <div class="stat-icon">??</div>
+                    <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="suspicious-packets">0</span>
                         <span class="stat-label">Suspects</span>
@@ -283,7 +286,7 @@
         <section id="settings-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3>Informations Système</h3>
+                    <h3>Informations Systeme</h3>
                 </div>
                 <div class="card-body">
                     <div id="system-info" class="settings-info"></div>
@@ -292,7 +295,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Interfaces Réseau</h3>
+                    <h3>Interfaces Reseau</h3>
                 </div>
                 <div class="card-body">
                     <div id="interfaces-list" class="interfaces-list"></div>
@@ -320,20 +323,20 @@
     <div id="camera-modal" class="modal camera-modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3 id="camera-modal-title">Visualisation Caméra</h3>
+                <h3 id="camera-modal-title">Visualisation Camera</h3>
                 <button class="modal-close" onclick="app.closeCameraModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="camera-viewer">
                     <div class="camera-feed" id="camera-feed">
                         <div class="camera-placeholder">
-                            <span>??</span>
+                            <i class="fas fa-video fa-3x"></i>
                             <p>Chargement...</p>
                         </div>
                     </div>
                     <div class="camera-controls">
-                        <button class="btn btn-sm" onclick="app.refreshCameraSnapshot()">?? Rafraîchir</button>
-                        <button class="btn btn-sm" onclick="app.downloadSnapshot()">?? Télécharger</button>
+                        <button class="btn btn-sm" onclick="app.refreshCameraSnapshot()"><i class="fas fa-sync"></i> Rafraichir</button>
+                        <button class="btn btn-sm" onclick="app.downloadSnapshot()"><i class="fas fa-download"></i> Telecharger</button>
                     </div>
                 </div>
                 <div class="camera-details" id="camera-details"></div>
