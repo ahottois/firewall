@@ -96,7 +96,7 @@ class FirewallApp {
             cameras: 'Cameras Reseau',
             alerts: 'Alertes',
             traffic: 'Trafic Reseau',
-            dns: 'DNS Shield',
+            pihole: 'Pi-hole Manager',
             sniffer: 'Packet Sniffer',
             router: 'Routeur / NAT',
             settings: 'Parametres',
@@ -121,7 +121,7 @@ class FirewallApp {
             case 'cameras': this.loadCameras(); break;
             case 'alerts': this.loadAlerts(); break;
             case 'traffic': this.loadTraffic(); break;
-            case 'dns': this.loadDns(); break;
+            case 'pihole': this.loadPihole(); break;
             case 'sniffer': this.loadSniffer(); break;
             case 'router': this.loadRouter(); break;
             case 'settings': this.loadSettings(); break;
@@ -163,7 +163,7 @@ class FirewallApp {
         });
     }
 
-    sortDevices(column) {
+    sortDevices(column = 'id') {
         // Toggle sort direction
         this.sortDirection[column] = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
         const direction = this.sortDirection[column];
@@ -988,68 +988,124 @@ class FirewallApp {
         `).join('') || '<div class="empty-state">Aucune donnee de protocole</div>';
     }
 
-    // DNS Shield
-    async loadDns() {
+    // Pi-hole Manager
+    async loadPihole() {
         try {
-            const [stats, logs] = await Promise.all([
-                this.api('dns/stats'),
-                this.api('dns/logs?count=50')
-            ]);
-
-            document.getElementById('dns-blocked-total').textContent = this.formatNumber(stats.totalBlockedDomains);
-            document.getElementById('dns-lists-count').textContent = stats.settings.blocklists.filter(b => b.enabled).length;
-
-            // Render category stats
-            const chartContainer = document.getElementById('dns-stats-chart');
-            const total = Object.values(stats.categoryStats).reduce((a, b) => a + b, 0) || 1;
+            const status = await this.api('pihole/status');
             
-            chartContainer.innerHTML = Object.entries(stats.categoryStats).map(([name, count]) => `
-                <div class="protocol-item">
-                    <span>${this.escapeHtml(name)}</span>
-                    <div class="protocol-bar"><div class="protocol-bar-fill" style="width: ${(count / total) * 100}%"></div></div>
-                    <span>${this.formatNumber(count)}</span>
-                </div>
-            `).join('') || '<div class="empty-state">Aucune donnee</div>';
-
-            this.renderDnsLogs(logs);
+            const statusCard = document.getElementById('pihole-status-card');
+            const statusText = document.getElementById('pihole-status-text');
+            const versionText = document.getElementById('pihole-version');
+            
+            versionText.textContent = status.version || '-';
+            
+            // Reset classes
+            statusCard.className = 'stat-card';
+            
+            const btnInstall = document.getElementById('btn-install-pihole');
+            const btnOpen = document.getElementById('btn-open-pihole');
+            const btnPwd = document.getElementById('btn-reset-pihole-pwd');
+            const btnUninstall = document.getElementById('btn-uninstall-pihole');
+            
+            if (!status.isInstalled) {
+                statusText.textContent = 'Non installe';
+                statusCard.classList.add('not-installed');
+                
+                btnInstall.style.display = 'inline-block';
+                btnOpen.style.display = 'none';
+                btnPwd.style.display = 'none';
+                btnUninstall.style.display = 'none';
+            } else {
+                if (status.isRunning) {
+                    statusText.textContent = 'Actif';
+                    statusCard.classList.add('running'); // Green border style needed
+                    statusCard.style.borderColor = 'var(--success)';
+                } else {
+                    statusText.textContent = 'Arrete / Erreur';
+                    statusCard.classList.add('offline');
+                }
+                
+                btnInstall.style.display = 'none';
+                btnOpen.style.display = 'inline-block';
+                btnOpen.href = status.webUrl || '/admin/';
+                btnPwd.style.display = 'inline-block';
+                btnUninstall.style.display = 'inline-block';
+            }
+            
+            // Load logs if installing
+            this.loadPiholeLogs();
+            
         } catch (error) {
-            console.error('Error loading DNS data:', error);
+            console.error('Error loading Pi-hole status:', error);
         }
     }
 
-    async loadDnsLogs() {
+    async installPihole() {
+        if (!confirm('Installer Pi-hole ? Cela va telecharger et executer le script d\'installation officiel.')) return;
+        
         try {
-            const logs = await this.api('dns/logs?count=50');
-            this.renderDnsLogs(logs);
+            await this.api('pihole/install', { method: 'POST' });
+            this.showToast({ title: 'Installation', message: 'Installation demarree...', severity: 0 });
+            
+            document.getElementById('pihole-install-logs').style.display = 'block';
+            this.piholeLogInterval = setInterval(() => this.loadPiholeLogs(), 2000);
         } catch (error) {
-            console.error('Error loading DNS logs:', error);
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 
-    renderDnsLogs(logs) {
-        const tbody = document.getElementById('dns-logs-table');
-        if (!logs.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucun log DNS</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = logs.map(log => `
-            <tr>
-                <td>${this.formatDate(log.timestamp)}</td>
-                <td>${this.escapeHtml(log.clientIp)}</td>
-                <td>${this.escapeHtml(log.domain)}</td>
-                <td><span class="status-badge ${log.action === 1 ? 'offline' : 'online'}">${log.action === 1 ? 'Bloque' : 'Autorise'}</span></td>
-                <td>${this.escapeHtml(log.blocklistCategory || '-')}</td>
-            </tr>
-        `).join('');
-    }
-
-    async refreshDnsLists() {
+    async uninstallPihole() {
+        if (!confirm('Desinstaller Pi-hole ?')) return;
+        
         try {
-            this.showToast({ title: 'DNS', message: 'Mise a jour des listes...', severity: 0 });
-            await this.api('dns/refresh', { method: 'POST' });
-            this.showToast({ title: 'DNS', message: 'Listes mises a jour', severity: 0 });
-            this.loadDns();
+            await this.api('pihole/uninstall', { method: 'POST' });
+            this.showToast({ title: 'Desinstallation', message: 'Desinstallation demarree...', severity: 0 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async loadPiholeLogs() {
+        try {
+            const result = await this.api('pihole/logs');
+            const logsDiv = document.getElementById('pihole-install-logs');
+            if (result.logs) {
+                logsDiv.style.display = 'block';
+                logsDiv.textContent = result.logs;
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+        } catch (error) {
+            console.error('Error loading logs:', error);
+        }
+    }
+
+    showPiholePasswordModal() {
+        document.getElementById('modal-title').textContent = 'Changer le mot de passe Pi-hole';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="new-pihole-pwd" class="form-control">
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.setPiholePassword()">${Icons.check} Valider</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async setPiholePassword() {
+        const pwd = document.getElementById('new-pihole-pwd').value;
+        if (!pwd) return;
+        
+        try {
+            await this.api('pihole/password', { 
+                method: 'POST', 
+                body: JSON.stringify({ password: pwd }) 
+            });
+            this.showToast({ title: 'Succes', message: 'Mot de passe mis a jour', severity: 0 });
+            this.closeModal();
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }

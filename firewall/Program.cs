@@ -45,10 +45,8 @@ builder.Services.AddSingleton<IScanLogService, ScanLogService>();
 builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceService>();
 builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
 
-// DNS Services
-builder.Services.AddSingleton<IDnsBlocklistService, DnsBlocklistService>();
-builder.Services.AddSingleton<DnsServerService>(); // Register as singleton for controller access
-builder.Services.AddHostedService<DnsServerService>(provider => provider.GetRequiredService<DnsServerService>());
+// Pi-hole Services
+builder.Services.AddSingleton<IPiholeService, PiholeService>();
 
 // Router Services
 builder.Services.AddSingleton<PortMappingService>();

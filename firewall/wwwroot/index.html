@@ -35,12 +35,12 @@
                 <span class="badge" id="alert-badge">0</span>
             </li>
             <li class="nav-item" data-page="traffic">
-                <span class="nav-icon"><i class="fas fa-network-wired"></i></span>
-                <span>Trafic</span>
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span>Trafic R&eacute;seau</span>
             </li>
-            <li class="nav-item" data-page="dns">
-                <span class="nav-icon"><i class="fas fa-shield-virus"></i></span>
-                <span>DNS Shield</span>
+            <li class="nav-item" data-page="pihole">
+                <span class="nav-icon"><i class="fas fa-shield-alt"></i></span>
+                <span>Pi-hole Manager</span>
             </li>
             <li class="nav-item" data-page="sniffer">
                 <span class="nav-icon"><i class="fas fa-microscope"></i></span>
@@ -326,59 +326,46 @@
             </div>
         </section>
 
-        <!-- DNS Page -->
-        <section id="dns-page" class="page">
+        <!-- Pi-hole Page -->
+        <section id="pihole-page" class="page">
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-ban"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="dns-blocked-total">0</span>
-                        <span class="stat-label">Domaines Bloqu&eacute;s</span>
+                <div class="stat-card" id="pihole-status-card">
+                    <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
+                    <div>
+                        <span class="stat-value" id="pihole-status-text">Inconnu</span>
+                        <span class="stat-label">Status Pi-hole</span>
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-list"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="dns-lists-count">0</span>
-                        <span class="stat-label">Listes Actives</span>
+                    <div class="stat-icon"><i class="fas fa-code-branch"></i></div>
+                    <div>
+                        <span class="stat-value" id="pihole-version">-</span>
+                        <span class="stat-label">Version</span>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-shield-alt"></i> Contr&ocirc;le DNS</h3>
-                    <div class="header-actions">
-                        <button class="btn btn-primary" onclick="app.refreshDnsLists()">
-                            <i class="fas fa-sync"></i> Mettre &agrave; jour les listes
+                    <h3><i class="fas fa-cogs"></i> Gestion Pi-hole</h3>
+                </div>
+                <div class="card-body">
+                    <div id="pihole-actions" class="admin-buttons">
+                        <button class="btn btn-primary" id="btn-install-pihole" onclick="app.installPihole()">
+                            <i class="fas fa-download"></i> Installer Pi-hole
+                        </button>
+                        <a href="#" target="_blank" class="btn btn-success" id="btn-open-pihole" style="display:none;">
+                            <i class="fas fa-external-link-alt"></i> Ouvrir Interface Web
+                        </a>
+                        <button class="btn btn-warning" id="btn-reset-pihole-pwd" onclick="app.showPiholePasswordModal()" style="display:none;">
+                            <i class="fas fa-key"></i> Changer Mot de Passe
+                        </button>
+                        <button class="btn btn-danger" id="btn-uninstall-pihole" onclick="app.uninstallPihole()" style="display:none;">
+                            <i class="fas fa-trash"></i> D&eacute;sinstaller
                         </button>
                     </div>
-                </div>
-                <div class="card-body">
-                    <div id="dns-stats-chart" class="protocols-grid"></div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h3>Logs DNS R&eacute;cents</h3>
-                    <button class="btn btn-sm" onclick="app.loadDnsLogs()">
-                        <i class="fas fa-sync"></i> Rafra&icirc;chir
-                    </button>
-                </div>
-                <div class="card-body">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Heure</th>
-                                <th>Client</th>
-                                <th>Domaine</th>
-                                <th>Action</th>
-                                <th>Cat&eacute;gorie</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dns-logs-table"></tbody>
-                    </table>
+                    
+                    <div id="pihole-install-logs" class="code-block" style="margin-top: 20px; display: none; max-height: 300px; overflow-y: auto;"></div>
                 </div>
             </div>
         </section>

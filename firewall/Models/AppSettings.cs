@@ -20,7 +20,6 @@ public class AppSettings
     public int PortScanTimeWindowSeconds { get; set; } = 60;
     public int PortScanThreshold { get; set; } = 20;
 
-    public DnsSettings Dns { get; set; } = new();
     public RouterSettings Router { get; set; } = new();
 }
 
@@ -38,26 +37,5 @@ public class PortMappingRule
     public string TargetIp { get; set; } = string.Empty;
     public int TargetPort { get; set; }
     public string Protocol { get; set; } = "TCP"; // TCP, UDP
-    public bool Enabled { get; set; } = true;
-}
-
-public class DnsSettings
-{
-    public bool Enabled { get; set; } = false;
-    public int Port { get; set; } = 53;
-    public string UpstreamDns { get; set; } = "8.8.8.8";
-    public List<BlocklistSource> Blocklists { get; set; } = new()
-    {
-        new() { Name = "Ads & Trackers", Url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", Category = "Ads" },
-        new() { Name = "Malware", Url = "https://urlhaus.abuse.ch/downloads/hostfile/", Category = "Malware" },
-        new() { Name = "Adult", Url = "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn/hosts", Category = "Adult" }
-    };
-}
-
-public class BlocklistSource
-{
-    public string Name { get; set; } = string.Empty;
-    public string Url { get; set; } = string.Empty;
-    public string Category { get; set; } = "General";
     public bool Enabled { get; set; } = true;
 }
