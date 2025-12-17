@@ -34,6 +34,7 @@ builder.Services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>()
 builder.Services.AddSingleton<IAnomalyDetectionService, AnomalyDetectionService>();
 builder.Services.AddSingleton<IBandwidthMonitorService, BandwidthMonitorService>();
 builder.Services.AddSingleton<INetworkMonitoringService, NetworkMonitoringService>();
+builder.Services.AddSingleton<ITrafficLoggingService, TrafficLoggingService>();
 builder.Services.AddSingleton<ICameraDetectionService, CameraDetectionService>();
 builder.Services.AddSingleton<IScanSessionService, ScanSessionService>();
 
