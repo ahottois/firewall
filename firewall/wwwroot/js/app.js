@@ -1074,6 +1074,23 @@ class FirewallApp {
             document.getElementById('ph-blocked').textContent = this.formatNumber(stats.ads_blocked_today);
             document.getElementById('ph-percent').textContent = stats.ads_percentage_today.toFixed(1) + '%';
             document.getElementById('ph-domains').textContent = this.formatNumber(stats.domains_being_blocked);
+            
+            // New Stats
+            document.getElementById('ph-clients').textContent = stats.unique_clients;
+            document.getElementById('ph-reply-ip').textContent = this.formatNumber(stats.reply_IP);
+            document.getElementById('ph-reply-nx').textContent = this.formatNumber(stats.reply_NXDOMAIN);
+            
+            if (stats.gravity_last_updated && stats.gravity_last_updated.relative) {
+                const rel = stats.gravity_last_updated.relative;
+                let timeStr = '';
+                if (rel.days > 0) timeStr += `${rel.days}j `;
+                if (rel.hours > 0) timeStr += `${rel.hours}h `;
+                timeStr += `${rel.minutes}m`;
+                document.getElementById('ph-gravity').textContent = timeStr || 'A l\'instant';
+            } else {
+                document.getElementById('ph-gravity').textContent = 'Inconnu';
+            }
+
         } catch (error) {
             console.error('Error loading Pi-hole stats:', error);
             document.getElementById('pihole-stats-container').style.display = 'none';

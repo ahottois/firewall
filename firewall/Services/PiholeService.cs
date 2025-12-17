@@ -39,6 +39,51 @@ public class PiholeSummary
 
     [JsonPropertyName("unique_clients")]
     public int UniqueClients { get; set; }
+
+    [JsonPropertyName("dns_queries_all_types")]
+    public long DnsQueriesAllTypes { get; set; }
+
+    [JsonPropertyName("reply_NODATA")]
+    public long ReplyNodata { get; set; }
+
+    [JsonPropertyName("reply_NXDOMAIN")]
+    public long ReplyNxdomain { get; set; }
+
+    [JsonPropertyName("reply_CNAME")]
+    public long ReplyCname { get; set; }
+
+    [JsonPropertyName("reply_IP")]
+    public long ReplyIp { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("gravity_last_updated")]
+    public GravityInfo? GravityLastUpdated { get; set; }
+}
+
+public class GravityInfo
+{
+    [JsonPropertyName("file_exists")]
+    public bool FileExists { get; set; }
+
+    [JsonPropertyName("absolute")]
+    public long Absolute { get; set; }
+
+    [JsonPropertyName("relative")]
+    public GravityRelative? Relative { get; set; }
+}
+
+public class GravityRelative
+{
+    [JsonPropertyName("days")]
+    public int Days { get; set; }
+
+    [JsonPropertyName("hours")]
+    public int Hours { get; set; }
+
+    [JsonPropertyName("minutes")]
+    public int Minutes { get; set; }
 }
 
 public class PiholeService : IPiholeService

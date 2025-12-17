@@ -347,6 +347,7 @@
 
             <!-- Pi-hole Stats (Hidden if not installed) -->
             <div id="pihole-stats-container" style="display: none;">
+                <h3 class="section-title"><i class="fas fa-chart-pie"></i> Statistiques Globales</h3>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="color: var(--accent-primary);"><i class="fas fa-globe"></i></div>
@@ -374,6 +375,38 @@
                         <div>
                             <span class="stat-value" id="ph-domains">0</span>
                             <span class="stat-label">Domaines en Liste Noire</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="section-title" style="margin-top: 20px;"><i class="fas fa-info-circle"></i> D&eacute;tails &amp; Status</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-users"></i></div>
+                        <div>
+                            <span class="stat-value" id="ph-clients">0</span>
+                            <span class="stat-label">Clients Uniques</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-database"></i></div>
+                        <div>
+                            <span class="stat-value" id="ph-gravity">Jamais</span>
+                            <span class="stat-label">Mise &agrave; jour Gravity</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-reply"></i></div>
+                        <div>
+                            <span class="stat-value" id="ph-reply-ip">0</span>
+                            <span class="stat-label">R&eacute;ponses IP</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                        <div>
+                            <span class="stat-value" id="ph-reply-nx">0</span>
+                            <span class="stat-label">NXDOMAIN</span>
                         </div>
                     </div>
                 </div>
