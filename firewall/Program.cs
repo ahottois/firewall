@@ -24,16 +24,21 @@ builder.Services.AddScoped<IAlertRepository, AlertRepository>();
 builder.Services.AddScoped<ITrafficLogRepository, TrafficLogRepository>();
 builder.Services.AddScoped<ICameraRepository, CameraRepository>();
 
-// HTTP Client Factory for camera detection
+// HTTP Client Factory for camera detection and threat intelligence
 builder.Services.AddHttpClient();
 
-// Services (Singleton pour maintenir l'état)
+// Services (Singleton pour maintenir l'etat)
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IPacketCaptureService, PacketCaptureService>();
 builder.Services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
 builder.Services.AddSingleton<IAnomalyDetectionService, AnomalyDetectionService>();
 builder.Services.AddSingleton<ICameraDetectionService, CameraDetectionService>();
 builder.Services.AddSingleton<ITrafficLoggingService, TrafficLoggingService>();
+
+// Security Services
+builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceService>();
+builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
+builder.Services.AddSingleton<IBandwidthMonitorService, BandwidthMonitorService>();
 
 // Background Service
 builder.Services.AddHostedService<NetworkMonitorService>();
@@ -48,7 +53,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
-// CORS pour le développement
+// CORS pour le developpement
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -73,7 +78,7 @@ app.MapNotificationEndpoints();
 // Fallback pour SPA
 app.MapFallbackToFile("index.html");
 
-// Message de démarrage
+// Message de demarrage
 Console.WriteLine(@"
 =====================================================
     NetGuard - Network Firewall Monitor
@@ -88,6 +93,9 @@ Console.WriteLine(@"
     - Camera Detection & Password Check
     - Live Notifications
     - Traffic Logging
+    - Threat Intelligence
+    - Security Scanning
+    - Bandwidth Monitoring
 
     Note: Run with sudo/admin for packet capture
 

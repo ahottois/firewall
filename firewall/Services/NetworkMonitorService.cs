@@ -14,6 +14,8 @@ public class NetworkMonitorService : BackgroundService
     private readonly IDeviceDiscoveryService _deviceDiscovery;
     private readonly IAnomalyDetectionService _anomalyDetection;
     private readonly ITrafficLoggingService _trafficLogging;
+    private readonly IThreatIntelligenceService _threatIntelligence;
+    private readonly IBandwidthMonitorService _bandwidthMonitor;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AppSettings _settings;
 
@@ -23,6 +25,8 @@ public class NetworkMonitorService : BackgroundService
         IDeviceDiscoveryService deviceDiscovery,
         IAnomalyDetectionService anomalyDetection,
         ITrafficLoggingService trafficLogging,
+        IThreatIntelligenceService threatIntelligence,
+        IBandwidthMonitorService bandwidthMonitor,
         IServiceScopeFactory scopeFactory,
         IOptions<AppSettings> settings)
     {
@@ -31,6 +35,8 @@ public class NetworkMonitorService : BackgroundService
         _deviceDiscovery = deviceDiscovery;
         _anomalyDetection = anomalyDetection;
         _trafficLogging = trafficLogging;
+        _threatIntelligence = threatIntelligence;
+        _bandwidthMonitor = bandwidthMonitor;
         _scopeFactory = scopeFactory;
         _settings = settings.Value;
     }
@@ -49,6 +55,16 @@ public class NetworkMonitorService : BackgroundService
         {
             // Initialize database
             await InitializeDatabaseAsync();
+
+            // Update threat feeds on startup
+            if (_settings.EnableThreatFeeds)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(10000, stoppingToken);
+                    await _threatIntelligence.UpdateThreatFeedsAsync();
+                }, stoppingToken);
+            }
 
             // Start packet capture
             if (_settings.EnablePacketCapture)
@@ -94,6 +110,17 @@ public class NetworkMonitorService : BackgroundService
             // Log traffic (non-blocking, uses queue)
             _trafficLogging.LogPacket(e);
 
+            // Track bandwidth
+            var isInbound = IsInbound(e.DestinationIp);
+            _bandwidthMonitor.RecordTraffic(e.SourceMac, e.SourceIp, e.PacketSize, isInbound);
+
+            // Check threat intelligence for external IPs
+            if (!string.IsNullOrEmpty(e.SourceIp) && !IsLocalIp(e.SourceIp))
+            {
+                var threat = await _threatIntelligence.CheckIpReputationAsync(e.SourceIp);
+                // Alerts are handled by ThreatIntelligenceService
+            }
+
             // Process device discovery
             await _deviceDiscovery.ProcessPacketAsync(e);
 
@@ -104,6 +131,26 @@ public class NetworkMonitorService : BackgroundService
         {
             _logger.LogError(ex, "Error processing packet");
         }
+    }
+
+    private bool IsInbound(string? destinationIp)
+    {
+        if (string.IsNullOrEmpty(destinationIp)) return false;
+        return IsLocalIp(destinationIp);
+    }
+
+    private bool IsLocalIp(string ip)
+    {
+        return ip.StartsWith("192.168.") ||
+               ip.StartsWith("10.") ||
+               ip.StartsWith("172.16.") ||
+               ip.StartsWith("172.17.") ||
+               ip.StartsWith("172.18.") ||
+               ip.StartsWith("172.19.") ||
+               ip.StartsWith("172.2") ||
+               ip.StartsWith("172.30.") ||
+               ip.StartsWith("172.31.") ||
+               ip == "127.0.0.1";
     }
 
     private async void OnUnknownDeviceDetected(object? sender, DeviceDiscoveredEventArgs e)
@@ -152,6 +199,15 @@ public class NetworkMonitorService : BackgroundService
         {
             // Flush pending logs
             await _trafficLogging.FlushAsync();
+
+            // Update threat feeds periodically
+            if (_settings.EnableThreatFeeds)
+            {
+                await _threatIntelligence.UpdateThreatFeedsAsync();
+            }
+
+            // Check bandwidth alerts
+            await _bandwidthMonitor.CheckBandwidthAlertsAsync();
 
             using var scope = _scopeFactory.CreateScope();
             var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();

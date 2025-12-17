@@ -16,4 +16,13 @@ public class AppSettings
     public List<int> SuspiciousPorts { get; set; } = new() { 22, 23, 3389, 445, 135, 139 };
     public int PortScanThreshold { get; set; } = 10;
     public int PortScanTimeWindowSeconds { get; set; } = 60;
+    
+    // Security settings
+    public string? AbuseIpDbApiKey { get; set; }
+    public bool EnableThreatFeeds { get; set; } = true;
+    public int ThreatFeedUpdateIntervalHours { get; set; } = 24;
+    public long HighBandwidthThresholdBytesPerSec { get; set; } = 10_000_000; // 10 MB/s
+    public long DailyBandwidthQuotaBytes { get; set; } = 10_000_000_000; // 10 GB
+    public bool EnableSecurityScanning { get; set; } = true;
+    public bool AutoBlockMaliciousIps { get; set; } = false;
 }

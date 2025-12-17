@@ -36,7 +36,13 @@ public enum AlertType
     HighTrafficVolume,
     MalformedPacket,
     UnauthorizedAccess,
-    ManInTheMiddle
+    ManInTheMiddle,
+    ThreatDetected,
+    SecurityVulnerability,
+    BruteForceAttempt,
+    MalwareDetected,
+    DataExfiltration,
+    PolicyViolation
 }
 
 public enum AlertSeverity
