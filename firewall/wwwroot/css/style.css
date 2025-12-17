@@ -1058,3 +1058,64 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Update Status Styles */
+.update-status {
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.update-status.checking {
+    background: rgba(0, 163, 255, 0.1);
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
+}
+
+.update-status.available {
+    background: rgba(255, 186, 0, 0.1);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+
+.update-status.uptodate {
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid var(--success);
+    color: var(--success);
+}
+
+.update-status.error {
+    background: rgba(255, 71, 87, 0.1);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+}
+
+.update-status code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', monospace;
+}
+
+.update-status small {
+    display: block;
+    margin-top: 8px;
+    opacity: 0.9;
+}
+
+.btn-pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 163, 255, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(0, 163, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 163, 255, 0);
+    }
+}

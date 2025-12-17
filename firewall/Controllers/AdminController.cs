@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace NetworkFirewall.Controllers;
@@ -8,15 +9,16 @@ namespace NetworkFirewall.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly ILogger<AdminController> _logger;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IHttpClientFactory _httpClientFactory;
     private const string ServiceName = "netguard";
     private const string InstallPath = "/opt/netguard";
     private const string GitRepoUrl = "https://github.com/ahottois/firewall.git";
+    private const string GitApiUrl = "https://api.github.com/repos/ahottois/firewall/commits/master";
 
-    public AdminController(ILogger<AdminController> logger, IWebHostEnvironment environment)
+    public AdminController(ILogger<AdminController> logger, IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
-        _environment = environment;
+        _httpClientFactory = httpClientFactory;
     }
 
     [HttpGet("status")]
@@ -32,6 +34,81 @@ public class AdminController : ControllerBase
         };
 
         return Ok(result);
+    }
+
+    [HttpGet("check-update")]
+    public async Task<IActionResult> CheckForUpdate()
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "NetGuard-Updater");
+            client.Timeout = TimeSpan.FromSeconds(10);
+
+            // Get latest commit from GitHub API
+            var response = await client.GetAsync(GitApiUrl);
+            if (!response.IsSuccessStatusCode)
+            {
+                return Ok(new UpdateCheckResult
+                {
+                    Success = false,
+                    Error = $"Failed to check GitHub: {response.StatusCode}"
+                });
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var commitInfo = JsonSerializer.Deserialize<GitHubCommit>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (commitInfo == null)
+            {
+                return Ok(new UpdateCheckResult
+                {
+                    Success = false,
+                    Error = "Failed to parse GitHub response"
+                });
+            }
+
+            // Get local commit hash
+            var localCommitResult = await ExecuteCommandAsync("git", "rev-parse HEAD", workingDirectory: InstallPath);
+            var localCommit = localCommitResult.Output.Trim();
+
+            // Compare commits
+            var remoteCommit = commitInfo.Sha ?? "";
+            var isUpdateAvailable = !string.IsNullOrEmpty(remoteCommit) && 
+                                    !remoteCommit.StartsWith(localCommit, StringComparison.OrdinalIgnoreCase) &&
+                                    !localCommit.StartsWith(remoteCommit, StringComparison.OrdinalIgnoreCase);
+
+            // If we can't get local commit, check by date
+            if (string.IsNullOrEmpty(localCommit) || localCommitResult.ExitCode != 0)
+            {
+                // Fallback: assume update available if we can't determine
+                isUpdateAvailable = true;
+                localCommit = "unknown";
+            }
+
+            return Ok(new UpdateCheckResult
+            {
+                Success = true,
+                UpdateAvailable = isUpdateAvailable,
+                LocalCommit = localCommit.Length > 7 ? localCommit[..7] : localCommit,
+                RemoteCommit = remoteCommit.Length > 7 ? remoteCommit[..7] : remoteCommit,
+                LatestCommitMessage = commitInfo.Commit?.Message?.Split('\n').FirstOrDefault() ?? "No message",
+                LatestCommitDate = commitInfo.Commit?.Author?.Date,
+                LatestCommitAuthor = commitInfo.Commit?.Author?.Name ?? "Unknown"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking for updates");
+            return Ok(new UpdateCheckResult
+            {
+                Success = false,
+                Error = ex.Message
+            });
+        }
     }
 
     [HttpPost("service/start")]
@@ -302,5 +379,35 @@ WantedBy=multi-user.target
         public string CurrentVersion { get; set; } = string.Empty;
         public string InstallPath { get; set; } = string.Empty;
         public string ServiceName { get; set; } = string.Empty;
+    }
+
+    public class UpdateCheckResult
+    {
+        public bool Success { get; set; }
+        public bool UpdateAvailable { get; set; }
+        public string? LocalCommit { get; set; }
+        public string? RemoteCommit { get; set; }
+        public string? LatestCommitMessage { get; set; }
+        public DateTime? LatestCommitDate { get; set; }
+        public string? LatestCommitAuthor { get; set; }
+        public string? Error { get; set; }
+    }
+
+    public class GitHubCommit
+    {
+        public string? Sha { get; set; }
+        public GitHubCommitDetail? Commit { get; set; }
+    }
+
+    public class GitHubCommitDetail
+    {
+        public string? Message { get; set; }
+        public GitHubAuthor? Author { get; set; }
+    }
+
+    public class GitHubAuthor
+    {
+        public string? Name { get; set; }
+        public DateTime? Date { get; set; }
     }
 }

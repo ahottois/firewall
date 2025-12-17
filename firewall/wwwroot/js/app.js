@@ -803,9 +803,66 @@ class FirewallApp {
             document.getElementById('btn-stop-service').disabled = !status.isInstalled || !status.isRunning;
             document.getElementById('btn-restart-service').disabled = !status.isInstalled;
             document.getElementById('btn-uninstall-service').disabled = !status.isInstalled;
+
+            // Check for updates
+            this.checkForUpdates();
             
         } catch (error) {
             console.error('Error loading admin:', error);
+        }
+    }
+
+    async checkForUpdates() {
+        const updateStatusEl = document.getElementById('update-status');
+        const btnUpdate = document.getElementById('btn-update');
+        
+        if (updateStatusEl) {
+            updateStatusEl.innerHTML = `${Icons.spinner} Verification des mises a jour...`;
+            updateStatusEl.className = 'update-status checking';
+        }
+
+        try {
+            const result = await this.api('admin/check-update');
+            
+            if (!result.success) {
+                if (updateStatusEl) {
+                    updateStatusEl.innerHTML = `${Icons.warning} Impossible de verifier: ${result.error}`;
+                    updateStatusEl.className = 'update-status error';
+                }
+                return;
+            }
+
+            if (result.updateAvailable) {
+                if (updateStatusEl) {
+                    updateStatusEl.innerHTML = `
+                        ${Icons.info} <strong>Mise a jour disponible!</strong><br>
+                        <small>
+                            Version locale: <code>${result.localCommit}</code><br>
+                            Derniere version: <code>${result.remoteCommit}</code><br>
+                            ${result.latestCommitMessage ? `Message: ${this.escapeHtml(result.latestCommitMessage)}<br>` : ''}
+                            ${result.latestCommitAuthor ? `Auteur: ${this.escapeHtml(result.latestCommitAuthor)}<br>` : ''}
+                            ${result.latestCommitDate ? `Date: ${this.formatDate(result.latestCommitDate)}` : ''}
+                        </small>
+                    `;
+                    updateStatusEl.className = 'update-status available';
+                }
+                if (btnUpdate) {
+                    btnUpdate.classList.add('btn-pulse');
+                }
+            } else {
+                if (updateStatusEl) {
+                    updateStatusEl.innerHTML = `${Icons.checkCircle} Vous etes a jour (${result.localCommit})`;
+                    updateStatusEl.className = 'update-status uptodate';
+                }
+                if (btnUpdate) {
+                    btnUpdate.classList.remove('btn-pulse');
+                }
+            }
+        } catch (error) {
+            if (updateStatusEl) {
+                updateStatusEl.innerHTML = `${Icons.warning} Erreur: ${error.message}`;
+                updateStatusEl.className = 'update-status error';
+            }
         }
     }
 
