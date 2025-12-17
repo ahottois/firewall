@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guide d'Installation Réseau - NetGuard</title>
+    <title>Guide d'Installation R&eacute;seau - NetGuard</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
@@ -88,21 +88,21 @@
     <main class="main-content">
         <div class="setup-container">
             <header class="page-header">
-                <h1><i class="fas fa-network-wired"></i> Guide d'Intégration Réseau</h1>
+                <h1><i class="fas fa-network-wired"></i> Guide d'Int&eacute;gration R&eacute;seau</h1>
                 <p>Comment configurer votre infrastructure pour une surveillance optimale avec NetGuard</p>
             </header>
 
             <div class="setup-section">
                 <h2 class="setup-title"><i class="fas fa-info-circle"></i> Introduction</h2>
-                <p>NetGuard est conçu pour fonctionner principalement comme un système de surveillance passive (IDS - Intrusion Detection System). Pour qu'il puisse analyser le trafic de votre réseau, il doit être capable de "voir" les paquets qui circulent entre vos appareils et Internet.</p>
+                <p>NetGuard est con&ccedil;u pour fonctionner principalement comme un syst&egrave;me de surveillance passive (IDS - Intrusion Detection System). Pour qu'il puisse analyser le trafic de votre r&eacute;seau, il doit &ecirc;tre capable de "voir" les paquets qui circulent entre vos appareils et Internet.</p>
                 <div class="info-box">
-                    <strong>Note Importante :</strong> Si vous installez NetGuard sur un simple ordinateur connecté au réseau en Wi-Fi ou Ethernet standard, il ne verra que son propre trafic et le trafic de diffusion (Broadcast). Pour surveiller tout le réseau, une configuration spécifique est nécessaire.
+                    <strong>Note Importante :</strong> Si vous installez NetGuard sur un simple ordinateur connect&eacute; au r&eacute;seau en Wi-Fi ou Ethernet standard, il ne verra que son propre trafic et le trafic de diffusion (Broadcast). Pour surveiller tout le r&eacute;seau, une configuration sp&eacute;cifique est n&eacute;cessaire.
                 </div>
             </div>
 
             <div class="setup-section">
-                <h2 class="setup-title"><i class="fas fa-sitemap"></i> Scénario 1 : Port Mirroring (Recommandé)</h2>
-                <p>C'est la méthode la plus courante et la moins intrusive. Elle nécessite un switch administrable (Managed Switch).</p>
+                <h2 class="setup-title"><i class="fas fa-sitemap"></i> Sc&eacute;nario 1 : Port Mirroring (Recommand&eacute;)</h2>
+                <p>C'est la m&eacute;thode la plus courante et la moins intrusive. Elle n&eacute;cessite un switch administrable (Managed Switch).</p>
                 
                 <div class="diagram">
       Internet
@@ -115,22 +115,22 @@
     |        |
     |        +--- [PC/Appareils]
     |
-    +--- [Points d'accès Wi-Fi]
+    +--- [Points d'acc&egrave;s Wi-Fi]
                 </div>
 
                 <h3>Configuration :</h3>
                 <ul class="step-list">
-                    <li class="step-item">Connectez-vous à l'interface d'administration de votre switch.</li>
+                    <li class="step-item">Connectez-vous &agrave; l'interface d'administration de votre switch.</li>
                     <li class="step-item">Cherchez la section "Port Mirroring", "SPAN", ou "Monitoring".</li>
-                    <li class="step-item">Configurez le port connecté à votre routeur comme <strong>Port Source</strong> (celui à surveiller).</li>
-                    <li class="step-item">Configurez le port connecté à votre serveur NetGuard comme <strong>Port Destination</strong> (celui qui reçoit la copie).</li>
-                    <li class="step-item">Dans NetGuard (Paramètres), sélectionnez l'interface réseau connectée au switch.</li>
+                    <li class="step-item">Configurez le port connect&eacute; &agrave; votre routeur comme <strong>Port Source</strong> (celui &agrave; surveiller).</li>
+                    <li class="step-item">Configurez le port connect&eacute; &agrave; votre serveur NetGuard comme <strong>Port Destination</strong> (celui qui re&ccedil;oit la copie).</li>
+                    <li class="step-item">Dans NetGuard (Param&egrave;tres), s&eacute;lectionnez l'interface r&eacute;seau connect&eacute;e au switch.</li>
                 </ul>
             </div>
 
             <div class="setup-section">
-                <h2 class="setup-title"><i class="fas fa-microchip"></i> Scénario 2 : Network Tap</h2>
-                <p>Si vous n'avez pas de switch administrable, vous pouvez utiliser un TAP réseau matériel. C'est un petit boîtier qui s'insère physiquement entre le routeur et le reste du réseau.</p>
+                <h2 class="setup-title"><i class="fas fa-microchip"></i> Sc&eacute;nario 2 : Network Tap</h2>
+                <p>Si vous n'avez pas de switch administrable, vous pouvez utiliser un TAP r&eacute;seau mat&eacute;riel. C'est un petit bo&icirc;tier qui s'ins&egrave;re physiquement entre le routeur et le reste du r&eacute;seau.</p>
 
                 <div class="diagram">
       Internet
@@ -153,8 +153,8 @@
             </div>
 
             <div class="setup-section">
-                <h2 class="setup-title"><i class="fas fa-server"></i> Scénario 3 : Passerelle / Routeur (Avancé)</h2>
-                <p>Vous pouvez installer NetGuard directement sur l'appareil qui sert de passerelle (Gateway) à votre réseau, par exemple un mini-PC sous Linux agissant comme routeur.</p>
+                <h2 class="setup-title"><i class="fas fa-server"></i> Sc&eacute;nario 3 : Passerelle / Routeur (Avanc&eacute;)</h2>
+                <p>Vous pouvez installer NetGuard directement sur l'appareil qui sert de passerelle (Gateway) &agrave; votre r&eacute;seau, par exemple un mini-PC sous Linux agissant comme routeur.</p>
 
                 <div class="diagram">
       Internet
@@ -167,18 +167,18 @@
                 </div>
 
                 <div class="warning-box">
-                    <strong>Attention :</strong> Cette configuration nécessite que le serveur NetGuard gère le routage (IP Forwarding, NAT, DHCP). Si le serveur plante, tout le réseau perd l'accès à Internet.
+                    <strong>Attention :</strong> Cette configuration n&eacute;cessite que le serveur NetGuard g&egrave;re le routage (IP Forwarding, NAT, DHCP). Si le serveur plante, tout le r&eacute;seau perd l'acc&egrave;s &agrave; Internet.
                 </div>
             </div>
 
             <div class="setup-section">
                 <h2 class="setup-title"><i class="fas fa-cogs"></i> Configuration de l'Interface</h2>
-                <p>Une fois le branchement physique effectué :</p>
+                <p>Une fois le branchement physique effectu&eacute; :</p>
                 <ol>
-                    <li>Allez dans l'onglet <strong>Paramètres</strong> de NetGuard.</li>
-                    <li>Repérez la section <strong>Interface Réseau</strong>.</li>
-                    <li>Sélectionnez l'interface qui reçoit le trafic (ex: <code>eth0</code>, <code>enp3s0</code>).</li>
-                    <li>Assurez-vous que le mode "Promiscuous" est activé (NetGuard tente de le faire automatiquement, mais certains pilotes nécessitent une configuration manuelle via <code>ip link set dev eth0 promisc on</code>).</li>
+                    <li>Allez dans l'onglet <strong>Param&egrave;tres</strong> de NetGuard.</li>
+                    <li>Rep&eacute;rez la section <strong>Interface R&eacute;seau</strong>.</li>
+                    <li>S&eacute;lectionnez l'interface qui re&ccedil;oit le trafic (ex: <code>eth0</code>, <code>enp3s0</code>).</li>
+                    <li>Assurez-vous que le mode "Promiscuous" est activ&eacute; (NetGuard tente de le faire automatiquement, mais certains pilotes n&eacute;cessitent une configuration manuelle via <code>ip link set dev eth0 promisc on</code>).</li>
                 </ol>
             </div>
         </div>

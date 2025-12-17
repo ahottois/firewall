@@ -26,7 +26,7 @@
             </li>
             <li class="nav-item" data-page="cameras">
                 <span class="nav-icon"><i class="fas fa-video"></i></span>
-                <span>Cameras</span>
+                <span>Cam&eacute;ras</span>
                 <span class="badge warning-badge" id="camera-badge" style="display:none;">0</span>
             </li>
             <li class="nav-item" data-page="alerts">
@@ -40,7 +40,7 @@
             </li>
             <li class="nav-item" data-page="settings">
                 <span class="nav-icon"><i class="fas fa-cog"></i></span>
-                <span>Parametres</span>
+                <span>Param&egrave;tres</span>
             </li>
             <li class="nav-item" onclick="window.location.href='setup.html'">
                 <span class="nav-icon"><i class="fas fa-book"></i></span>
@@ -62,7 +62,7 @@
             <h1 id="page-title">Dashboard</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="scan-btn">
-                    <i class="fas fa-search"></i> Scanner le reseau
+                    <i class="fas fa-search"></i> Scanner le r&eacute;seau
                 </button>
                 <div class="notification-bell" id="notification-bell">
                     <i class="fas fa-bell"></i>
@@ -109,14 +109,14 @@
                     <div class="stat-icon"><i class="fas fa-video"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-cameras">0</span>
-                        <span class="stat-label">Cameras Detectees</span>
+                        <span class="stat-label">Cam&eacute;ras D&eacute;tect&eacute;es</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
                     <div class="stat-icon"><i class="fas fa-unlock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="vulnerable-cameras">0</span>
-                        <span class="stat-label">Cameras Vulnerables</span>
+                        <span class="stat-label">Cam&eacute;ras Vuln&eacute;rables</span>
                     </div>
                 </div>
             </div>
@@ -124,7 +124,7 @@
             <div class="dashboard-grid">
                 <div class="card">
                     <div class="card-header">
-                        <h3>Alertes Recentes</h3>
+                        <h3>Alertes R&eacute;centes</h3>
                         <a href="#" class="view-all" data-page="alerts">Voir tout <i class="fas fa-arrow-right"></i></a>
                     </div>
                     <div class="card-body">
@@ -173,12 +173,12 @@
                     <table class="data-table sortable-table" id="devices-data-table">
                         <thead>
                             <tr>
-                                <th class="sortable" data-sort="status">Status <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="status">Statut <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="mac">MAC <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="ip">IP <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="vendor">Fabricant <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="description">Description <i class="fas fa-sort"></i></th>
-                                <th class="sortable" data-sort="lastSeen">Derniere Activite <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="lastSeen">Derni&egrave;re Activit&eacute; <i class="fas fa-sort"></i></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -195,7 +195,7 @@
                     <div class="stat-icon"><i class="fas fa-video"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-total">0</span>
-                        <span class="stat-label">Total Cameras</span>
+                        <span class="stat-label">Total Cam&eacute;ras</span>
                     </div>
                 </div>
                 <div class="stat-card" style="color: #00ff88;">
@@ -209,24 +209,24 @@
                     <div class="stat-icon"><i class="fas fa-unlock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-vulnerable">0</span>
-                        <span class="stat-label">Mot de passe par defaut</span>
+                        <span class="stat-label">Mot de passe par d&eacute;faut</span>
                     </div>
                 </div>
                 <div class="stat-card warning">
                     <div class="stat-icon"><i class="fas fa-lock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-secured">0</span>
-                        <span class="stat-label">Securisees</span>
+                        <span class="stat-label">S&eacute;curis&eacute;es</span>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Gestion des Cameras</h3>
+                    <h3>Gestion des Cam&eacute;ras</h3>
                     <div class="header-actions">
                         <button class="btn btn-primary" id="scan-cameras-btn">
-                            <i class="fas fa-search"></i> Scanner les cameras
+                            <i class="fas fa-search"></i> Scanner les cam&eacute;ras
                         </button>
                         <button class="btn btn-sm" id="add-camera-btn">
                             <i class="fas fa-plus"></i> Ajouter manuellement
@@ -237,7 +237,7 @@
                     <!-- Scan Logs Panel -->
                     <div id="scan-logs-panel" class="scan-logs-panel" style="display: none;">
                         <div class="scan-logs-header">
-                            <h4><i class="fas fa-terminal"></i> Logs du scan en temps reel</h4>
+                            <h4><i class="fas fa-terminal"></i> Logs du scan en temps r&eacute;el</h4>
                             <button class="btn btn-sm" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
                         </div>
                         <div id="scan-logs" class="scan-logs"></div>
@@ -258,10 +258,10 @@
                             <i class="fas fa-check"></i> Tout marquer comme lu
                         </button>
                         <button class="btn btn-sm btn-success" onclick="app.resolveAllAlerts()">
-                            <i class="fas fa-check-double"></i> Tout resoudre
+                            <i class="fas fa-check-double"></i> Tout r&eacute;soudre
                         </button>
                         <button class="btn btn-sm btn-warning" onclick="app.resetAllAlerts()">
-                            <i class="fas fa-redo"></i> Reinitialiser
+                            <i class="fas fa-redo"></i> R&eacute;initialiser
                         </button>
                     </div>
                 </div>
@@ -318,7 +318,7 @@
         <section id="settings-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3>Informations Systeme</h3>
+                    <h3>Informations Syst&egrave;me</h3>
                 </div>
                 <div class="card-body">
                     <div id="system-info" class="settings-info"></div>
@@ -327,7 +327,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Interfaces Reseau</h3>
+                    <h3>Interfaces R&eacute;seau</h3>
                 </div>
                 <div class="card-body">
                     <div id="interfaces-list" class="interfaces-list"></div>
@@ -342,7 +342,7 @@
                     <div class="stat-icon"><i class="fas fa-server"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="service-status-text">--</span>
-                        <span class="stat-label">Status Service</span>
+                        <span class="stat-label">Statut Service</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -361,13 +361,13 @@
                 <div class="card-body">
                     <div class="admin-buttons">
                         <button class="btn btn-success" id="btn-start-service" onclick="app.startService()">
-                            <i class="fas fa-play"></i> Demarrer
+                            <i class="fas fa-play"></i> D&eacute;marrer
                         </button>
                         <button class="btn btn-warning" id="btn-stop-service" onclick="app.stopService()">
-                            <i class="fas fa-stop"></i> Arreter
+                            <i class="fas fa-stop"></i> Arr&ecirc;ter
                         </button>
                         <button class="btn btn-primary" id="btn-restart-service" onclick="app.restartService()">
-                            <i class="fas fa-sync"></i> Redemarrer
+                            <i class="fas fa-sync"></i> Red&eacute;marrer
                         </button>
                     </div>
                     <div id="service-result" class="admin-result"></div>
@@ -379,13 +379,13 @@
                     <h3><i class="fas fa-download"></i> Installation du Daemon</h3>
                 </div>
                 <div class="card-body">
-                    <p class="admin-info">Installez NetGuard comme service systemd pour qu'il demarre automatiquement au boot.</p>
+                    <p class="admin-info">Installez NetGuard comme service systemd pour qu'il d&eacute;marre automatiquement au boot.</p>
                     <div class="admin-buttons">
                         <button class="btn btn-success" id="btn-install-service" onclick="app.installService()">
                             <i class="fas fa-plus-circle"></i> Installer comme Daemon
                         </button>
                         <button class="btn btn-danger" id="btn-uninstall-service" onclick="app.uninstallService()">
-                            <i class="fas fa-trash"></i> Desinstaller le Daemon
+                            <i class="fas fa-trash"></i> D&eacute;sinstaller le Daemon
                         </button>
                     </div>
                     <div id="install-result" class="admin-result"></div>
@@ -394,18 +394,18 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-cloud-download-alt"></i> Mise a jour</h3>
+                    <h3><i class="fas fa-cloud-download-alt"></i> Mise &agrave; jour</h3>
                     <button class="btn btn-sm" onclick="app.checkForUpdates()">
-                        <i class="fas fa-sync"></i> Verifier
+                        <i class="fas fa-sync"></i> V&eacute;rifier
                     </button>
                 </div>
                 <div class="card-body">
                     <div id="update-status" class="update-status">
-                        <i class="fas fa-spinner fa-spin"></i> Verification...
+                        <i class="fas fa-spinner fa-spin"></i> V&eacute;rification...
                     </div>
                     <div class="admin-buttons" style="margin-top: 15px;">
                         <button class="btn btn-primary" id="btn-update" onclick="app.updateFromGithub()">
-                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour depuis GitHub
+                            <i class="fas fa-cloud-download-alt"></i> Mettre &agrave; jour depuis GitHub
                         </button>
                     </div>
                     <div id="update-result" class="admin-result"></div>
@@ -416,11 +416,11 @@
                 <div class="card-header">
                     <h3><i class="fas fa-file-alt"></i> Logs du Service</h3>
                     <button class="btn btn-sm" onclick="app.loadServiceLogs()">
-                        <i class="fas fa-sync"></i> Rafraichir
+                        <i class="fas fa-sync"></i> Rafra&icirc;chir
                     </button>
                 </div>
                 <div class="card-body">
-                    <div id="service-logs" class="log-viewer">Cliquez sur Rafraichir pour charger les logs...</div>
+                    <div id="service-logs" class="log-viewer">Cliquez sur Rafra&icirc;chir pour charger les logs...</div>
                 </div>
             </div>
         </section>
@@ -445,7 +445,7 @@
     <div id="camera-modal" class="modal camera-modal">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3 id="camera-modal-title">Visualisation Camera</h3>
+                <h3 id="camera-modal-title">Visualisation Cam&eacute;ra</h3>
                 <button class="modal-close" onclick="app.closeCameraModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -457,8 +457,8 @@
                         </div>
                     </div>
                     <div class="camera-controls">
-                        <button class="btn btn-sm" onclick="app.refreshCameraSnapshot()"><i class="fas fa-sync"></i> Rafraichir</button>
-                        <button class="btn btn-sm" onclick="app.downloadSnapshot()"><i class="fas fa-download"></i> Telecharger</button>
+                        <button class="btn btn-sm" onclick="app.refreshCameraSnapshot()"><i class="fas fa-sync"></i> Rafra&icirc;chir</button>
+                        <button class="btn btn-sm" onclick="app.downloadSnapshot()"><i class="fas fa-download"></i> T&eacute;l&eacute;charger</button>
                     </div>
                 </div>
                 <div class="camera-details" id="camera-details"></div>
