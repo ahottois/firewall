@@ -61,6 +61,7 @@ builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
 
 // Add Swagger/OpenAPI
@@ -116,6 +117,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
 
 
 
