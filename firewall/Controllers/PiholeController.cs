@@ -25,7 +25,11 @@ public class PiholeController : ControllerBase
     public async Task<IActionResult> GetSummary()
     {
         var summary = await _piholeService.GetSummaryAsync();
-        if (summary == null) return NotFound("Pi-hole stats not available");
+        if (summary == null) 
+        {
+            // Return empty summary with status unavailable to avoid 404 errors in frontend console
+            return Ok(new PiholeSummary { Status = "unavailable" });
+        }
         return Ok(summary);
     }
 
