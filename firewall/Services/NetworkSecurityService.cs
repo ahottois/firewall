@@ -5,10 +5,11 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Options;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
+using Microsoft.Extensions.Hosting;
 
 namespace NetworkFirewall.Services;
 
-public interface INetworkSecurityService
+public interface INetworkSecurityService : IHostedService
 {
     Task<PortScanResult> ScanDevicePortsAsync(string ipAddress, int[]? portsToScan = null);
     Task<VulnerabilityReport> ScanDeviceVulnerabilitiesAsync(string ipAddress);
@@ -17,7 +18,7 @@ public interface INetworkSecurityService
     SecurityScore CalculateNetworkSecurityScore();
 }
 
-public class NetworkSecurityService : INetworkSecurityService
+public class NetworkSecurityService : BackgroundService, INetworkSecurityService
 {
     private readonly ILogger<NetworkSecurityService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -72,6 +73,34 @@ public class NetworkSecurityService : INetworkSecurityService
         _notificationService = notificationService;
         _threatIntelligence = threatIntelligence;
         _settings = settings.Value;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Network Security Service started");
+        
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                // Periodic security check every hour
+                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+                
+                if (_settings.EnableAutoSecurityScan)
+                {
+                    _logger.LogInformation("Starting scheduled security scan...");
+                    await GenerateSecurityReportAsync();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in security service loop");
+            }
+        }
     }
 
     public async Task<PortScanResult> ScanDevicePortsAsync(string ipAddress, int[]? portsToScan = null)

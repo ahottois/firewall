@@ -26,9 +26,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 {
     private readonly ILogger<DeviceDiscoveryService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IScanSessionService _scanSessionService;
     private readonly AppSettings _settings;
     
-    // Suivre les MAC récemment vues pour éviter de traiter trop souvent
+    // Suivre les MAC recemment vues pour eviter de traiter trop souvent
     private readonly ConcurrentDictionary<string, DateTime> _recentlySeenMacs = new();
     
     // Suivre les appareils qui ont déjà déclenché une alerte "inconnue"
@@ -46,10 +47,12 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     public DeviceDiscoveryService(
         ILogger<DeviceDiscoveryService> logger,
         IServiceScopeFactory scopeFactory,
+        IScanSessionService scanSessionService,
         IOptions<AppSettings> settings)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _scanSessionService = scanSessionService;
         _settings = settings.Value;
     }
 
@@ -85,6 +88,16 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
             var existingDevice = await deviceRepo.GetByMacAddressAsync(mac);
             var isNew = existingDevice == null;
+
+            // Check for changes if device exists
+            if (!isNew && existingDevice != null)
+            {
+                if (existingDevice.IpAddress != packet.SourceIp && !string.IsNullOrEmpty(packet.SourceIp))
+                {
+                    // IP Changed
+                    await CreateDeviceModifiedAlertAsync(existingDevice, "IP Address", existingDevice.IpAddress, packet.SourceIp);
+                }
+            }
 
             var device = new NetworkDevice
             {
@@ -204,34 +217,66 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
     public async Task ScanNetworkAsync()
     {
-        _logger.LogInformation("Début de l'analyse du réseau...");
+        _logger.LogInformation("Debut de l'analyse du reseau...");
+        var session = await _scanSessionService.StartSessionAsync(ScanType.Network);
         
         try
         {
-            // Obtenir les adresses IP locales pour déterminer le sous-réseau
+            // Obtenir les adresses IP locales pour determiner le sous-reseau
             var localAddresses = GetLocalIPAddresses();
+            var totalHosts = localAddresses.Count() * 254;
+            await _scanSessionService.StartSessionAsync(ScanType.Network, totalHosts); // Update total items
             
+            int scannedCount = 0;
+
             foreach (var localAddress in localAddresses)
             {
                 var subnet = GetSubnet(localAddress);
-                _logger.LogInformation("Analyse du sous-réseau : {Subnet}", subnet);
+                _logger.LogInformation("Analyse du sous-reseau : {Subnet}", subnet);
                 
                 var tasks = new List<Task>();
                 for (int i = 1; i <= 254; i++)
                 {
                     var ip = $"{subnet}.{i}";
-                    tasks.Add(PingHostAsync(ip));
+                    tasks.Add(PingHostAsync(ip).ContinueWith(t => 
+                    {
+                        Interlocked.Increment(ref scannedCount);
+                        if (scannedCount % 10 == 0) _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
+                    }));
                 }
                 
                 await Task.WhenAll(tasks);
             }
             
-            _logger.LogInformation("Analyse du réseau terminée");
+            _logger.LogInformation("Analyse du reseau terminee");
+            await _scanSessionService.CompleteSessionAsync(session.Id, $"Scan completed. Scanned {scannedCount} hosts.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de l'analyse du réseau");
+            _logger.LogError(ex, "Erreur lors de l'analyse du reseau");
+            await _scanSessionService.FailSessionAsync(session.Id, ex.Message);
         }
+    }
+
+    private async Task CreateDeviceModifiedAlertAsync(NetworkDevice device, string property, string? oldValue, string? newValue)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+        var alert = new NetworkAlert
+        {
+            Type = AlertType.DeviceModified,
+            Severity = AlertSeverity.Medium,
+            Title = "Device Modified",
+            Message = $"Device {device.MacAddress} changed {property}: {oldValue ?? "N/A"} -> {newValue ?? "N/A"}",
+            SourceMac = device.MacAddress,
+            SourceIp = newValue,
+            DeviceId = device.Id
+        };
+
+        await alertRepo.AddAsync(alert);
+        await notificationService.SendAlertAsync(alert);
     }
 
     private async Task PingHostAsync(string ip)

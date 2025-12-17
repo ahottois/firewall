@@ -32,24 +32,24 @@ builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IPacketCaptureService, PacketCaptureService>();
 builder.Services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
 builder.Services.AddSingleton<IAnomalyDetectionService, AnomalyDetectionService>();
-builder.Services.AddSingleton<ITrafficLoggingService, TrafficLoggingService>();
+builder.Services.AddSingleton<IBandwidthMonitorService, BandwidthMonitorService>();
+builder.Services.AddSingleton<INetworkMonitoringService, NetworkMonitoringService>();
+builder.Services.AddSingleton<ICameraDetectionService, CameraDetectionService>();
+builder.Services.AddSingleton<IScanSessionService, ScanSessionService>();
 
 // Scan Log Service - for real-time scan logging
 builder.Services.AddSingleton<IScanLogService, ScanLogService>();
 
-// Camera Detection (depends on ScanLogService)
-builder.Services.AddSingleton<ICameraDetectionService, CameraDetectionService>();
-
 // Security Services
 builder.Services.AddSingleton<IThreatIntelligenceService, ThreatIntelligenceService>();
 builder.Services.AddSingleton<INetworkSecurityService, NetworkSecurityService>();
-builder.Services.AddSingleton<IBandwidthMonitorService, BandwidthMonitorService>();
 
 // 🏴‍☠️ Monitoring Service - For watching the digital seas!
 builder.Services.AddSingleton<INetworkMonitoringService, NetworkMonitoringService>();
 
 // Background Service
 builder.Services.AddHostedService<NetworkMonitorService>();
+builder.Services.AddHostedService<NetworkSecurityService>();
 
 // Controllers
 builder.Services.AddControllers()

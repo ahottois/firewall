@@ -13,6 +13,7 @@ public class FirewallDbContext : DbContext
     public DbSet<NetworkAlert> Alerts { get; set; }
     public DbSet<TrafficLog> TrafficLogs { get; set; }
     public DbSet<NetworkCamera> Cameras { get; set; }
+    public DbSet<ScanSession> ScanSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,13 @@ public class FirewallDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.DeviceId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ScanSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.StartTime);
+            entity.Property(e => e.ResultSummary).HasMaxLength(1000);
         });
     }
 }

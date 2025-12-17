@@ -42,7 +42,9 @@ public enum AlertType
     BruteForceAttempt,
     MalwareDetected,
     DataExfiltration,
-    PolicyViolation
+    PolicyViolation,
+    DeviceModified,
+    CameraModified
 }
 
 public enum AlertSeverity

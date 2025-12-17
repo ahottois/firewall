@@ -62,6 +62,13 @@ public class NetworkMonitorService : BackgroundService
             // Initialize database
             await InitializeDatabaseAsync();
 
+            // Mark interrupted sessions
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var scanSessionService = scope.ServiceProvider.GetRequiredService<IScanSessionService>();
+                await scanSessionService.MarkInterruptedSessionsAsync();
+            }
+
             // Update threat feeds on startup
             if (_settings.EnableThreatFeeds)
             {

@@ -24,5 +24,6 @@ public class AppSettings
     public long HighBandwidthThresholdBytesPerSec { get; set; } = 10_000_000; // 10 MB/s
     public long DailyBandwidthQuotaBytes { get; set; } = 10_000_000_000; // 10 GB
     public bool EnableSecurityScanning { get; set; } = true;
+    public bool EnableAutoSecurityScan { get; set; } = true;
     public bool AutoBlockMaliciousIps { get; set; } = false;
 }

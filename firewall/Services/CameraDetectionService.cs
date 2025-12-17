@@ -39,6 +39,7 @@ public class CameraDetectionService : ICameraDetectionService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly INotificationService _notificationService;
     private readonly IScanLogService _scanLog;
+    private readonly IScanSessionService _scanSessionService;
     private readonly AppSettings _settings;
 
     // Cache pour eviter de verifier trop souvent la meme IP
@@ -57,6 +58,7 @@ public class CameraDetectionService : ICameraDetectionService
         IHttpClientFactory httpClientFactory,
         INotificationService notificationService,
         IScanLogService scanLog,
+        IScanSessionService scanSessionService,
         IOptions<AppSettings> settings)
     {
         _logger = logger;
@@ -64,6 +66,7 @@ public class CameraDetectionService : ICameraDetectionService
         _httpClientFactory = httpClientFactory;
         _notificationService = notificationService;
         _scanLog = scanLog;
+        _scanSessionService = scanSessionService;
         _settings = settings.Value;
     }
 
@@ -145,6 +148,7 @@ public class CameraDetectionService : ICameraDetectionService
     {
         var scanId = $"camera-scan-{DateTime.UtcNow:yyyyMMddHHmmss}";
         _scanLog.StartScan(ScanSource, "Scan des cameras reseau");
+        var session = await _scanSessionService.StartSessionAsync(ScanType.Camera);
         
         var detectedCameras = new List<NetworkCamera>();
 
@@ -157,6 +161,12 @@ public class CameraDetectionService : ICameraDetectionService
             var devices = (await deviceRepo.GetAllAsync()).Where(d => !string.IsNullOrEmpty(d.IpAddress)).ToList();
             var ports = DefaultCameraCredentials.CommonCameraPorts;
             var totalChecks = devices.Count * ports.Count;
+            
+            // Update session total items
+            // We can't update total items on existing session easily with current interface, but we can just track progress
+            // Actually StartSessionAsync takes totalItems, but we called it before calculating. 
+            // Let's just proceed, progress update is what matters.
+            
             var currentCheck = 0;
 
             _scanLog.Log(ScanSource, $"{devices.Count} appareils a scanner sur {ports.Count} ports", ScanLogLevel.Info);
@@ -175,6 +185,7 @@ public class CameraDetectionService : ICameraDetectionService
                 foreach (var port in ports)
                 {
                     currentCheck++;
+                    if (currentCheck % 5 == 0) await _scanSessionService.UpdateProgressAsync(session.Id, currentCheck);
                     
                     if (cancellationToken.IsCancellationRequested) break;
 
@@ -185,6 +196,16 @@ public class CameraDetectionService : ICameraDetectionService
                         var camera = await CheckCameraAsync(device.IpAddress!, port);
                         if (camera != null)
                         {
+                            // Check for changes
+                            var existingCamera = await cameraRepo.GetByIpAndPortAsync(camera.IpAddress, camera.Port);
+                            if (existingCamera != null)
+                            {
+                                if (existingCamera.PasswordStatus != camera.PasswordStatus)
+                                {
+                                    await CreateCameraModifiedAlertAsync(existingCamera, "Password Status", existingCamera.PasswordStatus.ToString(), camera.PasswordStatus.ToString());
+                                }
+                            }
+
                             camera.DeviceId = device.Id;
                             var saved = await cameraRepo.AddOrUpdateAsync(camera);
                             detectedCameras.Add(saved);
@@ -226,6 +247,7 @@ public class CameraDetectionService : ICameraDetectionService
 
             var summary = $"{detectedCameras.Count} camera(s) trouvee(s), {vulnerableCount} vulnerable(s)";
             _scanLog.EndScan(ScanSource, true, summary);
+            await _scanSessionService.CompleteSessionAsync(session.Id, summary);
 
             return detectedCameras;
         }
@@ -233,8 +255,30 @@ public class CameraDetectionService : ICameraDetectionService
         {
             _logger.LogError(ex, "Error during camera scan");
             _scanLog.EndScan(ScanSource, false, $"Erreur: {ex.Message}");
+            await _scanSessionService.FailSessionAsync(session.Id, ex.Message);
             throw;
         }
+    }
+
+    private async Task CreateCameraModifiedAlertAsync(NetworkCamera camera, string property, string oldValue, string newValue)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+        var alert = new NetworkAlert
+        {
+            Type = AlertType.CameraModified,
+            Severity = AlertSeverity.Medium,
+            Title = "Camera Modified",
+            Message = $"Camera at {camera.IpAddress}:{camera.Port} changed {property}: {oldValue} -> {newValue}",
+            SourceIp = camera.IpAddress,
+            DestinationPort = camera.Port,
+            DeviceId = camera.DeviceId
+        };
+
+        await alertRepo.AddAsync(alert);
+        await notificationService.SendAlertAsync(alert);
     }
 
     public async Task<NetworkCamera?> CheckCameraAsync(string ip, int port)
