@@ -13,58 +13,37 @@
     <nav class="sidebar">
         <div class="logo">
             <span class="logo-icon"><i class="fas fa-shield-alt"></i></span>
-            <span>NetGuard</span>
+            <span>WebGuard</span>
         </div>
         <ul class="nav-menu">
             <li class="nav-item active" data-page="dashboard">
-                <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                <span class="nav-icon"><i class="fas fa-th-large"></i></span>
                 <span>Dashboard</span>
             </li>
+            <li class="nav-item" data-page="router">
+                <span class="nav-icon"><i class="fas fa-gavel"></i></span>
+                <span>Rules & Policies</span>
+            </li>
+            <li class="nav-item" data-page="alerts">
+                <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+                <span>Logs & Monitoring</span>
+            </li>
+            <li class="nav-item" data-page="settings">
+                <span class="nav-icon"><i class="fas fa-sliders-h"></i></span>
+                <span>Settings</span>
+            </li>
+            <li class="nav-item" data-page="reports">
+                <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+                <span>Reports</span>
+            </li>
+            <!-- Legacy items kept for functionality but hidden or moved if needed -->
             <li class="nav-item" data-page="devices">
                 <span class="nav-icon"><i class="fas fa-laptop"></i></span>
-                <span>Appareils</span>
+                <span>Devices</span>
             </li>
             <li class="nav-item" data-page="agents">
                 <span class="nav-icon"><i class="fas fa-server"></i></span>
-                <span>Agents Distants</span>
-            </li>
-            <li class="nav-item" data-page="cameras">
-                <span class="nav-icon"><i class="fas fa-video"></i></span>
-                <span>Cam&eacute;ras</span>
-                <span class="badge warning-badge" id="camera-badge" style="display:none;">0</span>
-            </li>
-            <li class="nav-item" data-page="alerts">
-                <span class="nav-icon"><i class="fas fa-bell"></i></span>
-                <span>Alertes</span>
-                <span class="badge" id="alert-badge">0</span>
-            </li>
-            <li class="nav-item" data-page="traffic">
-                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
-                <span>Trafic R&eacute;seau</span>
-            </li>
-            <li class="nav-item" data-page="pihole">
-                <span class="nav-icon"><i class="fas fa-shield-alt"></i></span>
-                <span>Pi-hole Manager</span>
-            </li>
-            <li class="nav-item" data-page="sniffer">
-                <span class="nav-icon"><i class="fas fa-microscope"></i></span>
-                <span>Packet Sniffer</span>
-            </li>
-            <li class="nav-item" data-page="router">
-                <span class="nav-icon"><i class="fas fa-random"></i></span>
-                <span>Routeur / NAT</span>
-            </li>
-            <li class="nav-item" data-page="settings">
-                <span class="nav-icon"><i class="fas fa-cog"></i></span>
-                <span>Param&egrave;tres</span>
-            </li>
-            <li class="nav-item" onclick="window.location.href='setup.html'">
-                <span class="nav-icon"><i class="fas fa-book"></i></span>
-                <span>Guide Setup</span>
-            </li>
-            <li class="nav-item" data-page="admin">
-                <span class="nav-icon"><i class="fas fa-server"></i></span>
-                <span>Administration</span>
+                <span>Agents</span>
             </li>
         </ul>
         <div class="status-indicator">
@@ -77,94 +56,118 @@
         <header class="top-bar">
             <h1 id="page-title">Dashboard</h1>
             <div class="header-actions">
-                <button class="btn btn-primary" id="scan-btn">
-                    <i class="fas fa-search"></i> Scanner le r&eacute;seau
-                </button>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
                 <div class="notification-bell" id="notification-bell">
                     <i class="fas fa-bell"></i>
                     <span class="notification-count" id="notification-count">0</span>
+                </div>
+                <div class="user-profile">
+                    <i class="fas fa-user-circle"></i>
                 </div>
             </div>
         </header>
 
         <!-- Dashboard Page -->
         <section id="dashboard-page" class="page active">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-laptop"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="total-devices">0</span>
-                        <span class="stat-label">Appareils Total</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon" style="color: #00ff88;"><i class="fas fa-circle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="online-devices">0</span>
-                        <span class="stat-label">En Ligne</span>
-                    </div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="unknown-devices">0</span>
-                        <span class="stat-label">Inconnus</span>
-                    </div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="unread-alerts">0</span>
-                        <span class="stat-label">Alertes Non Lues</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-video"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="total-cameras">0</span>
-                        <span class="stat-label">Cam&eacute;ras D&eacute;tect&eacute;es</span>
-                    </div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="stat-icon"><i class="fas fa-unlock"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-value" id="vulnerable-cameras">0</span>
-                        <span class="stat-label">Cam&eacute;ras Vuln&eacute;rables</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="dashboard-grid">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Alertes R&eacute;centes</h3>
-                        <a href="#" class="view-all" data-page="alerts">Voir tout <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                    <div class="card-body">
-                        <div id="recent-alerts" class="alert-list"></div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Appareils Inconnus</h3>
-                        <a href="#" class="view-all" data-page="devices">Voir tout <i class="fas fa-arrow-right"></i></a>
-                    </div>
-                    <div class="card-body">
-                        <div id="unknown-devices-list" class="device-list"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
+            <!-- Traffic Overview -->
+            <div class="card dashboard-card">
                 <div class="card-header">
-                    <h3>Statistiques Trafic (1h)</h3>
+                    <h3>Traffic Overview</h3>
+                </div>
+                <div class="card-body traffic-overview-grid">
+                    <div class="traffic-visual">
+                        <div class="shield-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="traffic-arrows">
+                            <!-- CSS arrows will be here -->
+                        </div>
+                        <div class="traffic-stats-text">
+                            <div><span class="dot allowed"></span> Allowed Traffic</div>
+                            <div><span class="dot blocked"></span> Blocked Traffic</div>
+                        </div>
+                    </div>
+                    <div class="traffic-charts">
+                        <div class="chart-container">
+                            <div class="donut-chart" id="allowed-traffic-chart">
+                                <div class="center-text">
+                                    <span class="label">Allowed Traffic</span>
+                                    <span class="value" id="allowed-percent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="donut-chart blocked" id="blocked-traffic-chart">
+                                <div class="center-text">
+                                    <span class="label">Blocked Traffic</span>
+                                    <span class="value" id="blocked-percent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="traffic-sparkline" id="traffic-sparkline">
+                    <!-- Sparkline bars -->
+                </div>
+            </div>
+
+            <!-- Top Blocked Threats -->
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h3>Top Blocked Threats</h3>
                 </div>
                 <div class="card-body">
-                    <div id="traffic-stats" class="traffic-stats-grid"></div>
+                    <div id="top-threats-list" class="threats-list">
+                        <!-- Threats will be injected here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Row: Rules & Status -->
+            <div class="dashboard-grid-bottom">
+                <!-- Firewall Rules -->
+                <div class="card dashboard-card">
+                    <div class="card-header">
+                        <h3>Firewall Rules</h3>
+                    </div>
+                    <div class="card-body">
+                        <table class="data-table rules-table">
+                            <thead>
+                                <tr>
+                                    <th>Rule ID</th>
+                                    <th>Action</th>
+                                    <th>Source</th>
+                                    <th>Destination</th>
+                                    <th>Port/Protocol</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="firewall-rules-body">
+                                <!-- Rules injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="card dashboard-card">
+                    <div class="card-header">
+                        <h3>System Status</h3>
+                        <button class="btn btn-sm btn-outline" onclick="app.showAddMappingModal()">+ Edit Rule</button>
+                    </div>
+                    <div class="card-body system-status-body">
+                        <div class="status-item">
+                            <i class="fas fa-check-circle success"></i>
+                            <span>All Services Running</span>
+                        </div>
+                        <div class="status-item">
+                            <i class="fas fa-check-circle success" id="cpu-status-icon"></i>
+                            <span id="cpu-status-text">CPU Utilization (0%)</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>

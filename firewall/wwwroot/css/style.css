@@ -5,9 +5,9 @@
 }
 
 :root {
-    --bg-primary: #0f0f23;
-    --bg-secondary: #1a1a2e;
-    --bg-card: #16213e;
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-card: #1f2940;
     --text-primary: #eaeaea;
     --text-secondary: #a0a0a0;
     --accent-primary: #00d9ff;
@@ -1509,4 +1509,231 @@ select.form-control {
 
 .table-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
+}
+
+/* Dashboard Specifics */
+.dashboard-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.traffic-overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+    padding: 20px;
+}
+
+.traffic-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.shield-icon {
+    font-size: 4rem;
+    color: var(--accent-primary);
+    margin-bottom: 10px;
+}
+
+.traffic-stats-text {
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
+
+.dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+.dot.allowed { background: var(--accent-primary); }
+.dot.blocked { background: var(--danger); }
+
+.traffic-charts {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.chart-container {
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+
+.donut-chart {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent-primary) 0% 92%, transparent 92% 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.donut-chart.blocked {
+    background: conic-gradient(var(--danger) 0% 8%, transparent 8% 100%);
+}
+
+.donut-chart::before {
+    content: '';
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    background: var(--bg-card);
+    border-radius: 50%;
+}
+
+.center-text {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.center-text .label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.center-text .value {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.traffic-sparkline {
+    height: 50px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 0 20px 20px 20px;
+}
+
+.spark-bar {
+    flex: 1;
+    background: var(--accent-primary);
+    opacity: 0.5;
+    border-radius: 2px 2px 0 0;
+}
+
+/* Threats List */
+.threats-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.threat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border-left: 3px solid var(--danger);
+}
+
+.threat-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.threat-icon {
+    font-size: 1.5rem;
+    color: var(--danger);
+}
+
+.threat-details h4 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.threat-details p {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Rules Table */
+.dashboard-grid-bottom {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    padding: 20px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.status-active {
+    color: var(--success);
+}
+
+/* System Status */
+.system-status-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+}
+
+.status-item i {
+    font-size: 1.2rem;
+}
+
+.status-item i.success { color: var(--success); }
+.status-item i.warning { color: var(--warning); }
+
+/* Search Bar */
+.search-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg-primary);
+    padding: 8px 15px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.search-bar input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    margin-left: 10px;
+    outline: none;
+}
+
+.user-profile {
+    font-size: 1.5rem;
+    cursor: pointer;
 }
