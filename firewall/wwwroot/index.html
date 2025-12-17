@@ -784,6 +784,59 @@
         </div>
     </div>
 
+    <!-- Device Details Modal -->
+    <div id="device-details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>D&eacute;tails de l'appareil</h3>
+                <button class="modal-close" onclick="document.getElementById('device-details-modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="device-id">
+                <div class="form-group">
+                    <label>Adresse MAC</label>
+                    <input type="text" id="device-mac" readonly class="form-control" style="background: #2a2a4a;">
+                </div>
+                <div class="form-group">
+                    <label>Adresse IP</label>
+                    <input type="text" id="device-ip" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Fabricant</label>
+                    <input type="text" id="device-vendor" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Nom d'h&ocirc;te</label>
+                    <input type="text" id="device-hostname" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="device-description" class="form-control">
+                </div>
+                <div class="form-row" style="margin-top: 15px;">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="device-is-known"> Connu
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="device-is-trusted"> Approuv&eacute; (Trusted)
+                        </label>
+                    </div>
+                </div>
+                <div class="device-meta" style="margin-top: 20px; font-size: 0.85rem; color: var(--text-secondary);">
+                    <p>Vu la premi&egrave;re fois: <span id="device-first-seen"></span></p>
+                    <p>Derni&egrave;re activit&eacute;: <span id="device-last-seen"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="document.getElementById('device-details-modal').classList.remove('active')">Annuler</button>
+                <button class="btn btn-primary" onclick="app.saveDeviceDetails()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/app.js?v=2"></script>
 </body>
 </html>
