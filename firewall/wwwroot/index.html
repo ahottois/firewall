@@ -399,16 +399,16 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="filter-bar" style="margin-bottom: 15px; display: flex; gap: 10px;">
-                        <input type="text" id="sniffer-filter-ip" placeholder="IP Source/Dest" class="form-control">
-                        <input type="number" id="sniffer-filter-port" placeholder="Port" class="form-control" style="width: 100px;">
-                        <select id="sniffer-filter-proto" class="form-control" style="width: 120px;">
+                    <div class="filter-bar">
+                        <input type="text" id="sniffer-filter-ip" placeholder="IP Source/Dest" class="form-control" style="flex: 2;">
+                        <input type="number" id="sniffer-filter-port" placeholder="Port" class="form-control" style="flex: 1;">
+                        <select id="sniffer-filter-proto" class="form-control" style="flex: 1;">
                             <option value="">Protocole</option>
                             <option value="TCP">TCP</option>
                             <option value="UDP">UDP</option>
                             <option value="ICMP">ICMP</option>
                         </select>
-                        <select id="sniffer-filter-direction" class="form-control" style="width: 120px;">
+                        <select id="sniffer-filter-direction" class="form-control" style="flex: 1;">
                             <option value="">Direction</option>
                             <option value="Inbound">Entrant</option>
                             <option value="Outbound">Sortant</option>
@@ -416,7 +416,7 @@
                         </select>
                     </div>
                     
-                    <div class="table-container" style="max-height: 600px; overflow-y: auto;">
+                    <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
