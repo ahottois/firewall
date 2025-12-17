@@ -371,15 +371,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -546,15 +558,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -721,15 +745,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -896,15 +932,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1071,15 +1119,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1246,15 +1306,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1421,15 +1493,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1596,15 +1680,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1771,15 +1867,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -1946,15 +2054,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -2121,15 +2241,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -2296,94 +2428,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
+        const container = document.querySelector('.system-status-body');
+        if (!container) return;
 
-    // Event Handlers
-    setupEventListeners() {
-        document.getElementById('scan-btn').addEventListener('click', () => this.scanNetwork());
-        document.getElementById('mark-all-read').addEventListener('click', () => this.markAllAlertsRead());
-        
-        document.getElementById('scan-cameras-btn')?.addEventListener('click', () => this.scanCameras());
-        document.getElementById('add-camera-btn')?.addEventListener('click', () => this.showAddCameraModal());
-        
-        document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.loadDevices(e.target.dataset.filter);
-            });
-        });
-
-        document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') this.closeModal();
-        });
-        
-        document.getElementById('camera-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'camera-modal') this.closeCameraModal();
-        });
-    }
-
-    // Sorting
-    setupSorting() {
-        document.querySelectorAll('.sortable').forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.sort;
-                this.sortDevices(column);
-            });
-        });
-    }
-
-    sortDevices(column = 'id') {
-        // Toggle sort direction
-        this.sortDirection[column] = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
-        const direction = this.sortDirection[column];
-
-        // Update icons
-        document.querySelectorAll('.sortable i').forEach(icon => icon.className = 'fas fa-sort');
-        const activeHeader = document.querySelector(`.sortable[data-sort="${column}"] i`);
-        if (activeHeader) {
-            activeHeader.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-        }
-
-        // Sort data
-        this.currentDevices.sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
-
-            // Handle specific columns
-            if (column === 'ip') {
-                // Simple IP sort (can be improved for numeric sort)
-                valA = valA || '';
-                valB = valB || '';
-            } else if (column === 'lastSeen') {
-                valA = new Date(valA).getTime();
-                valB = new Date(valB).getTime();
-            } else if (column === 'status') {
-                // Sort by status enum value
-                valA = valA || 0;
-                valB = valB || 0;
-            } else {
-                // String sort
-                valA = (valA || '').toString().toLowerCase();
-                valB = (valB || '').toString().toLowerCase();
-            }
-
-            if (valA < valB) return direction === 'asc' ? -1 : 1;
-            if (valA > valB) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        this.renderDevicesTable(this.currentDevices);
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
+            </div>
+        `;
     }
 
     // API Calls
@@ -2550,1048 +2615,27 @@ class FirewallApp {
     }
 
     renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
-
-    // Event Handlers
-    setupEventListeners() {
-        document.getElementById('scan-btn').addEventListener('click', () => this.scanNetwork());
-        document.getElementById('mark-all-read').addEventListener('click', () => this.markAllAlertsRead());
-        
-        document.getElementById('scan-cameras-btn')?.addEventListener('click', () => this.scanCameras());
-        document.getElementById('add-camera-btn')?.addEventListener('click', () => this.showAddCameraModal());
-        
-        document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.loadDevices(e.target.dataset.filter);
-            });
-        });
-
-        document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') this.closeModal();
-        });
-        
-        document.getElementById('camera-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'camera-modal') this.closeCameraModal();
-        });
-    }
-
-    // Sorting
-    setupSorting() {
-        document.querySelectorAll('.sortable').forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.sort;
-                this.sortDevices(column);
-            });
-        });
-    }
-
-    sortDevices(column = 'id') {
-        // Toggle sort direction
-        this.sortDirection[column] = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
-        const direction = this.sortDirection[column];
-
-        // Update icons
-        document.querySelectorAll('.sortable i').forEach(icon => icon.className = 'fas fa-sort');
-        const activeHeader = document.querySelector(`.sortable[data-sort="${column}"] i`);
-        if (activeHeader) {
-            activeHeader.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-        }
-
-        // Sort data
-        this.currentDevices.sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
-
-            // Handle specific columns
-            if (column === 'ip') {
-                // Simple IP sort (can be improved for numeric sort)
-                valA = valA || '';
-                valB = valB || '';
-            } else if (column === 'lastSeen') {
-                valA = new Date(valA).getTime();
-                valB = new Date(valB).getTime();
-            } else if (column === 'status') {
-                // Sort by status enum value
-                valA = valA || 0;
-                valB = valB || 0;
-            } else {
-                // String sort
-                valA = (valA || '').toString().toLowerCase();
-                valB = (valB || '').toString().toLowerCase();
-            }
-
-            if (valA < valB) return direction === 'asc' ? -1 : 1;
-            if (valA > valB) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        this.renderDevicesTable(this.currentDevices);
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
-        try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        }
-    }
-
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
+        const container = document.querySelector('.system-status-body');
         if (!container) return;
 
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+        container.innerHTML = `
+            <div class="status-item">
+                <i class="fas fa-check-circle success"></i>
+                <span>All Services Running</span>
             </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
-
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
-            <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
-            </tr>
-        `).join('');
-    }
-
-    renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
-        try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        }
-    }
-
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            <div class="status-item">
+                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
+                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
             </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
-
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
-            <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
-            </tr>
-        `).join('');
-    }
-
-    renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
-        try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        }
-    }
-
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            <div class="status-item">
+                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
+                <span>Uptime: ${status.uptime}</span>
             </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
-
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
-            <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
-            </tr>
-        `).join('');
-    }
-
-    renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
-
-    // Event Handlers
-    setupEventListeners() {
-        document.getElementById('scan-btn').addEventListener('click', () => this.scanNetwork());
-        document.getElementById('mark-all-read').addEventListener('click', () => this.markAllAlertsRead());
-        
-        document.getElementById('scan-cameras-btn')?.addEventListener('click', () => this.scanCameras());
-        document.getElementById('add-camera-btn')?.addEventListener('click', () => this.showAddCameraModal());
-        
-        document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.loadDevices(e.target.dataset.filter);
-            });
-        });
-
-        document.querySelector('.modal-close').addEventListener('click', () => this.closeModal());
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') this.closeModal();
-        });
-        
-        document.getElementById('camera-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'camera-modal') this.closeCameraModal();
-        });
-    }
-
-    // Sorting
-    setupSorting() {
-        document.querySelectorAll('.sortable').forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.sort;
-                this.sortDevices(column);
-            });
-        });
-    }
-
-    sortDevices(column = 'id') {
-        // Toggle sort direction
-        this.sortDirection[column] = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
-        const direction = this.sortDirection[column];
-
-        // Update icons
-        document.querySelectorAll('.sortable i').forEach(icon => icon.className = 'fas fa-sort');
-        const activeHeader = document.querySelector(`.sortable[data-sort="${column}"] i`);
-        if (activeHeader) {
-            activeHeader.className = direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
-        }
-
-        // Sort data
-        this.currentDevices.sort((a, b) => {
-            let valA = a[column];
-            let valB = b[column];
-
-            // Handle specific columns
-            if (column === 'ip') {
-                // Simple IP sort (can be improved for numeric sort)
-                valA = valA || '';
-                valB = valB || '';
-            } else if (column === 'lastSeen') {
-                valA = new Date(valA).getTime();
-                valB = new Date(valB).getTime();
-            } else if (column === 'status') {
-                // Sort by status enum value
-                valA = valA || 0;
-                valB = valB || 0;
-            } else {
-                // String sort
-                valA = (valA || '').toString().toLowerCase();
-                valB = (valB || '').toString().toLowerCase();
-            }
-
-            if (valA < valB) return direction === 'asc' ? -1 : 1;
-            if (valA > valB) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        this.renderDevicesTable(this.currentDevices);
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
-        try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        }
-    }
-
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+            <div class="status-item">
+                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
+                <span>Version: ${status.version}</span>
             </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
-
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
-            <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
-            </tr>
-        `).join('');
-    }
-
-    renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
-        try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        }
-    }
-
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
-            </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
-
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
-            <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
-            </tr>
-        `).join('');
-    }
-
-    renderSystemStatus(status) {
-        // CPU Status (Simulated or real if available)
-        // Assuming status object might have cpu usage in future, for now static or random
-        const cpuText = document.getElementById('cpu-status-text');
-        const cpuIcon = document.getElementById('cpu-status-icon');
-        
-        // If we had real CPU data in status object:
-        // const cpu = status.cpuUsage || 0;
-        // For now, let's just show "Healthy"
-        if (cpuText) cpuText.textContent = `System Healthy (Version ${status.version})`;
+        `;
     }
 
     async loadDevices(filter = 'all') {
@@ -3815,7 +2859,6 @@ class FirewallApp {
             this.showToast('Agent supprimé', 'success');
             this.loadAgents();
         } catch (error) {
-            console.error('Error deleting agent:', error);
             this.showToast('Erreur lors de la suppression', 'error');
         }
     }

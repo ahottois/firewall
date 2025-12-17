@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NetworkFirewall.Services;
+using System.Diagnostics;
 
 namespace NetworkFirewall.Controllers;
 
@@ -26,12 +27,22 @@ public class SystemController : ControllerBase
     {
         var notifStats = _notificationService.GetStats();
         
+        // Get simple process stats
+        var process = Process.GetCurrentProcess();
+        var memoryUsage = Math.Round(process.WorkingSet64 / 1024.0 / 1024.0, 1); // MB
+        
+        // CPU usage is harder to get accurately per process without performance counters or tracking time
+        // For now, we'll return a placeholder or simple uptime
+        var uptime = DateTime.UtcNow - process.StartTime.ToUniversalTime();
+
         return Ok(new
         {
             IsCapturing = _packetCapture.IsCapturing,
             CurrentInterface = _packetCapture.CurrentInterface,
             ServerTime = DateTime.UtcNow,
             Version = "1.0.0",
+            MemoryUsageMb = memoryUsage,
+            Uptime = uptime.ToString(@"dd\.hh\:mm\:ss"),
             Notifications = new
             {
                 notifStats.TotalAlerts,

@@ -736,7 +736,7 @@ body {
 
 .camera-status-badge.secured {
     background: var(--success);
-    color: var(--bg-primary);
+    color: var,--bg-primary);
 }
 
 @keyframes blink {
@@ -798,7 +798,7 @@ body {
 .camera-password-status.nopassword {
     background: rgba(255, 71, 87, 0.3);
     color: var(--danger);
-    border: 1px solid var(--danger);
+    border: 1px solid var,--danger);
 }
 
 .camera-actions {
@@ -1534,12 +1534,64 @@ select.form-control {
     align-items: center;
     justify-content: center;
     position: relative;
+    height: 200px;
 }
 
 .shield-icon {
     font-size: 4rem;
     color: var(--accent-primary);
     margin-bottom: 10px;
+    z-index: 2;
+    background: var(--bg-card);
+    border-radius: 50%;
+    padding: 10px;
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+}
+
+.traffic-arrows {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.traffic-arrows::before,
+.traffic-arrows::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    width: 35%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--success));
+}
+
+.traffic-arrows::after {
+    left: auto;
+    right: 10%;
+    background: linear-gradient(90deg, var(--danger), transparent);
+}
+
+.arrow-up, .arrow-down {
+    position: absolute;
+    left: 50%;
+    width: 2px;
+    height: 35%;
+    background: linear-gradient(0deg, var(--accent-primary), transparent);
+    transform: translateX(-50%);
+}
+
+.arrow-up {
+    bottom: 50%;
+    background: linear-gradient(0deg, var(--accent-primary), transparent);
+}
+
+.arrow-down {
+    top: 50%;
+    background: linear-gradient(180deg, var(--accent-secondary), transparent);
 }
 
 .traffic-stats-text {
