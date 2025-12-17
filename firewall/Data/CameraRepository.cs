@@ -6,6 +6,7 @@ namespace NetworkFirewall.Data;
 public interface ICameraRepository
 {
     Task<NetworkCamera?> GetByIdAsync(int id);
+    Task<NetworkCamera?> GetByIpAsync(string ip);
     Task<NetworkCamera?> GetByIpAndPortAsync(string ip, int port);
     Task<IEnumerable<NetworkCamera>> GetAllAsync();
     Task<IEnumerable<NetworkCamera>> GetOnlineAsync();
@@ -29,6 +30,13 @@ public class CameraRepository : ICameraRepository
         return await _context.Cameras
             .Include(c => c.Device)
             .FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<NetworkCamera?> GetByIpAsync(string ip)
+    {
+        return await _context.Cameras
+            .Include(c => c.Device)
+            .FirstOrDefaultAsync(c => c.IpAddress == ip);
     }
 
     public async Task<NetworkCamera?> GetByIpAndPortAsync(string ip, int port)

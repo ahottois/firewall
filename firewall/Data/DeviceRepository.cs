@@ -7,6 +7,7 @@ namespace NetworkFirewall.Data;
 public interface IDeviceRepository
 {
     Task<NetworkDevice?> GetByMacAddressAsync(string macAddress);
+    Task<NetworkDevice?> GetByIpAsync(string ipAddress);
     Task<NetworkDevice?> GetByIdAsync(int id);
     Task<IEnumerable<NetworkDevice>> GetAllAsync();
     Task<IEnumerable<NetworkDevice>> GetUnknownDevicesAsync();
@@ -24,6 +25,12 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
     {
         return await context.Devices
             .FirstOrDefaultAsync(d => d.MacAddress.ToLower() == macAddress.ToLower());
+    }
+
+    public async Task<NetworkDevice?> GetByIpAsync(string ipAddress)
+    {
+        return await context.Devices
+            .FirstOrDefaultAsync(d => d.IpAddress == ipAddress);
     }
 
     public async Task<NetworkDevice?> GetByIdAsync(int id)

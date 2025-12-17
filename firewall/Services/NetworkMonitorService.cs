@@ -17,6 +17,7 @@ public class NetworkMonitorService : BackgroundService
     private readonly IThreatIntelligenceService _threatIntelligence;
     private readonly IBandwidthMonitorService _bandwidthMonitor;
     private readonly INetworkMonitoringService _networkMonitoring;
+    private readonly ICameraDetectionService _cameraDetection;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AppSettings _settings;
 
@@ -29,6 +30,7 @@ public class NetworkMonitorService : BackgroundService
         IThreatIntelligenceService threatIntelligence,
         IBandwidthMonitorService bandwidthMonitor,
         INetworkMonitoringService networkMonitoring,
+        ICameraDetectionService cameraDetection,
         IServiceScopeFactory scopeFactory,
         IOptions<AppSettings> settings)
     {
@@ -40,6 +42,7 @@ public class NetworkMonitorService : BackgroundService
         _threatIntelligence = threatIntelligence;
         _bandwidthMonitor = bandwidthMonitor;
         _networkMonitoring = networkMonitoring;
+        _cameraDetection = cameraDetection;
         _scopeFactory = scopeFactory;
         _settings = settings.Value;
     }
@@ -135,6 +138,9 @@ public class NetworkMonitorService : BackgroundService
 
             // Analyze for anomalies
             await _anomalyDetection.AnalyzePacketAsync(e);
+
+            // Analyze for camera traffic
+            await _cameraDetection.AnalyzePacketForCameraTrafficAsync(e);
         }
         catch (Exception ex)
         {

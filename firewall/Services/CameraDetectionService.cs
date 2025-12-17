@@ -16,6 +16,7 @@ public interface ICameraDetectionService
     Task<CameraCheckResult> TestCredentialsAsync(string ip, int port, string username, string password);
     Task<CameraCheckResult> TestDefaultCredentialsAsync(string ip, int port);
     Task<string?> GetSnapshotAsync(int cameraId);
+    Task AnalyzePacketForCameraTrafficAsync(PacketCapturedEventArgs packet);
 }
 
 public class CameraCheckResult
@@ -40,6 +41,9 @@ public class CameraDetectionService : ICameraDetectionService
     private readonly IScanLogService _scanLog;
     private readonly AppSettings _settings;
 
+    // Cache pour eviter de verifier trop souvent la meme IP
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _checkedIps = new();
+
     private const string ScanSource = "camera-scan";
 
     private static readonly Regex HikvisionPattern = new(@"hikvision|hik|DS-\d", RegexOptions.IgnoreCase);
@@ -61,6 +65,80 @@ public class CameraDetectionService : ICameraDetectionService
         _notificationService = notificationService;
         _scanLog = scanLog;
         _settings = settings.Value;
+    }
+
+    public async Task AnalyzePacketForCameraTrafficAsync(PacketCapturedEventArgs packet)
+    {
+        // Ignorer les paquets sans IP source ou destination
+        if (string.IsNullOrEmpty(packet.SourceIp) || string.IsNullOrEmpty(packet.DestinationIp))
+            return;
+
+        // Ports interessants pour les cameras
+        var cameraPorts = new[] { 554, 8554, 1935, 1936, 3702, 37777, 34567 };
+        
+        // Verifier si le port source ou destination correspond a un port camera
+        int? portToCheck = null;
+        string? ipToCheck = null;
+
+        if (packet.SourcePort.HasValue && cameraPorts.Contains(packet.SourcePort.Value))
+        {
+            portToCheck = packet.SourcePort.Value;
+            ipToCheck = packet.SourceIp;
+        }
+        else if (packet.DestinationPort.HasValue && cameraPorts.Contains(packet.DestinationPort.Value))
+        {
+            // Si c'est le port de destination, c'est peut-etre un client qui se connecte a une camera
+            portToCheck = packet.DestinationPort.Value;
+            ipToCheck = packet.DestinationIp;
+        }
+
+        if (portToCheck.HasValue && ipToCheck != null)
+        {
+            // Eviter de verifier trop souvent (toutes les 10 minutes)
+            if (_checkedIps.TryGetValue(ipToCheck, out var lastCheck) && (DateTime.UtcNow - lastCheck).TotalMinutes < 10)
+                return;
+
+            _checkedIps[ipToCheck] = DateTime.UtcNow;
+
+            // Lancer une verification en arriere-plan
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var cameraRepo = scope.ServiceProvider.GetRequiredService<ICameraRepository>();
+                    var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
+
+                    // Verifier si c'est deja une camera connue
+                    var existingCamera = await cameraRepo.GetByIpAsync(ipToCheck);
+                    if (existingCamera != null) return;
+
+                    // Verifier si c'est un appareil connu
+                    var device = await deviceRepo.GetByIpAsync(ipToCheck);
+                    
+                    // Tenter de detecter si c'est vraiment une camera
+                    var camera = await CheckCameraAsync(ipToCheck, portToCheck.Value);
+                    if (camera != null)
+                    {
+                        if (device != null) camera.DeviceId = device.Id;
+                        
+                        await cameraRepo.AddOrUpdateAsync(camera);
+                        
+                        _logger.LogInformation("Camera detectee passivement via trafic sur le port {Port}: {Ip}", portToCheck, ipToCheck);
+                        
+                        if (camera.PasswordStatus == PasswordStatus.DefaultPassword || 
+                            camera.PasswordStatus == PasswordStatus.NoPassword)
+                        {
+                            await CreateCameraAlertAsync(camera);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Erreur lors de la detection passive de camera pour {Ip}", ipToCheck);
+                }
+            });
+        }
     }
 
     public async Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync(CancellationToken cancellationToken = default)

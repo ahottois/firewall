@@ -62,7 +62,7 @@ public static class DefaultCameraCredentials
         { "Generic", new() { ("admin", "admin"), ("admin", ""), ("admin", "1234"), ("admin", "12345"), ("admin", "123456"), ("root", "root"), ("user", "user") } }
     };
 
-    public static readonly List<int> CommonCameraPorts = new() { 80, 8080, 8081, 554, 8554, 443, 8443, 37777, 34567 };
+    public static readonly List<int> CommonCameraPorts = new() { 80, 8080, 8081, 554, 8554, 443, 8443, 37777, 34567, 1935, 1936, 3702 };
     
     public static readonly List<string> CommonRtspPaths = new()
     {
