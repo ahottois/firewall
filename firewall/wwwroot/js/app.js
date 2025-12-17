@@ -142,7 +142,29 @@ class FirewallApp {
                 headers: { 'Content-Type': 'application/json', ...options.headers }
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return await response.json();
+            
+            // Check if response has content
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+            return {};
+        } catch (error) {
+            console.error(`API Error (${endpoint}):`, error);
+            throw error;
+        }
+    }
+
+    // API call that doesn't expect JSON response
+    async apiPost(endpoint) {
+        try {
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return { success: true };
         } catch (error) {
             console.error(`API Error (${endpoint}):`, error);
             throw error;
@@ -689,19 +711,19 @@ class FirewallApp {
     }
 
     async markAlertRead(id) {
-        await this.api(`alerts/${id}/read`, { method: 'POST' });
+        await this.apiPost(`alerts/${id}/read`);
         this.loadAlerts();
         this.updateAlertBadge();
     }
 
     async resolveAlert(id) {
-        await this.api(`alerts/${id}/resolve`, { method: 'POST' });
+        await this.apiPost(`alerts/${id}/resolve`);
         this.loadAlerts();
         this.updateAlertBadge();
     }
 
     async markAllAlertsRead() {
-        await this.api('alerts/read-all', { method: 'POST' });
+        await this.apiPost('alerts/read-all');
         this.loadAlerts();
         this.updateAlertBadge();
     }
