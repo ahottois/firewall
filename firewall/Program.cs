@@ -100,6 +100,7 @@ using (var scope = app.Services.CreateScope())
         // Test access to ensure schema matches the current model
         // This will throw if the schema is outdated (e.g. missing columns)
         _ = db.Alerts.FirstOrDefault();
+        _ = db.Agents.FirstOrDefault(); // Check for Agents table
     }
     catch (Exception ex)
     {
@@ -118,6 +119,18 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

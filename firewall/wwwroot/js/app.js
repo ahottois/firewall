@@ -509,9 +509,45 @@ class FirewallApp {
 
     copyInstallCommand() {
         const command = document.getElementById('install-command').textContent;
-        navigator.clipboard.writeText(command).then(() => {
-            this.showToast('Commande copiée !', 'success');
-        });
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(command).then(() => {
+                this.showToast({ title: 'Succes', message: 'Commande copiee !', severity: 0 });
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                this.fallbackCopyTextToClipboard(command);
+            });
+        } else {
+            this.fallbackCopyTextToClipboard(command);
+        }
+    }
+
+    fallbackCopyTextToClipboard(text) {
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Avoid scrolling to bottom
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            var successful = document.execCommand('copy');
+            if (successful) {
+                this.showToast({ title: 'Succes', message: 'Commande copiee !', severity: 0 });
+            } else {
+                this.showToast({ title: 'Erreur', message: 'Impossible de copier', severity: 2 });
+            }
+        } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+            this.showToast({ title: 'Erreur', message: 'Impossible de copier', severity: 2 });
+        }
+
+        document.body.removeChild(textArea);
     }
 
     async deleteAgent(id) {
@@ -1168,7 +1204,10 @@ class FirewallApp {
             }
 
         } catch (error) {
-            console.error('Error loading Pi-hole stats:', error);
+            // Silent fail for 404 (not installed/available)
+            if (!error.message.includes('404')) {
+                console.error('Error loading Pi-hole stats:', error);
+            }
             document.getElementById('pihole-stats-container').style.display = 'none';
         }
     }
