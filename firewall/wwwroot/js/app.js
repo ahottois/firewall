@@ -1036,7 +1036,15 @@ class FirewallApp {
                     piholeUrl = `http://${window.location.hostname}:80${piholeUrl}`;
                 }
                 console.log('Pi-hole URL:', piholeUrl);
-                btnOpen.href = piholeUrl;
+                
+                // Use setAttribute for robustness
+                btnOpen.setAttribute('href', piholeUrl);
+                
+                // Add click handler as fallback to force correct window opening
+                btnOpen.onclick = (e) => {
+                    e.preventDefault();
+                    window.open(piholeUrl, '_blank');
+                };
                 
                 btnPwd.style.display = 'inline-block';
                 btnUninstall.style.display = 'inline-block';
@@ -1663,7 +1671,7 @@ class FirewallApp {
                 <div class="log-entry ${log.level}" onclick="app.showLogDetails(${index})">
                     <span class="log-time">${this.escapeHtml(log.timestamp)}</span>
                     <span class="log-separator">|</span>
-                    <span class="log-message">${this.escapeHtml(log.message)}</span>
+                    <span class="log-message">${ this.escapeHtml(log.message)}</span>
                 </div>
             `).join('');
             
