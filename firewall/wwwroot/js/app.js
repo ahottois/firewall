@@ -283,571 +283,530 @@ class FirewallApp {
         };
     }
 
-    // Dashboard
-    async loadDashboard() {
+    // Devices
+    async loadDevices(filter = 'all') {
         try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
+            let endpoint = 'devices';
+            if (filter === 'online') endpoint = 'devices/online';
+            else if (filter === 'unknown') endpoint = 'devices/unknown';
 
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
+            const devices = await this.api(endpoint);
+            this.currentDevices = devices;
+            this.renderDevicesTable(devices);
         } catch (error) {
-            console.error('Error loading dashboard:', error);
+            console.error('Error loading devices:', error);
         }
     }
 
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
-
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
-        }
-    }
-
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
-            </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
+    renderDevicesTable(devices) {
+        const tbody = document.getElementById('devices-table');
         if (!tbody) return;
 
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+        if (!devices.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil trouve</td></tr>';
             return;
         }
 
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+        tbody.innerHTML = devices.map(device => `
             <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
+                <td><span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span></td>
+                <td class="device-mac">${this.escapeHtml(device.macAddress)}</td>
+                <td>${this.escapeHtml(device.ipAddress || '-')}</td>
+                <td>${this.escapeHtml(device.vendor || 'Inconnu')}</td>
+                <td>${this.escapeHtml(device.description || device.hostname || '-')}</td>
+                <td>${this.formatDate(device.lastSeen)}</td>
+                <td>
+                    <div class="action-buttons" style="display: flex; gap: 5px;">
+                        ${!device.isTrusted ? `<button class="btn btn-sm btn-success" onclick="app.approveDevice(${device.id})" title="Approuver">${Icons.check}</button>` : ''}
+                        <button class="btn btn-sm btn-primary" onclick="app.viewDevice(${device.id})" title="Détails">${Icons.eye}</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})" title="Supprimer">${Icons.trash}</button>
+                    </div>
+                </td>
             </tr>
         `).join('');
     }
 
-    renderSystemStatus(status) {
-        const container = document.querySelector('.system-status-body');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div class="status-item">
-                <i class="fas fa-check-circle success"></i>
-                <span>All Services Running</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
-                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
-                <span>Uptime: ${status.uptime}</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
-                <span>Version: ${status.version}</span>
-            </div>
-        `;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
+    async approveDevice(id) {
         try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            if (!options.suppressErrorLog) {
-                console.error(`API Error (${endpoint}):`, error);
-            }
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
+            await this.api(`devices/${id}/trust`, { 
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                body: JSON.stringify({ trusted: true })
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
+            this.showToast({ title: 'Succes', message: 'Appareil approuve', severity: 0 });
+            this.loadDevices();
         } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
-    }
-
-    // Dashboard
-    async loadDashboard() {
+    async viewDevice(id) {
         try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
-            ]);
-
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
-
+            const device = await this.api(`devices/${id}`);
+            
+            document.getElementById('device-id').value = device.id;
+            document.getElementById('device-mac').value = device.macAddress;
+            document.getElementById('device-ip').value = device.ipAddress || '';
+            document.getElementById('device-vendor').value = device.vendor || '';
+            document.getElementById('device-hostname').value = device.hostname || '';
+            document.getElementById('device-description').value = device.description || '';
+            document.getElementById('device-is-known').checked = device.isKnown;
+            document.getElementById('device-is-trusted').checked = device.isTrusted;
+            
+            document.getElementById('device-first-seen').textContent = new Date(device.firstSeen).toLocaleString();
+            document.getElementById('device-last-seen').textContent = new Date(device.lastSeen).toLocaleString();
+            
+            document.getElementById('device-details-modal').classList.add('active');
         } catch (error) {
-            console.error('Error loading dashboard:', error);
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
+    async saveDeviceDetails() {
+        const id = document.getElementById('device-id').value;
+        const data = {
+            ipAddress: document.getElementById('device-ip').value,
+            vendor: document.getElementById('device-vendor').value,
+            hostname: document.getElementById('device-hostname').value,
+            description: document.getElementById('device-description').value,
+            isKnown: document.getElementById('device-is-known').checked,
+            isTrusted: document.getElementById('device-is-trusted').checked
+        };
 
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
+        try {
+            await this.api(`devices/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+            
+            document.getElementById('device-details-modal').classList.remove('active');
+            this.showToast({ title: 'Succes', message: 'Appareil mis a jour', severity: 0 });
+            this.loadDevices();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
+    async deleteDevice(id) {
+        if (!confirm('Etes-vous sur de vouloir supprimer cet appareil ?')) return;
+        try {
+            await this.api(`devices/${id}`, { method: 'DELETE' });
+            this.showToast({ title: 'Succes', message: 'Appareil supprime', severity: 0 });
+            this.loadDevices();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
 
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
+    // Agents
+    async loadAgents() {
+        try {
+            const agents = await this.api('agents');
+            this.renderAgents(agents);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+        }
+    }
 
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
+    renderAgents(agents) {
+        const grid = document.getElementById('agents-grid');
+        const empty = document.getElementById('agents-empty');
+        
+        if (!grid || !empty) return;
+
+        if (!agents || agents.length === 0) {
+            grid.innerHTML = '';
+            empty.style.display = 'block';
             return;
         }
 
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
+        empty.style.display = 'none';
+        grid.innerHTML = agents.map(agent => `
+            <div class="card agent-card">
+                <div class="card-header">
+                    <h3>${this.escapeHtml(agent.hostname)}</h3>
+                    <span class="status-badge ${agent.status === 'Online' ? 'online' : 'offline'}">${agent.status}</span>
                 </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
+                <div class="card-body">
+                    <p><strong>OS:</strong> ${this.escapeHtml(agent.osDescription)}</p>
+                    <p><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress)}</p>
+                    <p><strong>Last Seen:</strong> ${this.formatDate(agent.lastSeen)}</p>
+                    <p><strong>Version:</strong> ${this.escapeHtml(agent.version)}</p>
+                </div>
             </div>
         `).join('');
     }
 
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
-        if (!tbody) return;
+    // Cameras
+    async loadCameras() {
+        try {
+            const cameras = await this.api('cameras');
+            this.renderCameras(cameras);
+            
+            // Update stats
+            document.getElementById('cameras-total').textContent = cameras.length;
+            document.getElementById('cameras-online').textContent = cameras.filter(c => c.status === 'Online').length;
+            document.getElementById('cameras-vulnerable').textContent = cameras.filter(c => c.isVulnerable).length;
+            document.getElementById('cameras-secured').textContent = cameras.filter(c => !c.isVulnerable && c.status === 'Online').length;
+        } catch (error) {
+            console.error('Error loading cameras:', error);
+        }
+    }
 
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+    renderCameras(cameras) {
+        const grid = document.getElementById('cameras-grid');
+        if (!grid) return;
+
+        if (!cameras || cameras.length === 0) {
+            grid.innerHTML = '<div class="empty-state">Aucune camera detectee</div>';
             return;
         }
 
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+        grid.innerHTML = cameras.map(camera => `
+            <div class="camera-card ${camera.isVulnerable ? 'vulnerable' : 'secured'}">
+                <div class="camera-preview" onclick="app.viewCamera(${camera.id})">
+                    <div class="camera-preview-placeholder">
+                        ${Icons.video}
+                        <span>${this.escapeHtml(camera.vendor || 'Camera')}</span>
+                    </div>
+                    <div class="camera-status-overlay">
+                        <span class="camera-status-badge ${camera.status.toLowerCase()}">${camera.status}</span>
+                        ${camera.isVulnerable ? '<span class="camera-status-badge vulnerable">VULNERABLE</span>' : ''}
+                    </div>
+                </div>
+                <div class="camera-info">
+                    <div class="camera-name">${this.escapeHtml(camera.name || camera.hostname || 'Unknown Camera')}</div>
+                    <div class="camera-address">${this.escapeHtml(camera.ipAddress)}</div>
+                    <div class="camera-meta">
+                        <span><i class="fas fa-network-wired"></i> Port ${camera.port}</span>
+                        <span><i class="fas fa-clock"></i> ${this.formatDate(camera.lastSeen)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async scanCameras() {
+        try {
+            document.getElementById('scan-cameras-btn').disabled = true;
+            document.getElementById('scan-logs-panel').style.display = 'block';
+            
+            await this.api('cameras/scan', { method: 'POST' });
+            
+            // Start polling for logs
+            if (this.scanLogSource) clearInterval(this.scanLogSource);
+            this.scanLogSource = setInterval(() => this.loadScanLogs(), 1000);
+            
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+            document.getElementById('scan-cameras-btn').disabled = false;
+        }
+    }
+
+    // Alerts
+    async loadAlerts() {
+        try {
+            const alerts = await this.api('alerts?count=50');
+            this.renderAlerts(alerts);
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+        }
+    }
+
+    renderAlerts(alerts) {
+        const list = document.getElementById('alerts-list');
+        if (!list) return;
+
+        if (!alerts || alerts.length === 0) {
+            list.innerHTML = '<div class="empty-state">Aucune alerte</div>';
+            return;
+        }
+
+        list.innerHTML = alerts.map(alert => `
+            <div class="alert-item ${this.getSeverityClass(alert.severity)} ${!alert.isRead ? 'unread' : ''}">
+                <div class="alert-content">
+                    <div class="alert-title">${this.getAlertTypeIcon(alert.type)} ${this.escapeHtml(alert.title)}</div>
+                    <div class="alert-message">${this.escapeHtml(alert.message)}</div>
+                    <div class="alert-time">${this.formatDate(alert.timestamp)}</div>
+                </div>
+                <div class="alert-actions">
+                    ${!alert.isRead ? `<button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})">${Icons.check}</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async markAllAlertsRead() {
+        try {
+            await this.api('alerts/read-all', { method: 'POST' });
+            this.loadAlerts();
+            this.updateAlertBadge();
+        } catch (error) {
+            console.error('Error marking alerts read:', error);
+        }
+    }
+
+    async resolveAllAlerts() {
+        if (!confirm('Tout marquer comme resolu ?')) return;
+        try {
+            await this.api('alerts/resolve-all', { method: 'POST' });
+            this.loadAlerts();
+        } catch (error) {
+            console.error('Error resolving alerts:', error);
+        }
+    }
+
+    async resetAllAlerts() {
+        if (!confirm('Supprimer tout l\'historique des alertes ?')) return;
+        try {
+            await this.api('alerts/reset', { method: 'POST' });
+            this.loadAlerts();
+        } catch (error) {
+            console.error('Error resetting alerts:', error);
+        }
+    }
+
+    updateAlertBadge() {
+        this.api('alerts/unread-count').then(data => {
+            const badge = document.getElementById('notification-count');
+            if (badge) {
+                badge.textContent = data.count;
+                badge.style.display = data.count > 0 ? 'block' : 'none';
+            }
+        }).catch(e => console.error(e));
+    }
+
+    // Traffic
+    async loadTraffic() {
+        try {
+            const stats = await this.api('traffic/stats?hours=24');
+            
+            document.getElementById('total-packets').textContent = this.formatNumber(stats.totalPackets);
+            document.getElementById('inbound-packets').textContent = this.formatNumber(stats.inboundPackets);
+            document.getElementById('outbound-packets').textContent = this.formatNumber(stats.outboundPackets);
+            document.getElementById('suspicious-packets').textContent = this.formatNumber(stats.suspiciousPackets);
+
+            // Render protocols chart
+            const protocolsChart = document.getElementById('protocols-chart');
+            if (protocolsChart && stats.topProtocols) {
+                const max = Math.max(...Object.values(stats.topProtocols));
+                protocolsChart.innerHTML = Object.entries(stats.topProtocols).map(([proto, count]) => `
+                    <div class="protocol-item">
+                        <span style="width: 60px;">${proto}</span>
+                        <div class="protocol-bar">
+                            <div class="protocol-bar-fill" style="width: ${(count / max * 100)}%"></div>
+                        </div>
+                        <span>${this.formatNumber(count)}</span>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading traffic:', error);
+        }
+    }
+
+    // Sniffer
+    async loadSniffer() {
+        if (!this.snifferInterval) {
+            this.snifferInterval = setInterval(() => this.refreshSnifferPackets(), 1000);
+        }
+        this.refreshSnifferPackets();
+    }
+
+    async refreshSnifferPackets() {
+        try {
+            const packets = await this.api('sniffer/packets');
+            this.renderSnifferPackets(packets);
+        } catch (error) {
+            console.error('Error loading packets:', error);
+        }
+    }
+
+    renderSnifferPackets(packets) {
+        const tbody = document.getElementById('sniffer-packets-table');
+        if (!tbody) return;
+
+        tbody.innerHTML = packets.map(p => `
             <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
+                <td>${new Date(p.timestamp).toLocaleTimeString()}</td>
+                <td>${this.escapeHtml(p.sourceIp || p.sourceMac)}:${p.sourcePort || ''}</td>
+                <td>${this.escapeHtml(p.destinationIp || p.destinationMac)}:${p.destinationPort || ''}</td>
+                <td>${this.escapeHtml(p.protocol)}</td>
+                <td>${p.packetSize}</td>
+                <td>${p.direction}</td>
             </tr>
         `).join('');
     }
 
-    renderSystemStatus(status) {
-        const container = document.querySelector('.system-status-body');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div class="status-item">
-                <i class="fas fa-check-circle success"></i>
-                <span>All Services Running</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
-                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
-                <span>Uptime: ${status.uptime}</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
-                <span>Version: ${status.version}</span>
-            </div>
-        `;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            if (!options.suppressErrorLog) {
-                console.error(`API Error (${endpoint}):`, error);
-            }
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
+    async startSniffer() {
+        const filter = {
+            sourceIp: document.getElementById('sniffer-filter-ip').value,
+            port: parseInt(document.getElementById('sniffer-filter-port').value) || null,
+            protocol: document.getElementById('sniffer-filter-proto').value,
+            direction: document.getElementById('sniffer-filter-direction').value
         };
+
+        try {
+            await this.api('sniffer/start', { method: 'POST', body: JSON.stringify(filter) });
+            document.getElementById('btn-start-sniffer').style.display = 'none';
+            document.getElementById('btn-stop-sniffer').style.display = 'inline-block';
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
     }
 
-    // Dashboard
-    async loadDashboard() {
+    async stopSniffer() {
         try {
-            const [trafficStats, alerts, rules, systemStatus] = await Promise.all([
-                this.api('traffic/stats?hours=24'),
-                this.api('alerts?count=10'),
-                this.api('router/mappings'),
-                this.api('system/status')
+            await this.api('sniffer/stop', { method: 'POST' });
+            document.getElementById('btn-start-sniffer').style.display = 'inline-block';
+            document.getElementById('btn-stop-sniffer').style.display = 'none';
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    async clearSnifferPackets() {
+        try {
+            await this.api('sniffer/clear', { method: 'POST' });
+            this.refreshSnifferPackets();
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    // Router
+    async loadRouter() {
+        this.loadRouterInterfaces();
+        this.loadRouterMappings();
+    }
+
+    async loadRouterInterfaces() {
+        try {
+            const interfaces = await this.api('router/interfaces');
+            const container = document.getElementById('router-interfaces-list');
+            if (!container) return;
+
+            container.innerHTML = interfaces.map(iface => `
+                <div class="interface-item">
+                    <div>
+                        <strong>${this.escapeHtml(iface.name)}</strong>
+                        <div class="device-ip">${this.escapeHtml(iface.description)}</div>
+                        ${iface.macAddress ? `<div class="device-ip">MAC: ${this.escapeHtml(iface.macAddress)}</div>` : ''}
+                        ${iface.addresses ? iface.addresses.map(addr => `<div class="device-ip">${addr}</div>`).join('') : ''}
+                    </div>
+                    <span class="status-badge ${iface.isUp ? 'online' : 'offline'}">${iface.isUp ? 'Up' : 'Down'}</span>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading router interfaces:', error);
+        }
+    }
+
+    async loadRouterMappings() {
+        try {
+            const mappings = await this.api('router/mappings');
+            const tbody = document.getElementById('router-mappings-table');
+            if (!tbody) return;
+
+            if (!mappings || mappings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucune regle de port mapping</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = mappings.map(m => `
+                <tr>
+                    <td>${this.escapeHtml(m.name)}</td>
+                    <td>${m.listenPort}</td>
+                    <td>${this.escapeHtml(m.targetIp)}:${m.targetPort}</td>
+                    <td>${m.protocol}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteMapping(${m.id})">${Icons.trash}</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading mappings:', error);
+        }
+    }
+
+    async deleteMapping(id) {
+        if (!confirm('Supprimer cette regle ?')) return;
+        try {
+            await this.api(`router/mappings/${id}`, { method: 'DELETE' });
+            this.loadRouterMappings();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    // DHCP
+    async loadDhcp() {
+        try {
+            const [config, leases] = await Promise.all([
+                this.api('dhcp/config'),
+                this.api('dhcp/leases')
             ]);
 
-            this.renderTrafficOverview(trafficStats);
-            this.renderTopThreats(alerts);
-            this.renderFirewallRules(rules);
-            this.renderSystemStatus(systemStatus);
+            document.getElementById('dhcp-enabled').checked = config.enabled;
+            document.getElementById('dhcp-start').value = config.rangeStart;
+            document.getElementById('dhcp-end').value = config.rangeEnd;
+            document.getElementById('dhcp-mask').value = config.subnetMask;
+            document.getElementById('dhcp-gateway').value = config.gateway;
+            document.getElementById('dhcp-dns1').value = config.dns1;
+            document.getElementById('dhcp-dns2').value = config.dns2;
+            document.getElementById('dhcp-lease').value = config.leaseTimeMinutes;
 
+            this.renderDhcpLeases(leases);
         } catch (error) {
-            console.error('Error loading dashboard:', error);
+            console.error('Error loading DHCP:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger la configuration DHCP', severity: 3 });
         }
     }
 
-    renderTrafficOverview(stats) {
-        const total = stats.totalPackets || 1;
-        const blocked = stats.suspiciousPackets || 0;
-        const allowed = total - blocked;
-        
-        const allowedPercent = Math.round((allowed / total) * 100);
-        const blockedPercent = Math.round((blocked / total) * 100);
+    async saveDhcpConfig() {
+        const config = {
+            enabled: document.getElementById('dhcp-enabled').checked,
+            rangeStart: document.getElementById('dhcp-start').value,
+            rangeEnd: document.getElementById('dhcp-end').value,
+            subnetMask: document.getElementById('dhcp-mask').value,
+            gateway: document.getElementById('dhcp-gateway').value,
+            dns1: document.getElementById('dhcp-dns1').value,
+            dns2: document.getElementById('dhcp-dns2').value,
+            leaseTimeMinutes: parseInt(document.getElementById('dhcp-lease').value) || 1440
+        };
 
-        // Update Charts
-        const allowedChart = document.getElementById('allowed-traffic-chart');
-        const blockedChart = document.getElementById('blocked-traffic-chart');
-        
-        if (allowedChart) {
-            allowedChart.style.background = `conic-gradient(var(--accent-primary) 0% ${allowedPercent}%, transparent ${allowedPercent}% 100%)`;
-            document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
-        }
-        
-        if (blockedChart) {
-            blockedChart.style.background = `conic-gradient(var(--danger) 0% ${blockedPercent}%, transparent ${blockedPercent}% 100%)`;
-            document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
-        }
-
-        // Update Sparkline (Simulated for now based on protocol distribution or random)
-        const sparkline = document.getElementById('traffic-sparkline');
-        if (sparkline) {
-            // Generate some fake bars for visual effect if no historical data
-            let barsHtml = '';
-            for (let i = 0; i < 20; i++) {
-                const height = Math.floor(Math.random() * 80) + 20;
-                barsHtml += `<div class="spark-bar" style="height: ${height}%"></div>`;
-            }
-            sparkline.innerHTML = barsHtml;
+        try {
+            await this.api('dhcp/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            this.showToast({ title: 'Succès', message: 'Configuration DHCP enregistrée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
         }
     }
 
-    renderTopThreats(alerts) {
-        const container = document.getElementById('top-threats-list');
-        if (!container) return;
-
-        // Filter for high severity or just take top 4
-        const threats = alerts.filter(a => a.severity >= 2).slice(0, 4);
-
-        if (threats.length === 0) {
-            container.innerHTML = '<div class="empty-state">No recent threats detected</div>';
-            return;
-        }
-
-        container.innerHTML = threats.map(alert => `
-            <div class="threat-item">
-                <div class="threat-info">
-                    <div class="threat-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="threat-details">
-                        <h4>${this.escapeHtml(alert.title)}</h4>
-                        <p>${alert.sourceIp ? `Source: ${this.escapeHtml(alert.sourceIp)}` : this.formatDate(alert.timestamp)}</p>
-                    </div>
-                </div>
-                <button class="btn btn-sm btn-outline" onclick="app.navigateTo('alerts')">View Details</button>
-            </div>
-        `).join('');
-    }
-
-    renderFirewallRules(rules) {
-        const tbody = document.getElementById('firewall-rules-body');
+    renderDhcpLeases(leases) {
+        const tbody = document.getElementById('dhcp-leases-table');
         if (!tbody) return;
 
-        if (!rules || rules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No active rules</td></tr>';
+        if (!leases || leases.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aucun bail actif</td></tr>';
             return;
         }
 
-        tbody.innerHTML = rules.slice(0, 5).map((rule, index) => `
+        tbody.innerHTML = leases.map(lease => `
             <tr>
-                <td>RULE_${(index + 1).toString().padStart(2, '0')}</td>
-                <td>${rule.enabled ? 'ALLOW' : 'BLOCK'}</td>
-                <td>Any</td>
-                <td>${this.escapeHtml(rule.targetIp)}</td>
-                <td>${rule.listenPort}/${rule.protocol}</td>
-                <td class="status-active">Active</td>
+                <td>${this.escapeHtml(lease.ipAddress)}</td>
+                <td style="font-family: monospace;">${this.escapeHtml(lease.macAddress)}</td>
+                <td>${this.escapeHtml(lease.hostname || '-')}</td>
+                <td>${new Date(lease.expiration).toLocaleString()}</td>
             </tr>
         `).join('');
     }
 
-    renderSystemStatus(status) {
-        const container = document.querySelector('.system-status-body');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div class="status-item">
-                <i class="fas fa-check-circle success"></i>
-                <span>All Services Running</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-memory" style="color: var(--accent-primary)"></i>
-                <span>Memory Usage: ${status.memoryUsageMb} MB</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-clock" style="color: var(--text-secondary)"></i>
-                <span>Uptime: ${status.uptime}</span>
-            </div>
-            <div class="status-item">
-                <i class="fas fa-code-branch" style="color: var(--text-secondary)"></i>
-                <span>Version: ${status.version}</span>
-            </div>
-        `;
-    }
-
-    // API Calls
-    async api(endpoint, options = {}) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                ...options,
-                headers: { 'Content-Type': 'application/json', ...options.headers }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const text = await response.text();
-                return text ? JSON.parse(text) : {};
-            }
-            return {};
-        } catch (error) {
-            if (!options.suppressErrorLog) {
-                console.error(`API Error (${endpoint}):`, error);
-            }
-            throw error;
-        }
-    }
-
-    // API call that doesn't expect JSON response
-    async apiPost(endpoint) {
-        try {
-            const response = await fetch(`/api/${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            return { success: true };
-        } catch (error) {
-            console.error(`API Error (${endpoint}):`, error);
-            throw error;
-        }
-    }
-
-    // Real-time Notifications
-    connectNotifications() {
-        if (this.eventSource) this.eventSource.close();
-
-        this.eventSource = new EventSource('/api/notifications/stream');
-
-        this.eventSource.addEventListener('alert', (e) => {
-            const alert = JSON.parse(e.data);
-            this.showToast(alert);
-            this.updateAlertBadge();
-            if (this.currentPage === 'dashboard') this.loadDashboard();
-            else if (this.currentPage === 'alerts') this.loadAlerts();
-        });
-
-        this.eventSource.addEventListener('connected', () => console.log('Connected to notification stream'));
-
-        this.eventSource.onerror = () => {
-            console.log('Notification stream disconnected, reconnecting...');
-            setTimeout(() => this.connectNotifications(), 5000);
-        };
+    // Pi-hole Wrapper
+    loadPihole() {
+        this.loadPiholeStats();
     }
 
     // Dashboard
