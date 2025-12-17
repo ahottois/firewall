@@ -138,23 +138,38 @@ public class PortMappingService : BackgroundService
             var targetEndpoint = new IPEndPoint(IPAddress.Parse(rule.TargetIp), rule.TargetPort);
 
             // Map client endpoint -> forwarder client
-            // UDP is connectionless, so we need to maintain a map of "sessions" or just forward blindly if 1-to-1
-            // Simple implementation: One UDP client per incoming packet source? Complex.
-            // Simplest: Just forward everything to target, and replies back to last sender? 
-            // Better: Create a new UdpClient for each new sender to talk to target.
-            
-            var clients = new ConcurrentDictionary<IPEndPoint, UdpClient>();
+            var clients = new ConcurrentDictionary<IPEndPoint, UdpSession>();
+
+            // Start cleanup task
+            _ = Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(1), token);
+                    var now = DateTime.UtcNow;
+                    var expired = clients.Where(c => (now - c.Value.LastActivity).TotalMinutes > 2).ToList();
+
+                    foreach (var item in expired)
+                    {
+                        if (clients.TryRemove(item.Key, out var session))
+                        {
+                            try { session.Client.Close(); session.Client.Dispose(); } catch { }
+                        }
+                    }
+                }
+            }, token);
 
             while (!token.IsCancellationRequested)
             {
                 var result = await listener.ReceiveAsync(token);
                 var clientEp = result.RemoteEndPoint;
 
-                if (!clients.TryGetValue(clientEp, out var forwarder))
+                if (!clients.TryGetValue(clientEp, out var session))
                 {
-                    forwarder = new UdpClient();
+                    var forwarder = new UdpClient();
                     forwarder.Connect(targetEndpoint);
-                    clients[clientEp] = forwarder;
+                    session = new UdpSession { Client = forwarder, LastActivity = DateTime.UtcNow };
+                    clients[clientEp] = session;
 
                     // Start listening for responses from target
                     _ = Task.Run(async () =>
@@ -164,17 +179,23 @@ public class PortMappingService : BackgroundService
                             while (!token.IsCancellationRequested)
                             {
                                 var response = await forwarder.ReceiveAsync(token);
+                                // Update activity on response too? Maybe not strictly necessary but good for keepalive
+                                if (clients.TryGetValue(clientEp, out var s)) s.LastActivity = DateTime.UtcNow;
+                                
                                 await listener.SendAsync(response.Buffer, response.Buffer.Length, clientEp);
                             }
                         }
                         catch { 
-                            clients.TryRemove(clientEp, out _);
-                            forwarder.Dispose();
+                            if (clients.TryRemove(clientEp, out var s))
+                            {
+                                try { s.Client.Close(); s.Client.Dispose(); } catch { }
+                            }
                         }
                     }, token);
                 }
 
-                await forwarder.SendAsync(result.Buffer, result.Buffer.Length);
+                session.LastActivity = DateTime.UtcNow;
+                await session.Client.SendAsync(result.Buffer, result.Buffer.Length);
             }
         }
         catch (OperationCanceledException) { }
@@ -186,5 +207,11 @@ public class PortMappingService : BackgroundService
         {
             listener?.Close();
         }
+    }
+
+    private class UdpSession
+    {
+        public required UdpClient Client { get; set; }
+        public DateTime LastActivity { get; set; }
     }
 }
