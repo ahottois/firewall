@@ -88,7 +88,31 @@ app.MapNotificationEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
-    db.Database.EnsureCreated();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        // Try to create database if it doesn't exist
+        db.Database.EnsureCreated();
+        
+        // Test access to ensure schema matches the current model
+        // This will throw if the schema is outdated (e.g. missing columns)
+        _ = db.Alerts.FirstOrDefault();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Database schema mismatch detected. Recreating database to apply new 'Real' models...");
+        try
+        {
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+            logger.LogInformation("Database recreated successfully.");
+        }
+        catch (Exception retryEx)
+        {
+            logger.LogError(retryEx, "Failed to recreate database.");
+        }
+    }
 }
 
 app.Run();
