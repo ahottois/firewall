@@ -1027,7 +1027,15 @@ class FirewallApp {
                 
                 btnInstall.style.display = 'none';
                 btnOpen.style.display = 'inline-block';
-                btnOpen.href = status.webUrl || '/admin/';
+                
+                // Construct absolute URL for Pi-hole (default port 80)
+                // If webUrl is relative (e.g. /admin/), we force it to be on the same host but default HTTP port
+                let piholeUrl = status.webUrl || '/admin/';
+                if (piholeUrl.startsWith('/')) {
+                    piholeUrl = `http://${window.location.hostname}${piholeUrl}`;
+                }
+                btnOpen.href = piholeUrl;
+                
                 btnPwd.style.display = 'inline-block';
                 btnUninstall.style.display = 'inline-block';
             }
