@@ -49,7 +49,7 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
 
     public event EventHandler<PacketCapturedEventArgs>? PacketCaptured;
     public bool IsCapturing => _device?.Started ?? false;
-    public string? CurrentInterface => _device?.Description;
+    public string? CurrentInterface => _device?.Description ?? _device?.Name;
 
     public PacketCaptureService(ILogger<PacketCaptureService> logger, IOptions<AppSettings> settings)
     {
@@ -62,8 +62,8 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
         var devices = CaptureDeviceList.Instance;
         return devices.Select(d => new NetworkInterfaceInfo
         {
-            Name = d.Name,
-            Description = d.Description,
+            Name = d.Name ?? "Unknown",
+            Description = d.Description ?? d.Name ?? "Unknown",
             MacAddress = (d as LibPcapLiveDevice)?.MacAddress?.ToString(),
             IsUp = true
         }).ToList();
@@ -84,18 +84,48 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             return;
         }
 
-        // Sélectionner l'interface
+        // Log available interfaces for debugging
+        _logger.LogInformation("Available network interfaces:");
+        foreach (var dev in devices)
+        {
+            _logger.LogInformation("  - Name: {Name}, Description: {Description}", 
+                dev.Name ?? "N/A", dev.Description ?? "N/A");
+        }
+
+        // Selectionner l'interface
         if (!string.IsNullOrEmpty(_settings.NetworkInterface))
         {
             _device = devices.FirstOrDefault(d => 
-                d.Name.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase) ||
-                d.Description.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase));
+                (d.Name != null && d.Name.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase)) ||
+                (d.Description != null && d.Description.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase)));
         }
 
-        _device ??= devices.FirstOrDefault(d => d.Description.Contains("Ethernet") || d.Description.Contains("eth"));
+        // Sur Linux, chercher eth0, enp, ens, etc.
+        _device ??= devices.FirstOrDefault(d => 
+            d.Name != null && (
+                d.Name.StartsWith("eth", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.StartsWith("enp", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.StartsWith("ens", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.StartsWith("wlan", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.StartsWith("wlp", StringComparison.OrdinalIgnoreCase)
+            ));
+        
+        // Fallback: chercher dans la description
+        _device ??= devices.FirstOrDefault(d => 
+            d.Description != null && (
+                d.Description.Contains("Ethernet", StringComparison.OrdinalIgnoreCase) ||
+                d.Description.Contains("eth", StringComparison.OrdinalIgnoreCase)
+            ));
+        
+        // Dernier recours: prendre la premiere interface non-loopback
+        _device ??= devices.FirstOrDefault(d => 
+            d.Name != null && !d.Name.Contains("lo", StringComparison.OrdinalIgnoreCase) &&
+            !d.Name.Contains("loopback", StringComparison.OrdinalIgnoreCase));
+        
         _device ??= devices.First();
 
-        _logger.LogInformation("Starting packet capture on: {Interface}", _device.Description);
+        var interfaceName = _device.Description ?? _device.Name ?? "Unknown";
+        _logger.LogInformation("Starting packet capture on: {Interface}", interfaceName);
 
         try
         {
@@ -106,7 +136,7 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _captureTask = Task.Run(() => MonitorCapture(_cts.Token), _cts.Token);
 
-            _logger.LogInformation("Packet capture started successfully");
+            _logger.LogInformation("Packet capture started successfully on {Interface}", interfaceName);
         }
         catch (Exception ex)
         {
@@ -183,7 +213,7 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             }
             else
             {
-                // Vérifier si c'est un paquet ARP
+                // Verifier si c'est un paquet ARP
                 var arpPacket = packet.Extract<ArpPacket>();
                 if (arpPacket != null)
                 {
