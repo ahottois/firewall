@@ -13,6 +13,7 @@ public class NetworkMonitorService : BackgroundService
     private readonly IPacketCaptureService _packetCapture;
     private readonly IDeviceDiscoveryService _deviceDiscovery;
     private readonly IAnomalyDetectionService _anomalyDetection;
+    private readonly ITrafficLoggingService _trafficLogging;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AppSettings _settings;
 
@@ -21,6 +22,7 @@ public class NetworkMonitorService : BackgroundService
         IPacketCaptureService packetCapture,
         IDeviceDiscoveryService deviceDiscovery,
         IAnomalyDetectionService anomalyDetection,
+        ITrafficLoggingService trafficLogging,
         IServiceScopeFactory scopeFactory,
         IOptions<AppSettings> settings)
     {
@@ -28,6 +30,7 @@ public class NetworkMonitorService : BackgroundService
         _packetCapture = packetCapture;
         _deviceDiscovery = deviceDiscovery;
         _anomalyDetection = anomalyDetection;
+        _trafficLogging = trafficLogging;
         _scopeFactory = scopeFactory;
         _settings = settings.Value;
     }
@@ -60,10 +63,10 @@ public class NetworkMonitorService : BackgroundService
                 await _deviceDiscovery.ScanNetworkAsync();
             }, stoppingToken);
 
-            // Main loop - periodic cleanup
+            // Main loop - periodic tasks
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
                 await PerformMaintenanceAsync();
             }
         }
@@ -78,6 +81,7 @@ public class NetworkMonitorService : BackgroundService
         finally
         {
             await _packetCapture.StopAsync();
+            await _trafficLogging.FlushAsync();
             _packetCapture.PacketCaptured -= OnPacketCaptured;
             _deviceDiscovery.UnknownDeviceDetected -= OnUnknownDeviceDetected;
         }
@@ -87,6 +91,9 @@ public class NetworkMonitorService : BackgroundService
     {
         try
         {
+            // Log traffic (non-blocking, uses queue)
+            _trafficLogging.LogPacket(e);
+
             // Process device discovery
             await _deviceDiscovery.ProcessPacketAsync(e);
 
@@ -143,6 +150,9 @@ public class NetworkMonitorService : BackgroundService
 
         try
         {
+            // Flush pending logs
+            await _trafficLogging.FlushAsync();
+
             using var scope = _scopeFactory.CreateScope();
             var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
             var trafficRepo = scope.ServiceProvider.GetRequiredService<ITrafficLogRepository>();

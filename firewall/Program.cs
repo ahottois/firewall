@@ -33,6 +33,7 @@ builder.Services.AddSingleton<IPacketCaptureService, PacketCaptureService>();
 builder.Services.AddSingleton<IDeviceDiscoveryService, DeviceDiscoveryService>();
 builder.Services.AddSingleton<IAnomalyDetectionService, AnomalyDetectionService>();
 builder.Services.AddSingleton<ICameraDetectionService, CameraDetectionService>();
+builder.Services.AddSingleton<ITrafficLoggingService, TrafficLoggingService>();
 
 // Background Service
 builder.Services.AddHostedService<NetworkMonitorService>();
@@ -86,6 +87,7 @@ Console.WriteLine(@"
     - Anomaly Detection (Port Scan, ARP Spoofing)
     - Camera Detection & Password Check
     - Live Notifications
+    - Traffic Logging
 
     Note: Run with sudo/admin for packet capture
 

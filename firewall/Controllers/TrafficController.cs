@@ -9,10 +9,14 @@ namespace NetworkFirewall.Controllers;
 public class TrafficController : ControllerBase
 {
     private readonly ITrafficLogRepository _trafficRepository;
+    private readonly ITrafficLoggingService _trafficLogging;
 
-    public TrafficController(ITrafficLogRepository trafficRepository)
+    public TrafficController(
+        ITrafficLogRepository trafficRepository,
+        ITrafficLoggingService trafficLogging)
     {
         _trafficRepository = trafficRepository;
+        _trafficLogging = trafficLogging;
     }
 
     [HttpGet]
@@ -32,7 +36,29 @@ public class TrafficController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats([FromQuery] int hours = 1)
     {
+        // For short periods, use real-time stats
+        if (hours <= 1)
+        {
+            var realTimeStats = _trafficLogging.GetRealTimeStats();
+            return Ok(realTimeStats);
+        }
+        
+        // For longer periods, query database
         var stats = await _trafficRepository.GetStatsAsync(TimeSpan.FromHours(hours));
         return Ok(stats);
+    }
+
+    [HttpGet("stats/realtime")]
+    public IActionResult GetRealTimeStats()
+    {
+        var stats = _trafficLogging.GetRealTimeStats();
+        return Ok(stats);
+    }
+
+    [HttpPost("flush")]
+    public async Task<IActionResult> FlushLogs()
+    {
+        await _trafficLogging.FlushAsync();
+        return Ok(new { Success = true, Message = "Traffic logs flushed to database" });
     }
 }
