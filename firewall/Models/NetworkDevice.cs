@@ -12,6 +12,22 @@ public class NetworkDevice
     public string? Vendor { get; set; }
     public bool IsKnown { get; set; }
     public bool IsTrusted { get; set; }
+    
+    /// <summary>
+    /// Indique si l'appareil est bloqué par le firewall (persisté en base)
+    /// </summary>
+    public bool IsBlocked { get; set; }
+    
+    /// <summary>
+    /// Date de blocage de l'appareil
+    /// </summary>
+    public DateTime? BlockedAt { get; set; }
+    
+    /// <summary>
+    /// Raison du blocage (optionnel)
+    /// </summary>
+    public string? BlockReason { get; set; }
+    
     public DateTime FirstSeen { get; set; }
     public DateTime LastSeen { get; set; }
     public string? Description { get; set; }

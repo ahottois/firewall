@@ -4,6 +4,7 @@ using NetworkFirewall.Data;
 using NetworkFirewall.Hubs;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
+using NetworkFirewall.Services.Firewall;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,8 +36,14 @@ builder.Services.AddSingleton<IDeviceHubNotifier, DeviceHubNotifier>();
 // OUI Lookup Service (singleton avec dictionnaire en mémoire)
 builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
 
-// Network Blocking Service
-builder.Services.AddSingleton<INetworkBlockingService, NetworkBlockingService>();
+// Firewall Engine Services (moteur de règles de blocage)
+builder.Services.AddSingleton<WindowsFirewallEngine>();
+builder.Services.AddSingleton<LinuxIptablesEngine>();
+builder.Services.AddSingleton<FirewallEngineFactory>();
+builder.Services.AddSingleton<INetworkBlockingService, FirewallService>();
+
+// Firewall Rule Restoration Service (restaure les règles au démarrage)
+builder.Services.AddHostedService<FirewallRuleRestorationService>();
 
 // Services (Singleton pour maintenir l'etat)
 builder.Services.AddSingleton<INotificationService, NotificationService>();
@@ -122,6 +129,8 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();
         _ = db.Alerts.FirstOrDefault();
         _ = db.Agents.FirstOrDefault();
+        // Vérifier aussi les nouveaux champs du modèle Device
+        _ = db.Devices.Select(d => d.IsBlocked).FirstOrDefault();
     }
     catch (Exception ex)
     {

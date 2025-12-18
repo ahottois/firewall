@@ -18,6 +18,7 @@ public interface IDeviceRepository
     Task<bool> SetKnownAsync(int id, bool known, string? description = null);
     Task<bool> UpdateDeviceInfoAsync(int id, UpdateDeviceRequest request);
     Task<bool> UpdateStatusAsync(int id, DeviceStatus status);
+    Task<bool> SetBlockedAsync(int id, bool blocked, string? reason = null);
     Task<bool> DeleteAsync(int id);
 }
 
@@ -69,8 +70,8 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
     public async Task<IEnumerable<NetworkDevice>> GetBlockedDevicesAsync()
     {
         return await context.Devices
-            .Where(d => d.Status == DeviceStatus.Blocked)
-            .OrderByDescending(d => d.LastSeen)
+            .Where(d => d.Status == DeviceStatus.Blocked || d.IsBlocked)
+            .OrderByDescending(d => d.BlockedAt ?? d.LastSeen)
             .ToListAsync();
     }
 
@@ -90,7 +91,11 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
             existing.Hostname = device.Hostname ?? existing.Hostname;
             existing.Vendor = device.Vendor ?? existing.Vendor;
             existing.LastSeen = DateTime.UtcNow;
-            existing.Status = DeviceStatus.Online;
+            // Ne pas changer le statut si l'appareil est bloqué
+            if (!existing.IsBlocked && existing.Status != DeviceStatus.Blocked)
+            {
+                existing.Status = DeviceStatus.Online;
+            }
             device = existing;
         }
         
@@ -146,6 +151,29 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
             device.LastSeen = DateTime.UtcNow;
         }
         
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> SetBlockedAsync(int id, bool blocked, string? reason = null)
+    {
+        var device = await context.Devices.FindAsync(id);
+        if (device == null) return false;
+
+        device.IsBlocked = blocked;
+        device.Status = blocked ? DeviceStatus.Blocked : DeviceStatus.Unknown;
+        
+        if (blocked)
+        {
+            device.BlockedAt = DateTime.UtcNow;
+            device.BlockReason = reason;
+        }
+        else
+        {
+            device.BlockedAt = null;
+            device.BlockReason = null;
+        }
+
         await context.SaveChangesAsync();
         return true;
     }
