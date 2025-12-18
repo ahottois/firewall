@@ -1138,6 +1138,7 @@ class FirewallApp {
             case 'agents': this.loadAgents(); break;
             case 'alerts': this.loadAlerts(); break;
             case 'pihole': this.loadPihole(); break;
+            case 'parental': this.loadParental(); break;
         }
     }
 
@@ -1298,10 +1299,326 @@ class FirewallApp {
     // PARENTAL CONTROL
     // ==========================================
 
-    showCreateProfileModal() {
+    parentalProfiles = [];
+    parentalHub = null;
+    filterCategories = [];
+
+    async loadParental() {
+        try {
+            // Charger les profils et les catégories de filtrage
+            const [profiles, categories] = await Promise.all([
+                this.api('parentalcontrol/profiles'),
+                this.api('parentalcontrol/filter-categories')
+            ]);
+
+            this.parentalProfiles = profiles;
+            this.filterCategories = categories;
+
+            this.renderParentalProfiles(profiles);
+            this.connectParentalHub();
+        } catch (error) {
+            console.error('Erreur chargement contrôle parental:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger les profils', severity: 2 });
+        }
+    }
+
+    renderParentalProfiles(profiles) {
+        const grid = document.getElementById('parental-profiles-grid');
+        const empty = document.getElementById('parental-empty');
+
+        if (!grid) return;
+
+        if (!profiles || !profiles.length) {
+            grid.innerHTML = '';
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+        grid.innerHTML = profiles.map(profile => this.createProfileCard(profile)).join('');
+    }
+
+    createProfileCard(profile) {
+        const statusColors = {
+            0: 'var(--success)',      // Allowed
+            1: 'var(--warning)',      // BlockedBySchedule
+            2: 'var(--danger)',       // BlockedByTimeLimit
+            3: 'var(--accent-secondary)', // Paused
+            4: 'var(--text-muted)'    // Disabled
+        };
+
+        const statusTexts = {
+            0: 'Accès autorisé',
+            1: 'Hors plage horaire',
+            2: 'Temps dépassé',
+            3: 'En pause',
+            4: 'Désactivé'
+        };
+
+        const statusColor = statusColors[profile.status] || statusColors[0];
+        const statusText = statusTexts[profile.status] || 'Inconnu';
+        const isBlocked = profile.status !== 0;
+        const profileColor = profile.color || '#00d9ff';
+
+        // Avatar
+        let avatarContent = '';
+        if (profile.avatarUrl && profile.avatarUrl.startsWith('http')) {
+            avatarContent = `<img src="${this.escapeHtml(profile.avatarUrl)}" class="profile-avatar-img" alt="${this.escapeHtml(profile.profileName)}">`;
+        } else {
+            avatarContent = `<span class="profile-avatar-emoji">${this.escapeHtml(profile.avatarUrl || '??')}</span>`;
+        }
+
+        // Barre de temps
+        let timeBar = '';
+        if (profile.remainingMinutes >= 0) {
+            const percentage = profile.usagePercentage || 0;
+            const barColor = percentage > 90 ? 'var(--danger)' : percentage > 70 ? 'var(--warning)' : profileColor;
+            const remaining = profile.remainingMinutes;
+            const hours = Math.floor(remaining / 60);
+            const mins = remaining % 60;
+            const timeText = hours > 0 ? `${hours}h ${mins}min restantes` : `${mins} min restantes`;
+            
+            timeBar = `
+                <div class="profile-time">
+                    <div class="time-label">Temps d'écran aujourd'hui</div>
+                    <div class="time-bar">
+                        <div class="time-bar-fill" style="width: ${percentage}%; background: ${barColor};"></div>
+                    </div>
+                    <div class="time-value">${timeText}</div>
+                </div>
+            `;
+        }
+
+        // Appareils
+        const onlineDevices = profile.devices?.filter(d => d.isOnline).length || 0;
+        const totalDevices = profile.devices?.length || 0;
+
+        // Bouton pause/play
+        const pauseBtn = profile.status === 3 
+            ? `<button class="btn btn-success btn-pause" onclick="app.unpauseProfile(${profile.profileId})" title="Rétablir"><i class="fas fa-play"></i></button>`
+            : `<button class="btn btn-warning btn-pause" onclick="app.pauseProfile(${profile.profileId})" title="Pause"><i class="fas fa-pause"></i></button>`;
+
+        return `
+            <div class="profile-card" style="--profile-color: ${profileColor};">
+                <div class="profile-status-indicator" style="background: ${statusColor};"></div>
+                
+                <div class="profile-header">
+                    <div class="profile-avatar" style="border-color: ${profileColor};">
+                        ${avatarContent}
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name">${this.escapeHtml(profile.profileName)}</div>
+                        <div class="profile-status" style="color: ${statusColor};">
+                            <i class="fas fa-circle" style="font-size: 0.6rem;"></i> ${statusText}
+                        </div>
+                    </div>
+                    ${pauseBtn}
+                </div>
+
+                ${timeBar}
+
+                <div class="profile-devices">
+                    <i class="fas fa-laptop"></i>
+                    <span>${onlineDevices}/${totalDevices} appareil(s) en ligne</span>
+                </div>
+
+                ${profile.blockReason ? `
+                    <div class="profile-block-reason">
+                        <i class="fas fa-ban"></i> ${this.escapeHtml(profile.blockReason)}
+                    </div>
+                ` : ''}
+
+                ${profile.nextAllowedTime ? `
+                    <div class="profile-next-time">
+                        <i class="fas fa-clock"></i> Prochain accès: ${this.escapeHtml(profile.nextAllowedTime)}
+                    </div>
+                ` : ''}
+
+                ${profile.currentSlotEnds ? `
+                    <div class="profile-next-time" style="background: rgba(63, 185, 80, 0.1); color: var(--success);">
+                        <i class="fas fa-hourglass-half"></i> Fin du créneau: ${this.escapeHtml(profile.currentSlotEnds)}
+                    </div>
+                ` : ''}
+
+                <div class="profile-actions">
+                    <button class="btn btn-sm btn-primary" onclick="app.editProfile(${profile.profileId})">
+                        <i class="fas fa-edit"></i> Modifier
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="app.viewProfileUsage(${profile.profileId})">
+                        <i class="fas fa-chart-bar"></i> Historique
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteProfile(${profile.profileId})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    async showCreateProfileModal() {
         document.getElementById('parental-profile-modal').classList.add('active');
         document.getElementById('parental-modal-title').innerHTML = '<i class="fas fa-child"></i> Nouveau Profil';
         document.getElementById('profile-id').value = '';
+        
+        // Réinitialiser les champs
+        document.getElementById('profile-name').value = '';
+        document.getElementById('profile-color').value = '#00d9ff';
+        document.getElementById('profile-time-limit').value = '0';
+        document.getElementById('profile-avatar').value = '??';
+        document.getElementById('profile-blocked-domains').value = '';
+
+        // Charger les appareils disponibles
+        await this.loadAvailableDevices();
+        
+        // Générer le planning horaire
+        this.generateScheduleGrid();
+        
+        // Générer les catégories de filtrage
+        this.generateFilterCategories();
+    }
+
+    async editProfile(profileId) {
+        try {
+            const profile = await this.api(`parentalcontrol/profiles/${profileId}/details`);
+            
+            document.getElementById('parental-profile-modal').classList.add('active');
+            document.getElementById('parental-modal-title').innerHTML = `<i class="fas fa-child"></i> Modifier: ${this.escapeHtml(profile.name)}`;
+            document.getElementById('profile-id').value = profile.id;
+            
+            document.getElementById('profile-name').value = profile.name || '';
+            document.getElementById('profile-color').value = profile.color || '#00d9ff';
+            document.getElementById('profile-time-limit').value = profile.dailyTimeLimitMinutes || 0;
+            document.getElementById('profile-avatar').value = profile.avatarUrl || '??';
+
+            // Charger les appareils et cocher ceux du profil
+            await this.loadAvailableDevices(profile.devices?.map(d => d.macAddress) || []);
+            
+            // Générer le planning avec les valeurs existantes
+            this.generateScheduleGrid(profile.schedules);
+            
+            // Générer les filtres avec les valeurs existantes
+            const blockedCategories = profile.webFilters?.filter(f => f.filterType === 0).map(f => f.value) || [];
+            const blockedDomains = profile.webFilters?.filter(f => f.filterType === 1).map(f => f.value) || [];
+            
+            this.generateFilterCategories(blockedCategories);
+            document.getElementById('profile-blocked-domains').value = blockedDomains.join('\n');
+
+        } catch (error) {
+            console.error('Erreur chargement profil:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger le profil', severity: 2 });
+        }
+    }
+
+    async loadAvailableDevices(selectedMacs = []) {
+        const container = document.getElementById('profile-devices-list');
+        if (!container) return;
+
+        try {
+            // Charger tous les appareils
+            const devices = await this.api('devices');
+            
+            if (!devices.length) {
+                container.innerHTML = '<p class="text-muted">Aucun appareil disponible. Scannez d\'abord le réseau.</p>';
+                return;
+            }
+
+            container.innerHTML = devices.map(device => `
+                <label class="device-checkbox">
+                    <input type="checkbox" value="${this.escapeHtml(device.macAddress)}" 
+                           ${selectedMacs.includes(device.macAddress.toUpperCase()) ? 'checked' : ''}>
+                    <div style="flex: 1;">
+                        <strong>${this.escapeHtml(device.hostname || device.description || device.macAddress)}</strong>
+                        <br>
+                        <small style="color: var(--text-secondary);">
+                            ${this.escapeHtml(device.ipAddress || '')} - ${this.escapeHtml(device.vendor || 'Inconnu')}
+                        </small>
+                    </div>
+                    <span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span>
+                </label>
+            `).join('');
+        } catch (error) {
+            container.innerHTML = '<p class="text-muted text-danger">Erreur lors du chargement des appareils</p>';
+        }
+    }
+
+    generateScheduleGrid(existingSchedules = []) {
+        const container = document.getElementById('schedule-grid');
+        if (!container) return;
+
+        const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        
+        container.innerHTML = days.map((day, index) => {
+            const schedule = existingSchedules.find(s => s.dayOfWeek === index) || {
+                startTime: '08:00',
+                endTime: '21:00',
+                isEnabled: true
+            };
+            
+            return `
+                <div class="schedule-row">
+                    <span class="day-label">${day}</span>
+                    <div class="schedule-times">
+                        <input type="time" class="schedule-start" data-day="${index}" value="${schedule.startTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
+                        <span>à</span>
+                        <input type="time" class="schedule-end" data-day="${index}" value="${schedule.endTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
+                    </div>
+                    <label class="schedule-enabled">
+                        <input type="checkbox" class="schedule-enabled-check" data-day="${index}" ${schedule.isEnabled ? 'checked' : ''} 
+                               onchange="app.toggleScheduleDay(this)">
+                        <i class="fas fa-check"></i>
+                    </label>
+                </div>
+            `;
+        }).join('');
+    }
+
+    toggleScheduleDay(checkbox) {
+        const day = checkbox.dataset.day;
+        const row = checkbox.closest('.schedule-row');
+        const inputs = row.querySelectorAll('input[type="time"]');
+        inputs.forEach(input => input.disabled = !checkbox.checked);
+    }
+
+    generateFilterCategories(selectedCategories = []) {
+        const container = document.getElementById('filter-categories');
+        if (!container) return;
+
+        const categories = this.filterCategories.length ? this.filterCategories : [
+            { key: 'adult', name: 'Contenu Adulte', description: 'Sites pour adultes', icon: 'fa-ban', color: '#ff4757' },
+            { key: 'social-media', name: 'Réseaux Sociaux', description: 'Facebook, TikTok, etc.', icon: 'fa-users', color: '#3b5998' },
+            { key: 'gaming', name: 'Jeux Vidéo', description: 'Sites de gaming', icon: 'fa-gamepad', color: '#9b59b6' },
+            { key: 'streaming', name: 'Streaming', description: 'YouTube, Netflix, etc.', icon: 'fa-film', color: '#e74c3c' },
+            { key: 'gambling', name: 'Jeux d\'Argent', description: 'Paris et casinos', icon: 'fa-dice', color: '#f39c12' },
+            { key: 'malware', name: 'Malware', description: 'Sites malveillants', icon: 'fa-virus', color: '#c0392b' }
+        ];
+
+        container.innerHTML = categories.map(cat => `
+            <label class="filter-category" style="--cat-color: ${cat.color};">
+                <input type="checkbox" value="${cat.key}" ${selectedCategories.includes(cat.key) ? 'checked' : ''}>
+                <div class="category-icon" style="${selectedCategories.includes(cat.key) ? `background: ${cat.color}; color: white;` : ''}">
+                    <i class="fas ${cat.icon}"></i>
+                </div>
+                <div class="category-info">
+                    <span class="category-name">${this.escapeHtml(cat.name)}</span>
+                    <span class="category-desc">${this.escapeHtml(cat.description)}</span>
+                </div>
+            </label>
+        `).join('');
+
+        // Ajouter les événements de changement
+        container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const icon = e.target.closest('.filter-category').querySelector('.category-icon');
+                const color = getComputedStyle(e.target.closest('.filter-category')).getPropertyValue('--cat-color');
+                if (e.target.checked) {
+                    icon.style.background = color;
+                    icon.style.color = 'white';
+                } else {
+                    icon.style.background = '';
+                    icon.style.color = '';
+                }
+            });
+        });
     }
 
     closeParentalModal() {
@@ -1309,8 +1626,214 @@ class FirewallApp {
     }
 
     async saveProfile() {
-        // Implement profile saving
-        this.showToast({ title: 'Info', message: 'Fonctionnalité en cours de développement', severity: 0 });
+        const profileId = document.getElementById('profile-id').value;
+        const name = document.getElementById('profile-name').value.trim();
+        
+        if (!name) {
+            this.showToast({ title: 'Erreur', message: 'Le nom est requis', severity: 2 });
+            return;
+        }
+
+        // Collecter les données
+        const dto = {
+            name: name,
+            avatarUrl: document.getElementById('profile-avatar').value || '??',
+            color: document.getElementById('profile-color').value || '#00d9ff',
+            dailyTimeLimitMinutes: parseInt(document.getElementById('profile-time-limit').value) || 0,
+            isActive: true,
+            blockedMessage: "L'accès Internet est temporairement désactivé.",
+            deviceMacs: [],
+            schedules: [],
+            blockedCategories: [],
+            blockedDomains: []
+        };
+
+        // Appareils sélectionnés
+        document.querySelectorAll('#profile-devices-list input[type="checkbox"]:checked').forEach(cb => {
+            dto.deviceMacs.push(cb.value);
+        });
+
+        // Planning horaire
+        for (let day = 0; day < 7; day++) {
+            const enabledCb = document.querySelector(`.schedule-enabled-check[data-day="${day}"]`);
+            const startInput = document.querySelector(`.schedule-start[data-day="${day}"]`);
+            const endInput = document.querySelector(`.schedule-end[data-day="${day}"]`);
+            
+            if (enabledCb && startInput && endInput) {
+                dto.schedules.push({
+                    dayOfWeek: day,
+                    startTime: startInput.value,
+                    endTime: endInput.value,
+                    isEnabled: enabledCb.checked
+                });
+            }
+        }
+
+        // Catégories de filtrage
+        document.querySelectorAll('#filter-categories input[type="checkbox"]:checked').forEach(cb => {
+            dto.blockedCategories.push(cb.value);
+        });
+
+        // Domaines personnalisés
+        const domainsText = document.getElementById('profile-blocked-domains').value;
+        if (domainsText) {
+            dto.blockedDomains = domainsText.split('\n').map(d => d.trim()).filter(d => d);
+        }
+
+        try {
+            if (profileId) {
+                await this.api(`parentalcontrol/profiles/${profileId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(dto)
+                });
+                this.showToast({ title: 'Succès', message: 'Profil mis à jour', severity: 0 });
+            } else {
+                await this.api('parentalcontrol/profiles', {
+                    method: 'POST',
+                    body: JSON.stringify(dto)
+                });
+                this.showToast({ title: 'Succès', message: 'Profil créé', severity: 0 });
+            }
+
+            this.closeParentalModal();
+            this.loadParental();
+        } catch (error) {
+            console.error('Erreur sauvegarde profil:', error);
+            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de sauvegarder', severity: 2 });
+        }
+    }
+
+    async pauseProfile(profileId) {
+        try {
+            await this.api(`parentalcontrol/profiles/${profileId}/pause`, { method: 'POST' });
+            this.loadParental();
+            this.showToast({ title: 'Pause activée', message: 'Internet coupé pour ce profil', severity: 1 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'activer la pause', severity: 2 });
+        }
+    }
+
+    async unpauseProfile(profileId) {
+        try {
+            await this.api(`parentalcontrol/profiles/${profileId}/unpause`, { method: 'POST' });
+            this.loadParental();
+            this.showToast({ title: 'Pause désactivée', message: 'Accès Internet rétabli', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de désactiver la pause', severity: 2 });
+        }
+    }
+
+    async deleteProfile(profileId) {
+        if (!confirm('Supprimer ce profil ? Les appareils associés seront débloqués.')) return;
+
+        try {
+            await this.api(`parentalcontrol/profiles/${profileId}`, { method: 'DELETE' });
+            this.loadParental();
+            this.showToast({ title: 'Supprimé', message: 'Profil supprimé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de supprimer', severity: 2 });
+        }
+    }
+
+    async viewProfileUsage(profileId) {
+        try {
+            const history = await this.api(`parentalcontrol/profiles/${profileId}/usage/history?days=7`);
+            const profile = this.parentalProfiles.find(p => p.profileId === profileId);
+            
+            // Créer un modal ou afficher les données
+            const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+            let html = `<h4 style="margin-bottom: 15px;">Historique d'utilisation - ${this.escapeHtml(profile?.profileName || 'Profil')}</h4>`;
+            
+            if (!history.length) {
+                html += '<p>Aucune donnée d\'utilisation disponible.</p>';
+            } else {
+                html += '<div class="usage-chart">';
+                history.reverse().forEach(day => {
+                    const date = new Date(day.date);
+                    const dayName = days[date.getDay()];
+                    const maxMinutes = profile?.remainingMinutes > 0 ? (profile.remainingMinutes + day.minutesUsed) : 180;
+                    const heightPercent = Math.min(100, (day.minutesUsed / maxMinutes) * 100);
+                    const hours = Math.floor(day.minutesUsed / 60);
+                    const mins = day.minutesUsed % 60;
+                    
+                    html += `
+                        <div class="usage-bar-container">
+                            <div class="usage-bar" style="height: ${heightPercent}%; background: var(--accent-primary);"></div>
+                            <span class="usage-value">${hours}h${mins}</span>
+                            <span class="usage-label">${dayName}</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            // Afficher dans le modal générique
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-chart-bar"></i> Historique';
+            document.getElementById('modal-body').innerHTML = html;
+            document.getElementById('modal-footer').innerHTML = '<button class="btn btn-sm" onclick="document.getElementById(\'modal\').classList.remove(\'active\')">Fermer</button>';
+            document.getElementById('modal').classList.add('active');
+
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger l\'historique', severity: 2 });
+        }
+    }
+
+    async connectParentalHub() {
+        if (typeof signalR === 'undefined' || this.parentalHub) return;
+
+        try {
+            this.parentalHub = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/parental-control')
+                .withAutomaticReconnect()
+                .configureLogging(signalR.LogLevel.Warning)
+                .build();
+
+            this.parentalHub.on('ProfileStatusChanged', (status) => {
+                console.log('Profil mis à jour:', status);
+                const index = this.parentalProfiles.findIndex(p => p.profileId === status.profileId);
+                if (index !== -1) {
+                    this.parentalProfiles[index] = status;
+                    if (this.currentPage === 'parental') {
+                        this.renderParentalProfiles(this.parentalProfiles);
+                    }
+                }
+            });
+
+            this.parentalHub.on('ProfileCreated', (status) => {
+                this.parentalProfiles.push(status);
+                if (this.currentPage === 'parental') {
+                    this.renderParentalProfiles(this.parentalProfiles);
+                }
+            });
+
+            this.parentalHub.on('ProfileDeleted', (profileId) => {
+                this.parentalProfiles = this.parentalProfiles.filter(p => p.profileId !== profileId);
+                if (this.currentPage === 'parental') {
+                    this.renderParentalProfiles(this.parentalProfiles);
+                }
+            });
+
+            this.parentalHub.on('AutoBlockTriggered', (data) => {
+                this.showToast({
+                    title: `${data.profileName} bloqué`,
+                    message: data.reason,
+                    severity: 1
+                });
+            });
+
+            this.parentalHub.on('TimeWarning', (data) => {
+                this.showToast({
+                    title: `${data.profileName}`,
+                    message: `Plus que ${data.remainingMinutes} minutes d'écran`,
+                    severity: 1
+                });
+            });
+
+            await this.parentalHub.start();
+            console.log('Connecté au ParentalControlHub');
+        } catch (error) {
+            console.error('Erreur connexion ParentalHub:', error);
+        }
     }
 }
 
