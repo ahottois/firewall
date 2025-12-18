@@ -45,6 +45,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     private readonly ConcurrentDictionary<string, (string? Hostname, DateTime CachedAt)> _dnsCache = new();
     
     private readonly SemaphoreSlim _processingLock = new(1, 1);
+    
+    // Timer pour le nettoyage périodique
+    private DateTime _lastCleanup = DateTime.UtcNow;
+    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
     [DllImport("iphlpapi.dll", ExactSpelling = true)]
     private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
@@ -79,7 +83,8 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
         try
         {
-            var hostEntry = await Dns.GetHostEntryAsync(ipAddress);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var hostEntry = await Dns.GetHostEntryAsync(ipAddress, cts.Token);
             var hostname = hostEntry.HostName;
             
             // Ne pas retourner l'IP comme hostname
@@ -88,6 +93,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 _dnsCache[ipAddress] = (hostname, DateTime.UtcNow);
                 return hostname;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogTrace("DNS timeout pour {Ip}", ipAddress);
         }
         catch (Exception ex)
         {
@@ -118,9 +127,19 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         }
 
         _recentlySeenMacs[mac] = now;
-        CleanupOldEntries(now);
+        
+        // Nettoyage périodique (évite de le faire à chaque paquet)
+        if (now - _lastCleanup > CleanupInterval)
+        {
+            _lastCleanup = now;
+            _ = Task.Run(() => CleanupOldEntries(now));
+        }
 
-        await _processingLock.WaitAsync();
+        if (!await _processingLock.WaitAsync(100))
+        {
+            return; // Skip si le lock est occupé trop longtemps
+        }
+        
         try
         {
             using var scope = _scopeFactory.CreateScope();
@@ -134,11 +153,11 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             {
                 if (existingDevice.IpAddress != packet.SourceIp && !string.IsNullOrEmpty(packet.SourceIp))
                 {
-                    await CreateDeviceModifiedAlertAsync(existingDevice, "IP Address", existingDevice.IpAddress, packet.SourceIp);
+                    _ = CreateDeviceModifiedAlertAsync(existingDevice, "IP Address", existingDevice.IpAddress, packet.SourceIp);
                 }
             }
 
-            // Résoudre le hostname si on a une IP
+            // Résoudre le hostname si on a une IP (fire-and-forget pour ne pas bloquer)
             var hostname = !string.IsNullOrEmpty(packet.SourceIp) 
                 ? await ResolveHostnameAsync(packet.SourceIp) 
                 : null;
@@ -202,7 +221,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         // Si c'est un nouvel appareil (jamais vu avant)
         if (isNew)
         {
-            // Alerter uniquement une fois par nouvel appareil - jamais
+            // Alerter uniquement une fois par nouvel appareil
             if (_newDeviceAlertsSent.TryAdd(mac, true))
             {
                 _unknownDeviceAlertsSent[mac] = now;
@@ -229,33 +248,30 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     private void CleanupOldEntries(DateTime now)
     {
         // Nettoyer les MAC récemment vues de plus de 5 minutes
-        var oldMacs = _recentlySeenMacs
-            .Where(kvp => (now - kvp.Value).TotalMinutes > 5)
-            .Select(kvp => kvp.Key)
-            .ToList();
-        foreach (var key in oldMacs)
+        foreach (var key in _recentlySeenMacs.Keys.ToArray())
         {
-            _recentlySeenMacs.TryRemove(key, out _);
+            if (_recentlySeenMacs.TryGetValue(key, out var value) && (now - value).TotalMinutes > 5)
+            {
+                _recentlySeenMacs.TryRemove(key, out _);
+            }
         }
 
         // Nettoyer les alertes d'appareils inconnus de plus de 24 heures
-        var oldAlerts = _unknownDeviceAlertsSent
-            .Where(kvp => (now - kvp.Value).TotalHours > 24)
-            .Select(kvp => kvp.Key)
-            .ToList();
-        foreach (var key in oldAlerts)
+        foreach (var key in _unknownDeviceAlertsSent.Keys.ToArray())
         {
-            _unknownDeviceAlertsSent.TryRemove(key, out _);
+            if (_unknownDeviceAlertsSent.TryGetValue(key, out var value) && (now - value).TotalHours > 24)
+            {
+                _unknownDeviceAlertsSent.TryRemove(key, out _);
+            }
         }
         
         // Nettoyer le cache DNS (entrées > 10 minutes)
-        var oldDns = _dnsCache
-            .Where(kvp => (now - kvp.Value.CachedAt).TotalMinutes > 10)
-            .Select(kvp => kvp.Key)
-            .ToList();
-        foreach (var key in oldDns)
+        foreach (var key in _dnsCache.Keys.ToArray())
         {
-            _dnsCache.TryRemove(key, out _);
+            if (_dnsCache.TryGetValue(key, out var value) && (now - value.CachedAt).TotalMinutes > 10)
+            {
+                _dnsCache.TryRemove(key, out _);
+            }
         }
     }
 

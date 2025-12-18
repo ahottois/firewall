@@ -22,6 +22,10 @@ public class NetworkScannerWorker : BackgroundService
 
     // Cache des derniers états pour détecter les changements
     private readonly ConcurrentDictionary<string, DeviceStatus> _lastKnownStatus = new();
+    
+    // Cache des hostnames pour éviter des requêtes DNS répétées
+    private readonly ConcurrentDictionary<string, (string? Hostname, DateTime CachedAt)> _hostnameCache = new();
+    private static readonly TimeSpan HostnameCacheDuration = TimeSpan.FromMinutes(10);
 
     public NetworkScannerWorker(
         ILogger<NetworkScannerWorker> logger,
@@ -50,7 +54,6 @@ public class NetworkScannerWorker : BackgroundService
             }
             catch (OperationCanceledException)
             {
-                // Arrêt normal
                 break;
             }
             catch (Exception ex)
@@ -70,7 +73,6 @@ public class NetworkScannerWorker : BackgroundService
 
         using var scope = _scopeFactory.CreateScope();
         var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-        var discoveryService = scope.ServiceProvider.GetRequiredService<IDeviceDiscoveryService>();
 
         // Obtenir les appareils existants en base
         var existingDevices = (await deviceRepo.GetAllAsync()).ToDictionary(d => d.MacAddress.ToUpperInvariant());
@@ -92,29 +94,8 @@ public class NetworkScannerWorker : BackgroundService
             if (existingDevices.TryGetValue(mac, out var existing))
             {
                 // Appareil existant - vérifier les changements
-                bool hasChanges = false;
-
-                // Mise à jour de l'IP si changée
-                if (existing.IpAddress != discovered.IpAddress && !string.IsNullOrEmpty(discovered.IpAddress))
-                {
-                    existing.IpAddress = discovered.IpAddress;
-                    hasChanges = true;
-                }
-
-                // Mise à jour du hostname
-                if (!string.IsNullOrEmpty(discovered.Hostname) && existing.Hostname != discovered.Hostname)
-                {
-                    existing.Hostname = discovered.Hostname;
-                    hasChanges = true;
-                }
-
-                // Mise à jour du vendor si pas déjà défini
-                if (string.IsNullOrEmpty(existing.Vendor) && !string.IsNullOrEmpty(discovered.Vendor))
-                {
-                    existing.Vendor = discovered.Vendor;
-                    hasChanges = true;
-                }
-
+                var hasChanges = UpdateExistingDevice(existing, discovered);
+                
                 // Changement de statut vers Online
                 var previousStatus = _lastKnownStatus.GetValueOrDefault(mac, existing.Status);
                 if (existing.Status != DeviceStatus.Online || previousStatus != DeviceStatus.Online)
@@ -123,7 +104,6 @@ public class NetworkScannerWorker : BackgroundService
                     existing.LastSeen = DateTime.UtcNow;
                     _lastKnownStatus[mac] = DeviceStatus.Online;
 
-                    // Notifier le changement de statut
                     await deviceRepo.AddOrUpdateAsync(existing);
                     await _hubNotifier.NotifyDeviceStatusChanged(existing);
                     _logger.LogDebug("Appareil {Mac} passé en ligne", mac);
@@ -136,14 +116,13 @@ public class NetworkScannerWorker : BackgroundService
                 }
                 else
                 {
-                    // Juste mettre à jour LastSeen
                     existing.LastSeen = DateTime.UtcNow;
                     await deviceRepo.AddOrUpdateAsync(existing);
                 }
             }
             else
             {
-                // Nouvel appareil découvert!
+                // Nouvel appareil découvert
                 discovered.Status = DeviceStatus.Online;
                 discovered.FirstSeen = DateTime.UtcNow;
                 discovered.LastSeen = DateTime.UtcNow;
@@ -169,6 +148,31 @@ public class NetworkScannerWorker : BackgroundService
         _logger.LogDebug("Scan terminé: {Count} appareils actifs", discoveredMacs.Count);
     }
 
+    private static bool UpdateExistingDevice(NetworkDevice existing, NetworkDevice discovered)
+    {
+        bool hasChanges = false;
+
+        if (existing.IpAddress != discovered.IpAddress && !string.IsNullOrEmpty(discovered.IpAddress))
+        {
+            existing.IpAddress = discovered.IpAddress;
+            hasChanges = true;
+        }
+
+        if (!string.IsNullOrEmpty(discovered.Hostname) && existing.Hostname != discovered.Hostname)
+        {
+            existing.Hostname = discovered.Hostname;
+            hasChanges = true;
+        }
+
+        if (string.IsNullOrEmpty(existing.Vendor) && !string.IsNullOrEmpty(discovered.Vendor))
+        {
+            existing.Vendor = discovered.Vendor;
+            hasChanges = true;
+        }
+
+        return hasChanges;
+    }
+
     private async Task CheckOfflineDevicesAsync(
         IDeviceRepository deviceRepo,
         HashSet<string> onlineMacs,
@@ -178,26 +182,19 @@ public class NetworkScannerWorker : BackgroundService
 
         foreach (var (mac, device) in existingDevices)
         {
-            // Ignorer les appareils bloqués
             if (device.Status == DeviceStatus.Blocked) continue;
+            if (onlineMacs.Contains(mac)) continue;
 
-            // Si l'appareil n'est pas dans la liste des découverts et était en ligne
-            if (!onlineMacs.Contains(mac))
+            var previousStatus = _lastKnownStatus.GetValueOrDefault(mac, device.Status);
+            if (previousStatus == DeviceStatus.Online && (now - device.LastSeen) > _offlineThreshold)
             {
-                var lastSeen = device.LastSeen;
-                var previousStatus = _lastKnownStatus.GetValueOrDefault(mac, device.Status);
+                device.Status = DeviceStatus.Offline;
+                _lastKnownStatus[mac] = DeviceStatus.Offline;
 
-                // Si ça fait plus de X minutes qu'on ne l'a pas vu, le passer hors ligne
-                if (previousStatus == DeviceStatus.Online && (now - lastSeen) > _offlineThreshold)
-                {
-                    device.Status = DeviceStatus.Offline;
-                    _lastKnownStatus[mac] = DeviceStatus.Offline;
+                await deviceRepo.UpdateStatusAsync(device.Id, DeviceStatus.Offline);
+                await _hubNotifier.NotifyDeviceStatusChanged(device);
 
-                    await deviceRepo.UpdateStatusAsync(device.Id, DeviceStatus.Offline);
-                    await _hubNotifier.NotifyDeviceStatusChanged(device);
-
-                    _logger.LogDebug("Appareil {Mac} passé hors ligne", mac);
-                }
+                _logger.LogDebug("Appareil {Mac} passé hors ligne", mac);
             }
         }
     }
@@ -205,7 +202,7 @@ public class NetworkScannerWorker : BackgroundService
     private async Task<List<NetworkDevice>> ScanLocalNetworkAsync(CancellationToken ct)
     {
         var devices = new ConcurrentBag<NetworkDevice>();
-        var localAddresses = GetLocalIPAddresses();
+        var localAddresses = GetLocalIPAddresses().ToList();
 
         foreach (var localAddress in localAddresses)
         {
@@ -227,7 +224,7 @@ public class NetworkScannerWorker : BackgroundService
                         var mac = await GetMacAddressAsync(ip);
                         if (!string.IsNullOrEmpty(mac) && mac != "00:00:00:00:00:00")
                         {
-                            var hostname = await ResolveHostnameAsync(ip);
+                            var hostname = await GetCachedHostnameAsync(ip);
                             devices.Add(new NetworkDevice
                             {
                                 MacAddress = mac.ToUpperInvariant(),
@@ -248,6 +245,20 @@ public class NetworkScannerWorker : BackgroundService
         return devices.ToList();
     }
 
+    private async Task<string?> GetCachedHostnameAsync(string ip)
+    {
+        // Vérifier le cache
+        if (_hostnameCache.TryGetValue(ip, out var cached) && 
+            DateTime.UtcNow - cached.CachedAt < HostnameCacheDuration)
+        {
+            return cached.Hostname;
+        }
+
+        var hostname = await ResolveHostnameAsync(ip);
+        _hostnameCache[ip] = (hostname, DateTime.UtcNow);
+        return hostname;
+    }
+
     private static async Task<bool> PingHostAsync(string ip, CancellationToken ct)
     {
         try
@@ -266,56 +277,63 @@ public class NetworkScannerWorker : BackgroundService
     {
         try
         {
-            // Essayer ARP sur Windows
             if (OperatingSystem.IsWindows())
             {
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "arp",
-                    Arguments = $"-a {ip}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = System.Diagnostics.Process.Start(psi);
-                if (process != null)
-                {
-                    var output = await process.StandardOutput.ReadToEndAsync();
-                    await process.WaitForExitAsync();
-
-                    var match = System.Text.RegularExpressions.Regex.Match(
-                        output,
-                        @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
-
-                    if (match.Success)
-                        return match.Value.Replace("-", ":").ToUpperInvariant();
-                }
+                return await GetMacFromArpWindows(ip);
             }
-            // Linux: lire /proc/net/arp
             else if (OperatingSystem.IsLinux())
             {
-                if (File.Exists("/proc/net/arp"))
-                {
-                    var lines = await File.ReadAllLinesAsync("/proc/net/arp");
-                    foreach (var line in lines)
-                    {
-                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 4 && parts[0] == ip)
-                        {
-                            var mac = parts[3];
-                            if (mac != "00:00:00:00:00:00")
-                                return mac.ToUpperInvariant();
-                        }
-                    }
-                }
+                return await GetMacFromArpLinux(ip);
             }
         }
         catch
         {
             // Ignorer
         }
+        return null;
+    }
 
+    private static async Task<string?> GetMacFromArpWindows(string ip)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "arp",
+            Arguments = $"-a {ip}",
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = System.Diagnostics.Process.Start(psi);
+        if (process != null)
+        {
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            var match = System.Text.RegularExpressions.Regex.Match(
+                output, @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
+
+            if (match.Success)
+                return match.Value.Replace("-", ":").ToUpperInvariant();
+        }
+        return null;
+    }
+
+    private static async Task<string?> GetMacFromArpLinux(string ip)
+    {
+        if (!File.Exists("/proc/net/arp")) return null;
+
+        var lines = await File.ReadAllLinesAsync("/proc/net/arp");
+        foreach (var line in lines)
+        {
+            var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 4 && parts[0] == ip)
+            {
+                var mac = parts[3];
+                if (mac != "00:00:00:00:00:00")
+                    return mac.ToUpperInvariant();
+            }
+        }
         return null;
     }
 
@@ -323,7 +341,8 @@ public class NetworkScannerWorker : BackgroundService
     {
         try
         {
-            var hostEntry = await System.Net.Dns.GetHostEntryAsync(ip);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var hostEntry = await System.Net.Dns.GetHostEntryAsync(ip, cts.Token);
             if (hostEntry.HostName != ip)
                 return hostEntry.HostName;
         }
@@ -331,14 +350,11 @@ public class NetworkScannerWorker : BackgroundService
         {
             // Ignorer
         }
-
         return null;
     }
 
     private static IEnumerable<string> GetLocalIPAddresses()
     {
-        var addresses = new List<string>();
-
         foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
         {
             if (ni.OperationalStatus != OperationalStatus.Up) continue;
@@ -348,12 +364,10 @@ public class NetworkScannerWorker : BackgroundService
             {
                 if (ua.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
                 {
-                    addresses.Add(ua.Address.ToString());
+                    yield return ua.Address.ToString();
                 }
             }
         }
-
-        return addresses;
     }
 
     private static string GetSubnet(string ip)
