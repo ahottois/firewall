@@ -1109,22 +1109,22 @@ class FirewallApp {
             p.classList.toggle('active', p.id === `${page}-page`);
         });
 
-        // Update title
+        // Update title - Titres uniformisés en français
         const titles = {
-            dashboard: 'Dashboard',
+            dashboard: 'Tableau de bord',
             devices: 'Appareils',
             agents: 'Agents',
-            cameras: 'Caméras',
-            alerts: 'Alertes & Logs',
-            traffic: 'Trafic',
+            cameras: 'Cameras',
+            alerts: 'Journaux',
+            traffic: 'Trafic reseau',
             pihole: 'Pi-hole',
-            dhcp: 'DHCP',
+            dhcp: 'Serveur DHCP',
             setup: 'Installation',
-            sniffer: 'Sniffer',
-            router: 'Règles & Policies',
-            settings: 'Paramètres',
+            sniffer: 'Analyse reseau',
+            router: 'Regles de securite',
+            settings: 'Parametres',
             admin: 'Administration',
-            parental: 'Contrôle Parental',
+            parental: 'Controle parental',
             reports: 'Rapports'
         };
         document.getElementById('page-title').textContent = titles[page] || page;

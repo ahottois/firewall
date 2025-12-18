@@ -20,28 +20,28 @@
         <ul class="nav-menu">
             <li class="nav-item active" data-page="dashboard">
                 <span class="nav-icon"><i class="fas fa-th-large"></i></span>
-                <span>Dashboard</span>
+                <span>Tableau de bord</span>
             </li>
             <li class="nav-item" data-page="parental">
                 <span class="nav-icon"><i class="fas fa-child"></i></span>
-                <span>Parental Control</span>
+                <span>Controle parental</span>
             </li>
             <li class="nav-item" data-page="router">
                 <span class="nav-icon"><i class="fas fa-gavel"></i></span>
-                <span>Rules & Policies</span>
+                <span>Regles de securite</span>
             </li>
             <li class="nav-item" data-page="alerts">
                 <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
-                <span>Logs & Monitoring</span>
+                <span>Journaux</span>
                 <span class="nav-badge" id="alert-badge" style="display: none;">0</span>
             </li>
             <li class="nav-item" data-page="settings">
                 <span class="nav-icon"><i class="fas fa-sliders-h"></i></span>
-                <span>Settings</span>
+                <span>Parametres</span>
             </li>
             <li class="nav-item" data-page="reports">
                 <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-                <span>Reports</span>
+                <span>Rapports</span>
             </li>
             <li class="nav-item" data-page="pihole">
                 <span class="nav-icon"><i class="fas fa-filter"></i></span>
@@ -49,7 +49,7 @@
             </li>
             <li class="nav-item" data-page="dhcp">
                 <span class="nav-icon"><i class="fas fa-network-wired"></i></span>
-                <span>DHCP Server</span>
+                <span>Serveur DHCP</span>
             </li>
             <li class="nav-item" data-page="setup">
                 <span class="nav-icon"><i class="fas fa-book"></i></span>
@@ -57,7 +57,7 @@
             </li>
             <li class="nav-item" data-page="devices">
                 <span class="nav-icon"><i class="fas fa-laptop"></i></span>
-                <span>Devices</span>
+                <span>Appareils</span>
             </li>
             <li class="nav-item" data-page="agents">
                 <span class="nav-icon"><i class="fas fa-server"></i></span>
@@ -97,7 +97,7 @@
             <!-- Traffic Overview -->
             <div class="card dashboard-card">
                 <div class="card-header">
-                    <h3>Traffic Overview</h3>
+                    <h3><i class="fas fa-chart-line"></i> Vue du trafic</h3>
                 </div>
                 <div class="card-body traffic-overview-grid">
                     <div class="traffic-visual">
@@ -108,15 +108,15 @@
                             <!-- CSS arrows will be here -->
                         </div>
                         <div class="traffic-stats-text">
-                            <div><span class="dot allowed"></span> Allowed Traffic</div>
-                            <div><span class="dot blocked"></span> Blocked Traffic</div>
+                            <div><span class="dot allowed"></span> Trafic autorise</div>
+                            <div><span class="dot blocked"></span> Trafic bloque</div>
                         </div>
                     </div>
                     <div class="traffic-charts">
                         <div class="chart-container">
                             <div class="donut-chart" id="allowed-traffic-chart">
                                 <div class="center-text">
-                                    <span class="label">Allowed Traffic</span>
+                                    <span class="label">Autorise</span>
                                     <span class="value" id="allowed-percent">0%</span>
                                 </div>
                             </div>
@@ -124,7 +124,7 @@
                         <div class="chart-container">
                             <div class="donut-chart blocked" id="blocked-traffic-chart">
                                 <div class="center-text">
-                                    <span class="label">Blocked Traffic</span>
+                                    <span class="label">Bloque</span>
                                     <span class="value" id="blocked-percent">0%</span>
                                 </div>
                             </div>
@@ -139,7 +139,7 @@
             <!-- Top Blocked Threats -->
             <div class="card dashboard-card">
                 <div class="card-header">
-                    <h3>Top Blocked Threats</h3>
+                    <h3><i class="fas fa-exclamation-triangle"></i> Menaces bloquees</h3>
                 </div>
                 <div class="card-body">
                     <div id="top-threats-list" class="threats-list">
@@ -153,18 +153,18 @@
                 <!-- Firewall Rules -->
                 <div class="card dashboard-card">
                     <div class="card-header">
-                        <h3>Firewall Rules</h3>
+                        <h3><i class="fas fa-list-alt"></i> Regles du pare-feu</h3>
                     </div>
                     <div class="card-body">
                         <table class="data-table rules-table">
                             <thead>
                                 <tr>
-                                    <th>Rule ID</th>
+                                    <th>ID</th>
                                     <th>Action</th>
                                     <th>Source</th>
                                     <th>Destination</th>
-                                    <th>Port/Protocol</th>
-                                    <th>Status</th>
+                                    <th>Port/Protocole</th>
+                                    <th>Statut</th>
                                 </tr>
                             </thead>
                             <tbody id="firewall-rules-body">
@@ -177,17 +177,19 @@
                 <!-- System Status -->
                 <div class="card dashboard-card">
                     <div class="card-header">
-                        <h3>System Status</h3>
-                        <button class="btn btn-sm btn-outline" onclick="app.showAddMappingModal()">+ Edit Rule</button>
+                        <h3><i class="fas fa-heartbeat"></i> Etat du systeme</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="app.showAddMappingModal()">
+                            <i class="fas fa-edit"></i> Modifier
+                        </button>
                     </div>
                     <div class="card-body system-status-body">
                         <div class="status-item">
                             <i class="fas fa-check-circle success"></i>
-                            <span>All Services Running</span>
+                            <span>Tous les services actifs</span>
                         </div>
                         <div class="status-item">
                             <i class="fas fa-check-circle success" id="cpu-status-icon"></i>
-                            <span id="cpu-status-text">CPU Utilization (0%)</span>
+                            <span id="cpu-status-text">Utilisation CPU (0%)</span>
                         </div>
                     </div>
                 </div>
@@ -198,20 +200,20 @@
         <section id="devices-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3>Liste des Appareils</h3>
+                    <h3><i class="fas fa-laptop"></i> Liste des appareils</h3>
                     <div class="header-actions">
                         <span id="scan-status" class="scan-status"></span>
                         <button class="btn btn-primary" id="scan-network-btn" onclick="app.scanNetwork()">
-                            <i class="fas fa-search" id="scan-icon"></i> Scanner le réseau
+                            <i class="fas fa-search" id="scan-icon"></i> Scanner le reseau
                         </button>
-                        <button class="btn btn-sm" id="add-device-btn" onclick="app.showAddDeviceModal()">
-                            <i class="fas fa-plus"></i> Ajouter manuellement
+                        <button class="btn btn-secondary" id="add-device-btn" onclick="app.showAddDeviceModal()">
+                            <i class="fas fa-plus"></i> Ajouter
                         </button>
                         <div class="filter-buttons">
                             <button class="btn btn-sm active" data-filter="all">Tous</button>
                             <button class="btn btn-sm" data-filter="online">En ligne</button>
                             <button class="btn btn-sm" data-filter="unknown">Inconnus</button>
-                            <button class="btn btn-sm" data-filter="blocked">Bloqués</button>
+                            <button class="btn btn-sm" data-filter="blocked">Bloques</button>
                         </div>
                     </div>
                 </div>
@@ -219,8 +221,8 @@
                     <!-- Panneau de logs de scan -->
                     <div id="scan-logs-panel" class="scan-logs-panel" style="display: none; margin-bottom: 20px;">
                         <div class="scan-logs-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h4 style="margin: 0;"><i class="fas fa-terminal"></i> Logs du scan en temps réel</h4>
-                            <button class="btn btn-sm" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
+                            <h4 style="margin: 0;"><i class="fas fa-terminal"></i> Logs du scan</h4>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
                         </div>
                         <pre id="device-scan-logs" style="background: #1a1a2e; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #00ff88; margin: 0;"></pre>
                     </div>
@@ -233,7 +235,7 @@
                                 <th class="sortable" data-sort="ip">IP <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="vendor">Fabricant <i class="fas fa-sort"></i></th>
                                 <th class="sortable" data-sort="description">Description <i class="fas fa-sort"></i></th>
-                                <th class="sortable" data-sort="lastSeen">Dernière Activité <i class="fas fa-sort"></i></th>
+                                <th class="sortable" data-sort="lastSeen">Derniere activite <i class="fas fa-sort"></i></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -247,13 +249,13 @@
         <section id="agents-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-server"></i> Agents Distants</h3>
+                    <h3><i class="fas fa-server"></i> Agents distants</h3>
                     <div class="header-actions">
                         <button class="btn btn-primary" onclick="app.showInstallAgentModal()">
-                            <i class="fas fa-plus"></i> Installer un Agent
+                            <i class="fas fa-plus"></i> Installer un agent
                         </button>
-                        <button class="btn btn-sm btn-secondary" onclick="app.loadAgents()">
-                            <i class="fas fa-sync"></i> Rafraîchir
+                        <button class="btn btn-secondary" onclick="app.loadAgents()">
+                            <i class="fas fa-sync"></i> Actualiser
                         </button>
                     </div>
                 </div>
@@ -263,10 +265,10 @@
                     </div>
                     <div id="agents-empty" class="empty-state" style="display: none;">
                         <i class="fas fa-server empty-state-icon"></i>
-                        <h3 style="margin-bottom: 10px;">Aucun agent installé</h3>
-                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Installez un agent sur vos serveurs pour les monitorer en temps réel.</p>
+                        <h3 style="margin-bottom: 10px;">Aucun agent installe</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">Installez un agent sur vos serveurs pour les monitorer en temps reel.</p>
                         <button class="btn btn-primary" onclick="app.showInstallAgentModal()">
-                            <i class="fas fa-plus"></i> Installer un Agent
+                            <i class="fas fa-plus"></i> Installer un agent
                         </button>
                     </div>
                 </div>
@@ -280,41 +282,41 @@
                     <div class="stat-icon"><i class="fas fa-video"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-total">0</span>
-                        <span class="stat-label">Total Caméras</span>
+                        <span class="stat-label">Total cameras</span>
                     </div>
                 </div>
-                <div class="stat-card" style="color: #00ff88;">
+                <div class="stat-card success">
                     <div class="stat-icon"><i class="fas fa-circle"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-online">0</span>
-                        <span class="stat-label">En Ligne</span>
+                        <span class="stat-label">En ligne</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
                     <div class="stat-icon"><i class="fas fa-unlock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-vulnerable">0</span>
-                        <span class="stat-label">Mot de passe par défaut</span>
+                        <span class="stat-label">Mot de passe par defaut</span>
                     </div>
                 </div>
                 <div class="stat-card warning">
                     <div class="stat-icon"><i class="fas fa-lock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="cameras-secured">0</span>
-                        <span class="stat-label">Sécurisées</span>
+                        <span class="stat-label">Securisees</span>
                     </div>
                 </div>
             </div>
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Gestion des Caméras</h3>
+                    <h3><i class="fas fa-video"></i> Gestion des cameras</h3>
                     <div class="header-actions">
                         <button class="btn btn-primary" id="scan-cameras-btn">
-                            <i class="fas fa-search"></i> Scanner les caméras
+                            <i class="fas fa-search"></i> Scanner
                         </button>
-                        <button class="btn btn-sm" id="add-camera-btn">
-                            <i class="fas fa-plus"></i> Ajouter manuellement
+                        <button class="btn btn-secondary" id="add-camera-btn">
+                            <i class="fas fa-plus"></i> Ajouter
                         </button>
                     </div>
                 </div>
@@ -322,8 +324,8 @@
                     <!-- Scan Logs Panel -->
                     <div id="scan-logs-panel" class="scan-logs-panel" style="display: none;">
                         <div class="scan-logs-header">
-                            <h4><i class="fas fa-terminal"></i> Logs du scan en temps réel</h4>
-                            <button class="btn btn-sm" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
+                            <h4><i class="fas fa-terminal"></i> Logs du scan</h4>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
                         </div>
                         <div id="scan-logs" class="scan-logs"></div>
                     </div>
@@ -337,11 +339,11 @@
         <section id="alerts-page" class="page">
             <!-- Stats Cards -->
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card info">
                     <div class="stat-icon"><i class="fas fa-bell"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-alerts-count">0</span>
-                        <span class="stat-label">Total Alertes</span>
+                        <span class="stat-label">Total alertes</span>
                     </div>
                 </div>
                 <div class="stat-card danger">
@@ -355,14 +357,14 @@
                     <div class="stat-icon"><i class="fas fa-ban"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="blocked-attempts-count">0</span>
-                        <span class="stat-label">Tentatives Bloquées</span>
+                        <span class="stat-label">Tentatives bloquees</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon"><i class="fas fa-clock"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="last-24h-count">0</span>
-                        <span class="stat-label">24 Dernières Heures</span>
+                        <span class="stat-label">Dernieres 24h</span>
                     </div>
                 </div>
             </div>
@@ -370,14 +372,14 @@
             <!-- Événements de blocage en temps réel -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-broadcast-tower"></i> Événements en Temps Réel</h3>
+                    <h3><i class="fas fa-broadcast-tower"></i> Evenements en temps reel</h3>
                     <span class="live-indicator">
                         <span class="live-dot"></span> LIVE
                     </span>
                 </div>
                 <div class="card-body">
                     <div id="block-events-live" class="block-events-container">
-                        <p class="empty-state">En attente d'événements de blocage...</p>
+                        <p class="empty-state">En attente d'evenements...</p>
                     </div>
                 </div>
             </div>
@@ -385,24 +387,24 @@
             <!-- Logs de sécurité -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-shield-alt"></i> Logs de Sécurité</h3>
+                    <h3><i class="fas fa-shield-alt"></i> Logs de securite</h3>
                     <div class="header-actions">
                         <select id="logs-severity-filter" class="form-control" style="width: auto;" onchange="app.filterLogs()">
-                            <option value="">Toutes sévérités</option>
+                            <option value="">Toutes severites</option>
                             <option value="Critical">Critique</option>
                             <option value="Warning">Avertissement</option>
                             <option value="Info">Info</option>
                         </select>
                         <select id="logs-category-filter" class="form-control" style="width: auto;" onchange="app.filterLogs()">
-                            <option value="">Toutes catégories</option>
-                            <option value="TrafficBlocked">Trafic Bloqué</option>
-                            <option value="ConnectionAttemptBlocked">Connexion Bloquée</option>
-                            <option value="DeviceBlocked">Appareil Bloqué</option>
-                            <option value="PortScanDetected">Scan de Ports</option>
-                            <option value="SuspiciousTraffic">Trafic Suspect</option>
+                            <option value="">Toutes categories</option>
+                            <option value="TrafficBlocked">Trafic bloque</option>
+                            <option value="ConnectionAttemptBlocked">Connexion bloquee</option>
+                            <option value="DeviceBlocked">Appareil bloque</option>
+                            <option value="PortScanDetected">Scan de ports</option>
+                            <option value="SuspiciousTraffic">Trafic suspect</option>
                         </select>
-                        <button class="btn btn-sm" onclick="app.loadSecurityLogs()">
-                            <i class="fas fa-sync"></i> Rafraîchir
+                        <button class="btn btn-secondary" onclick="app.loadSecurityLogs()">
+                            <i class="fas fa-sync"></i> Actualiser
                         </button>
                     </div>
                 </div>
@@ -412,8 +414,8 @@
                             <thead>
                                 <tr>
                                     <th style="width: 100px;">Heure</th>
-                                    <th style="width: 80px;">Sévérité</th>
-                                    <th style="width: 120px;">Catégorie</th>
+                                    <th style="width: 80px;">Severite</th>
+                                    <th style="width: 120px;">Categorie</th>
                                     <th style="width: 150px;">Action</th>
                                     <th>Message</th>
                                     <th style="width: 120px;">Source</th>
@@ -430,16 +432,16 @@
             <!-- Alertes réseau classiques -->
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-bell"></i> Historique des Alertes</h3>
+                    <h3><i class="fas fa-bell"></i> Historique des alertes</h3>
                     <div class="header-actions">
-                        <button class="btn btn-sm" id="mark-all-read" onclick="app.alertHub && app.alertHub.markAllRead()">
-                            <i class="fas fa-check"></i> Tout marquer comme lu
+                        <button class="btn btn-secondary" id="mark-all-read" onclick="app.alertHub && app.alertHub.markAllRead()">
+                            <i class="fas fa-check"></i> Marquer lu
                         </button>
-                        <button class="btn btn-sm btn-success" onclick="app.alertHub && app.alertHub.resolveAll()">
-                            <i class="fas fa-check-double"></i> Tout résoudre
+                        <button class="btn btn-success" onclick="app.alertHub && app.alertHub.resolveAll()">
+                            <i class="fas fa-check-double"></i> Resoudre tout
                         </button>
-                        <button class="btn btn-sm btn-warning" onclick="app.alertHub && app.alertHub.resetLogs()">
-                            <i class="fas fa-redo"></i> Réinitialiser
+                        <button class="btn btn-warning" onclick="app.alertHub && app.alertHub.resetLogs()">
+                            <i class="fas fa-redo"></i> Reinitialiser
                         </button>
                     </div>
                 </div>
@@ -448,7 +450,7 @@
                         <table class="data-table alerts-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 80px;">Sévérité</th>
+                                    <th style="width: 80px;">Severite</th>
                                     <th>Type</th>
                                     <th>Message</th>
                                     <th style="width: 120px;">Source</th>
@@ -468,14 +470,14 @@
         <!-- Traffic Page -->
         <section id="traffic-page" class="page">
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card info">
                     <div class="stat-icon"><i class="fas fa-box"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="total-packets">0</span>
-                        <span class="stat-label">Paquets Total</span>
+                        <span class="stat-label">Paquets total</span>
                     </div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card success">
                     <div class="stat-icon"><i class="fas fa-download"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="inbound-packets">0</span>
@@ -500,7 +502,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Protocoles</h3>
+                    <h3><i class="fas fa-chart-bar"></i> Protocoles</h3>
                 </div>
                 <div class="card-body">
                     <div id="protocols-chart" class="protocols-grid"></div>
@@ -831,9 +833,9 @@
         <section id="router-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-network-wired"></i> Interfaces Réseau</h3>
-                    <button class="btn btn-sm" onclick="app.loadRouterInterfaces()">
-                        <i class="fas fa-sync"></i> Rafraîchir
+                    <h3><i class="fas fa-network-wired"></i> Interfaces reseau</h3>
+                    <button class="btn btn-secondary" onclick="app.loadRouterInterfaces()">
+                        <i class="fas fa-sync"></i> Actualiser
                     </button>
                 </div>
                 <div class="card-body">
@@ -843,9 +845,9 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-exchange-alt"></i> Port Mapping (NAT)</h3>
+                    <h3><i class="fas fa-exchange-alt"></i> Redirection de ports (NAT)</h3>
                     <button class="btn btn-primary" onclick="app.showAddMappingModal()">
-                        <i class="fas fa-plus"></i> Ajouter une règle
+                        <i class="fas fa-plus"></i> Ajouter une regle
                     </button>
                 </div>
                 <div class="card-body">
@@ -853,7 +855,7 @@
                         <thead>
                             <tr>
                                 <th>Nom</th>
-                                <th>Port Local</th>
+                                <th>Port local</th>
                                 <th>Cible</th>
                                 <th>Protocole</th>
                                 <th>Actions</th>
@@ -869,7 +871,7 @@
         <section id="settings-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3>Informations Système</h3>
+                    <h3><i class="fas fa-info-circle"></i> Informations systeme</h3>
                 </div>
                 <div class="card-body">
                     <div id="system-info" class="settings-info"></div>
@@ -878,7 +880,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3>Interfaces Réseau</h3>
+                    <h3><i class="fas fa-network-wired"></i> Interfaces reseau</h3>
                 </div>
                 <div class="card-body">
                     <div id="interfaces-list" class="interfaces-list"></div>
@@ -889,11 +891,11 @@
         <!-- Admin Page -->
         <section id="admin-page" class="page">
             <div class="stats-grid">
-                <div class="stat-card" id="service-status-card">
+                <div class="stat-card info" id="service-status-card">
                     <div class="stat-icon"><i class="fas fa-server"></i></div>
                     <div class="stat-info">
                         <span class="stat-value" id="service-status-text">--</span>
-                        <span class="stat-label">Statut Service</span>
+                        <span class="stat-label">Statut service</span>
                     </div>
                 </div>
                 <div class="stat-card">
@@ -907,18 +909,18 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-cogs"></i> Gestion du Service</h3>
+                    <h3><i class="fas fa-cogs"></i> Gestion du service</h3>
                 </div>
                 <div class="card-body">
                     <div class="admin-buttons">
                         <button class="btn btn-success" id="btn-start-service" onclick="app.startService()">
-                            <i class="fas fa-play"></i> Démarrer
+                            <i class="fas fa-play"></i> Demarrer
                         </button>
                         <button class="btn btn-warning" id="btn-stop-service" onclick="app.stopService()">
-                            <i class="fas fa-stop"></i> Arrêter
+                            <i class="fas fa-stop"></i> Arreter
                         </button>
                         <button class="btn btn-primary" id="btn-restart-service" onclick="app.restartService()">
-                            <i class="fas fa-sync"></i> Redémarrer
+                            <i class="fas fa-sync"></i> Redemarrer
                         </button>
                     </div>
                     <div id="service-result" class="admin-result"></div>
@@ -927,16 +929,16 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-download"></i> Installation du Daemon</h3>
+                    <h3><i class="fas fa-download"></i> Installation du daemon</h3>
                 </div>
                 <div class="card-body">
-                    <p class="admin-info">Installez NetGuard comme service systemd pour qu'il d&eacute;marre automatiquement au boot.</p>
+                    <p class="admin-info">Installez NetGuard comme service systemd pour qu'il demarre automatiquement au boot.</p>
                     <div class="admin-buttons">
                         <button class="btn btn-success" id="btn-install-service" onclick="app.installService()">
-                            <i class="fas fa-plus-circle"></i> Installer comme Daemon
+                            <i class="fas fa-plus-circle"></i> Installer comme daemon
                         </button>
                         <button class="btn btn-danger" id="btn-uninstall-service" onclick="app.uninstallService()">
-                            <i class="fas fa-trash"></i> D&eacute;sinstaller le Daemon
+                            <i class="fas fa-trash"></i> Desinstaller le daemon
                         </button>
                     </div>
                     <div id="install-result" class="admin-result"></div>
@@ -945,18 +947,18 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-cloud-download-alt"></i> Mise &agrave; jour</h3>
-                    <button class="btn btn-sm" onclick="app.checkForUpdates()">
-                        <i class="fas fa-sync"></i> V&eacute;rifier
+                    <h3><i class="fas fa-cloud-download-alt"></i> Mise a jour</h3>
+                    <button class="btn btn-secondary" onclick="app.checkForUpdates()">
+                        <i class="fas fa-sync"></i> Verifier
                     </button>
                 </div>
                 <div class="card-body">
                     <div id="update-status" class="update-status">
-                        <i class="fas fa-spinner fa-spin"></i> V&eacute;rification...
+                        <i class="fas fa-spinner fa-spin"></i> Verification...
                     </div>
                     <div class="admin-buttons" style="margin-top: 15px;">
                         <button class="btn btn-primary" id="btn-update" onclick="app.updateFromGithub()">
-                            <i class="fas fa-cloud-download-alt"></i> Mettre &agrave; jour depuis GitHub
+                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour depuis GitHub
                         </button>
                     </div>
                     <div id="update-result" class="admin-result"></div>
@@ -965,13 +967,13 @@
 
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-file-alt"></i> Logs du Service</h3>
-                    <button class="btn btn-sm" onclick="app.loadServiceLogs()">
-                        <i class="fas fa-sync"></i> Rafra&icirc;chir
+                    <h3><i class="fas fa-file-alt"></i> Logs du service</h3>
+                    <button class="btn btn-secondary" onclick="app.loadServiceLogs()">
+                        <i class="fas fa-sync"></i> Actualiser
                     </button>
                 </div>
                 <div class="card-body">
-                    <div id="service-logs" class="log-viewer">Cliquez sur Rafra&icirc;chir pour charger les logs...</div>
+                    <div id="service-logs" class="log-viewer">Cliquez sur Actualiser pour charger les logs...</div>
                 </div>
             </div>
         </section>
@@ -982,12 +984,12 @@
             <div class="page-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
                     <h2 style="margin: 0; color: var(--text-primary);">
-                        <i class="fas fa-child" style="color: var(--accent-primary);"></i> Contrôle Parental
+                        <i class="fas fa-child" style="color: var(--accent-primary);"></i> Controle parental
                     </h2>
-                    <p style="color: var(--text-secondary); margin-top: 5px;">Gérez l'accès Internet de vos enfants</p>
+                    <p style="color: var(--text-secondary); margin-top: 5px;">Gerez l'acces Internet de vos enfants</p>
                 </div>
-                <button class="btn btn-primary btn-lg" onclick="app.showCreateProfileModal()">
-                    <i class="fas fa-plus"></i> Créer un Profil
+                <button class="btn btn-primary" onclick="app.showCreateProfileModal()">
+                    <i class="fas fa-plus"></i> Creer un profil
                 </button>
             </div>
 
@@ -997,9 +999,9 @@
                 <div class="empty-state" id="parental-empty">
                     <i class="fas fa-child empty-state-icon" style="font-size: 4rem; color: var(--text-secondary);"></i>
                     <h3 style="margin: 20px 0 10px;">Aucun profil enfant</h3>
-                    <p style="color: var(--text-secondary);">Créez un profil pour commencer à gérer l'accès Internet de vos enfants.</p>
+                    <p style="color: var(--text-secondary);">Creez un profil pour commencer a gerer l'acces Internet de vos enfants.</p>
                     <button class="btn btn-primary" onclick="app.showCreateProfileModal()" style="margin-top: 20px;">
-                        <i class="fas fa-plus"></i> Créer le premier profil
+                        <i class="fas fa-plus"></i> Creer le premier profil
                     </button>
                 </div>
             </div>
