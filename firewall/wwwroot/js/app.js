@@ -895,12 +895,48 @@ class FirewallApp {
     // NETWORK SCAN METHODS
     // ==========================================
 
+    scanLogs = [];
+    
+    addScanLog(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString('fr-FR');
+        const colors = {
+            'info': '#00d9ff',
+            'success': '#00ff88',
+            'warning': '#ffaa00',
+            'error': '#ff4757'
+        };
+        const color = colors[type] || colors.info;
+        const logLine = `<span style="color: ${color}">[${timestamp}] ${message}</span>`;
+        this.scanLogs.push(logLine);
+        
+        const logsPanel = document.getElementById('scan-logs-panel');
+        const logsContainer = document.getElementById('device-scan-logs');
+        
+        if (logsPanel && logsContainer) {
+            logsPanel.style.display = 'block';
+            logsContainer.innerHTML = this.scanLogs.join('\n');
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+    }
+    
+    clearScanLogs() {
+        this.scanLogs = [];
+        const logsContainer = document.getElementById('device-scan-logs');
+        if (logsContainer) {
+            logsContainer.innerHTML = '';
+        }
+    }
+
     async scanNetwork() {
         const btn = document.getElementById('scan-network-btn');
         const icon = document.getElementById('scan-icon');
         const scanStatus = document.getElementById('scan-status');
         
         if (!btn) return;
+        
+        // Afficher le panneau de logs
+        this.clearScanLogs();
+        this.addScanLog('Demarrage du scan reseau...', 'info');
         
         // Désactiver le bouton et montrer l'animation
         btn.disabled = true;
@@ -914,28 +950,34 @@ class FirewallApp {
         }
 
         try {
-            this.showToast({ title: 'Scan réseau', message: 'Démarrage du scan du réseau local...', severity: 0 });
+            this.addScanLog('Appel API /api/devices/scan...', 'info');
             
             const result = await this.api('devices/scan', { method: 'POST' });
             
+            this.addScanLog(`Reponse API: ${JSON.stringify(result)}`, 'success');
+            this.addScanLog(`Scan termine: ${result.devicesFound || 0} appareil(s) decouvert(s)`, 'success');
+            
             this.showToast({ 
-                title: 'Scan terminé', 
-                message: result.message || `${result.devicesFound || 0} appareil(s) découvert(s)`, 
+                title: 'Scan termine', 
+                message: result.message || `${result.devicesFound || 0} appareil(s) decouvert(s)`, 
                 severity: 0 
             });
 
             // Recharger la liste des appareils
+            this.addScanLog('Rechargement de la liste des appareils...', 'info');
             await this.loadDevices();
+            this.addScanLog(`Liste rechargee: ${this.currentDevices.length} appareil(s) en base`, 'success');
             
             if (scanStatus) {
-                scanStatus.textContent = `Scan terminé: ${result.devicesFound || 0} appareil(s)`;
+                scanStatus.textContent = `Scan termine: ${result.devicesFound || 0} appareil(s)`;
                 scanStatus.style.color = 'var(--success)';
                 setTimeout(() => { scanStatus.textContent = ''; }, 5000);
             }
 
         } catch (error) {
-            console.error('Erreur scan réseau:', error);
-            this.showToast({ title: 'Erreur', message: 'Impossible de scanner le réseau: ' + error.message, severity: 3 });
+            console.error('Erreur scan reseau:', error);
+            this.addScanLog(`ERREUR: ${error.message}`, 'error');
+            this.showToast({ title: 'Erreur', message: 'Impossible de scanner le reseau: ' + error.message, severity: 3 });
             
             if (scanStatus) {
                 scanStatus.textContent = 'Erreur de scan';
@@ -958,11 +1000,16 @@ class FirewallApp {
     async loadDevices() {
         try {
             console.log('Chargement des appareils...');
+            this.addScanLog('Appel API /api/devices...', 'info');
+            
             const devices = await this.api('devices');
-            console.log('Appareils reçus:', devices);
+            
+            console.log('Appareils recus:', devices);
+            this.addScanLog(`API devices: ${devices.length} appareil(s) recu(s)`, devices.length > 0 ? 'success' : 'warning');
             
             if (!Array.isArray(devices)) {
-                console.error('Réponse API invalide:', devices);
+                console.error('Reponse API invalide:', devices);
+                this.addScanLog('ERREUR: Reponse API invalide', 'error');
                 this.currentDevices = [];
             } else {
                 this.currentDevices = devices;
@@ -971,6 +1018,7 @@ class FirewallApp {
             this.renderDevicesTable(this.currentDevices);
         } catch (error) {
             console.error('Error loading devices:', error);
+            this.addScanLog(`ERREUR chargement: ${error.message}`, 'error');
             this.showToast({ title: 'Erreur', message: 'Impossible de charger les appareils', severity: 2 });
         }
     }
@@ -1212,7 +1260,7 @@ class FirewallApp {
             // Update stats
             document.getElementById('pihole-status-text').textContent = status.isRunning ? 'Actif' : 'Inactif';
             document.getElementById('pihole-blocking-text').textContent = status.blockingEnabled ? 'Activé' : 'Désactivé';
-            document.getElementById('pihole-version').textContent = status.version || '-';
+            document.getElementById('pihole-version').textContent = status.version || '-' ;
 
             if (status.stats) {
                 document.getElementById('ph-queries').textContent = status.stats.dnsQueriesToday || 0;

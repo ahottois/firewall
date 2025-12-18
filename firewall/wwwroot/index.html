@@ -202,7 +202,7 @@
                     <div class="header-actions">
                         <span id="scan-status" class="scan-status"></span>
                         <button class="btn btn-primary" id="scan-network-btn" onclick="app.scanNetwork()">
-                            <i class="fas fa-radar" id="scan-icon"></i> Scanner le réseau
+                            <i class="fas fa-search" id="scan-icon"></i> Scanner le réseau
                         </button>
                         <button class="btn btn-sm" id="add-device-btn" onclick="app.showAddDeviceModal()">
                             <i class="fas fa-plus"></i> Ajouter manuellement
@@ -216,6 +216,15 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <!-- Panneau de logs de scan -->
+                    <div id="scan-logs-panel" class="scan-logs-panel" style="display: none; margin-bottom: 20px;">
+                        <div class="scan-logs-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h4 style="margin: 0;"><i class="fas fa-terminal"></i> Logs du scan en temps réel</h4>
+                            <button class="btn btn-sm" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
+                        </div>
+                        <pre id="device-scan-logs" style="background: #1a1a2e; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #00ff88; margin: 0;"></pre>
+                    </div>
+                    
                     <table class="data-table sortable-table" id="devices-data-table">
                         <thead>
                             <tr>
@@ -1261,6 +1270,6 @@
 
     <!-- Scripts -->
     <script src="js/alert-hub.js?v=1"></script>
-    <script src="js/app.js?v=8"></script>
+    <script src="js/app.js?v=9"></script>
 </body>
 </html>

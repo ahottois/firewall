@@ -37,11 +37,50 @@ public class DevicesController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Lancer un scan réseau complet
+    /// </summary>
+    [HttpPost("scan")]
+    public async Task<IActionResult> StartNetworkScan()
+    {
+        _logger.LogInformation("========================================");
+        _logger.LogInformation("SCAN RESEAU: Demande recue via API");
+        _logger.LogInformation("========================================");
+        
+        try
+        {
+            // Exécuter le scan et attendre le résultat
+            var devicesFound = await _discoveryService.ScanNetworkAsync();
+            
+            // Vérifier combien d'appareils sont en base après le scan
+            var allDevices = await _deviceRepository.GetAllAsync();
+            var deviceCount = allDevices.Count();
+            
+            _logger.LogInformation("SCAN TERMINE: {Found} appareils trouves, {Total} en base", devicesFound, deviceCount);
+            
+            return Ok(new { 
+                message = $"Scan termine: {devicesFound} appareil(s) decouvert(s)",
+                devicesFound = devicesFound,
+                totalInDatabase = deviceCount,
+                success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ERREUR lors du scan reseau");
+            return StatusCode(500, new { 
+                message = "Erreur lors du scan reseau: " + ex.Message,
+                success = false
+            });
+        }
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NetworkDevice>>> GetAll()
     {
         var devices = await _deviceRepository.GetAllAsync();
-        _logger.LogInformation("API GetAll: {Count} appareils retournés", devices.Count());
+        var count = devices.Count();
+        _logger.LogInformation("API GetAll: {Count} appareils retournes", count);
         return Ok(devices);
     }
 
@@ -72,37 +111,6 @@ public class DevicesController : ControllerBase
         var device = await _deviceRepository.GetByIdAsync(id);
         if (device == null) return NotFound();
         return Ok(device);
-    }
-
-    /// <summary>
-    /// Lancer un scan réseau complet
-    /// </summary>
-    [HttpPost("scan")]
-    public async Task<IActionResult> StartNetworkScan()
-    {
-        _logger.LogInformation("?? Scan réseau manuel demandé via API");
-        
-        try
-        {
-            // Exécuter le scan et attendre le résultat
-            var devicesFound = await _discoveryService.ScanNetworkAsync();
-            
-            _logger.LogInformation("? Scan réseau terminé: {Count} appareil(s) découvert(s)", devicesFound);
-            
-            return Ok(new { 
-                message = $"Scan terminé: {devicesFound} appareil(s) découvert(s)",
-                devicesFound = devicesFound,
-                success = true
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erreur lors du scan réseau");
-            return StatusCode(500, new { 
-                message = "Erreur lors du scan réseau: " + ex.Message,
-                success = false
-            });
-        }
     }
 
     /// <summary>
