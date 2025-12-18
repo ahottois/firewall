@@ -77,7 +77,7 @@ public class DevicesController : ControllerBase
     /// Lancer un scan réseau complet
     /// </summary>
     [HttpPost("scan")]
-    public async Task<IActionResult> StartNetworkScan()
+    public IActionResult StartNetworkScan()
     {
         _ = Task.Run(async () =>
         {
@@ -105,7 +105,7 @@ public class DevicesController : ControllerBase
             return NotFound(new { message = "Appareil non trouvé" });
 
         // Protection contre l'auto-blocage
-        var selfBlockCheck = await CheckSelfBlockingAsync(device);
+        var selfBlockCheck = CheckSelfBlocking(device);
         if (selfBlockCheck.IsSelfBlock)
         {
             _logger.LogWarning("Tentative d'auto-blocage détectée pour l'appareil {Mac} depuis {ClientIp}", 
@@ -204,7 +204,7 @@ public class DevicesController : ControllerBase
     /// <summary>
     /// Vérifie si l'utilisateur essaie de bloquer sa propre connexion
     /// </summary>
-    private async Task<SelfBlockCheckResult> CheckSelfBlockingAsync(NetworkDevice device)
+    private SelfBlockCheckResult CheckSelfBlocking(NetworkDevice device)
     {
         var result = new SelfBlockCheckResult();
         

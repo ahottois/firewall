@@ -70,11 +70,11 @@ public class CameraDetectionService : ICameraDetectionService
         _settings = settings.Value;
     }
 
-    public async Task AnalyzePacketForCameraTrafficAsync(PacketCapturedEventArgs packet)
+    public Task AnalyzePacketForCameraTrafficAsync(PacketCapturedEventArgs packet)
     {
         // Ignorer les paquets sans IP source ou destination
         if (string.IsNullOrEmpty(packet.SourceIp) || string.IsNullOrEmpty(packet.DestinationIp))
-            return;
+            return Task.CompletedTask;
 
         // Ports interessants pour les cameras
         var cameraPorts = new[] { 554, 8554, 1935, 1936, 3702, 37777, 34567 };
@@ -99,11 +99,13 @@ public class CameraDetectionService : ICameraDetectionService
         {
             // Eviter de verifier trop souvent (toutes les 10 minutes)
             if (_checkedIps.TryGetValue(ipToCheck, out var lastCheck) && (DateTime.UtcNow - lastCheck).TotalMinutes < 10)
-                return;
+                return Task.CompletedTask;
 
             _checkedIps[ipToCheck] = DateTime.UtcNow;
 
-            // Lancer une verification en arriere-plan
+            // Lancer une verification en arriere-plan (fire and forget)
+            var ipToCheckCopy = ipToCheck;
+            var portToCheckCopy = portToCheck.Value;
             _ = Task.Run(async () =>
             {
                 try
@@ -113,21 +115,21 @@ public class CameraDetectionService : ICameraDetectionService
                     var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
 
                     // Verifier si c'est deja une camera connue
-                    var existingCamera = await cameraRepo.GetByIpAsync(ipToCheck);
+                    var existingCamera = await cameraRepo.GetByIpAsync(ipToCheckCopy);
                     if (existingCamera != null) return;
 
                     // Verifier si c'est un appareil connu
-                    var device = await deviceRepo.GetByIpAsync(ipToCheck);
+                    var device = await deviceRepo.GetByIpAsync(ipToCheckCopy);
                     
                     // Tenter de detecter si c'est vraiment une camera
-                    var camera = await CheckCameraAsync(ipToCheck, portToCheck.Value);
+                    var camera = await CheckCameraAsync(ipToCheckCopy, portToCheckCopy);
                     if (camera != null)
                     {
                         if (device != null) camera.DeviceId = device.Id;
                         
                         await cameraRepo.AddOrUpdateAsync(camera);
                         
-                        _logger.LogInformation("Camera detectee passivement via trafic sur le port {Port}: {Ip}", portToCheck, ipToCheck);
+                        _logger.LogInformation("Camera detectee passivement via trafic sur le port {Port}: {Ip}", portToCheckCopy, ipToCheckCopy);
                         
                         if (camera.PasswordStatus == PasswordStatus.DefaultPassword || 
                             camera.PasswordStatus == PasswordStatus.NoPassword)
@@ -138,10 +140,12 @@ public class CameraDetectionService : ICameraDetectionService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Erreur lors de la detection passive de camera pour {Ip}", ipToCheck);
+                    _logger.LogDebug(ex, "Erreur lors de la detection passive de camera pour {Ip}", ipToCheckCopy);
                 }
             });
         }
+
+        return Task.CompletedTask;
     }
 
     public async Task<IEnumerable<NetworkCamera>> ScanForCamerasAsync(CancellationToken cancellationToken = default)

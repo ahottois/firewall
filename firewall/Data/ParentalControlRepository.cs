@@ -313,11 +313,12 @@ public class ParentalControlRepository : IParentalControlRepository
         await _context.SaveChangesAsync();
     }
 
-    public async Task ResetDailyUsageAsync()
+    public Task ResetDailyUsageAsync()
     {
         // Cette méthode est appelée à minuit pour préparer les logs du nouveau jour
         // On ne réinitialise pas les anciens logs, ils sont conservés pour l'historique
         _logger.LogInformation("Daily usage reset triggered at {Time}", DateTime.UtcNow);
+        return Task.CompletedTask;
     }
 
     #endregion

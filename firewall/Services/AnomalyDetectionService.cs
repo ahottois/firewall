@@ -226,9 +226,9 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         }
     }
 
-    private async Task CheckMalformedPacketAsync(PacketCapturedEventArgs packet)
+    private Task CheckMalformedPacketAsync(PacketCapturedEventArgs packet)
     {
-        // Vrifications basiques de paquets malforms
+        // Vérifications basiques de paquets malformés
         var issues = new List<string>();
 
         if (packet.SourceMac == "00:00:00:00:00:00")
@@ -242,7 +242,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
         if (issues.Any())
         {
-            await CreateAlertAsync(new NetworkAlert
+            return CreateAlertAsync(new NetworkAlert
             {
                 Type = AlertType.MalformedPacket,
                 Severity = AlertSeverity.Low,
@@ -253,6 +253,8 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                 Protocol = packet.Protocol
             });
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task CreateAlertAsync(NetworkAlert alert)

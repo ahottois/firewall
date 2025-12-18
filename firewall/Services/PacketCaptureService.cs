@@ -67,19 +67,19 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
         }).ToList();
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         if (IsCapturing)
         {
             _logger.LogWarning("Packet capture already running");
-            return;
+            return Task.CompletedTask;
         }
 
         var devices = CaptureDeviceList.Instance;
         if (devices.Count == 0)
         {
             _logger.LogError("No network interfaces found. Make sure libpcap/WinPcap is installed.");
-            return;
+            return Task.CompletedTask;
         }
 
         // Log available interfaces for debugging
@@ -138,6 +138,8 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             _logger.LogError(ex, "Failed to start packet capture. Run with elevated privileges (sudo on Linux).");
             throw;
         }
+
+        return Task.CompletedTask;
     }
 
     private void OnPacketArrival(object sender, PacketCapture e)
@@ -224,7 +226,7 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
         }
     }
 
-    public async Task StopAsync()
+    public Task StopAsync()
     {
         _logger.LogInformation("Stopping packet capture...");
         
@@ -239,7 +241,7 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
         }
 
         _logger.LogInformation("Packet capture stopped");
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     public void Dispose()
