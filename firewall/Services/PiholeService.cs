@@ -12,15 +12,22 @@ public interface IPiholeService
     Task<bool> InstallAsync();
     Task<bool> UninstallAsync();
     Task<bool> SetPasswordAsync(string password);
+    Task<bool> EnableAsync();
+    Task<bool> DisableAsync(int? duration = null);
     Task<string> GetInstallLogAsync();
+    bool IsLinux { get; }
 }
 
 public class PiholeStatus
 {
     public bool IsInstalled { get; set; }
     public bool IsRunning { get; set; }
+    public bool IsEnabled { get; set; }
     public string Version { get; set; } = string.Empty;
+    public string FtlVersion { get; set; } = string.Empty;
+    public string WebVersion { get; set; } = string.Empty;
     public string WebUrl { get; set; } = string.Empty;
+    public bool IsLinux { get; set; }
 }
 
 public class PiholeSummary
@@ -91,21 +98,23 @@ public class PiholeService : IPiholeService
     private readonly ILogger<PiholeService> _logger;
     private readonly HttpClient _httpClient;
     private string _installLog = string.Empty;
+    private bool _isInstalling = false;
+
+    public bool IsLinux => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
     public PiholeService(ILogger<PiholeService> logger, IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _httpClient = httpClientFactory.CreateClient();
+        _httpClient.Timeout = TimeSpan.FromSeconds(5);
     }
 
     public async Task<PiholeSummary?> GetSummaryAsync()
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return null;
+        if (!IsLinux) return null;
 
         try
         {
-            // Try to fetch from local Pi-hole API
-            // We assume it's running on localhost port 80
             var response = await _httpClient.GetStringAsync("http://127.0.0.1/admin/api.php");
             return JsonSerializer.Deserialize<PiholeSummary>(response);
         }
@@ -118,9 +127,12 @@ public class PiholeService : IPiholeService
 
     public async Task<PiholeStatus> GetStatusAsync()
     {
-        var status = new PiholeStatus();
+        var status = new PiholeStatus
+        {
+            IsLinux = IsLinux
+        };
 
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        if (!IsLinux)
         {
             return status; // Pi-hole only runs on Linux
         }
@@ -128,26 +140,24 @@ public class PiholeService : IPiholeService
         // Check if installed
         bool isInstalled = File.Exists("/usr/local/bin/pihole");
         bool isRunning = false;
+        bool isEnabled = false;
 
-        // Check if running by looking for process
+        // Check if running by looking for pihole-FTL process
         try
         {
-            // Check for pihole-FTL process
             var processOutput = await RunCommandAsync("pgrep", "-x pihole-FTL");
             if (!string.IsNullOrWhiteSpace(processOutput))
             {
                 isRunning = true;
-                // If running, we consider it installed even if the binary check failed (unlikely but possible)
                 isInstalled = true;
             }
-            else
+            else if (isInstalled)
             {
-                // Fallback to status command if pgrep failed or returned nothing
-                if (isInstalled)
-                {
-                    var output = await RunCommandAsync("pihole", "status");
-                    isRunning = output.Contains("DNS service is active") || output.Contains("listening");
-                }
+                var output = await RunCommandAsync("pihole", "status");
+                isRunning = output.Contains("DNS service is active") || 
+                           output.Contains("listening") ||
+                           output.Contains("Pi-hole blocking is enabled");
+                isEnabled = output.Contains("Pi-hole blocking is enabled");
             }
         }
         catch
@@ -155,19 +165,46 @@ public class PiholeService : IPiholeService
             // Ignore errors, assume not running
         }
 
+        // Double-check enabled status via API if running
+        if (isRunning)
+        {
+            try
+            {
+                var summary = await GetSummaryAsync();
+                if (summary != null)
+                {
+                    isEnabled = summary.Status?.ToLower() == "enabled";
+                }
+            }
+            catch { }
+        }
+
         if (isInstalled)
         {
             status.IsInstalled = true;
             status.IsRunning = isRunning;
+            status.IsEnabled = isEnabled;
             
             try
             {
-                // Get version
+                // Get versions
                 var versionOutput = await RunCommandAsync("pihole", "-v");
-                status.Version = versionOutput.Split('\n').FirstOrDefault() ?? "Unknown";
+                var lines = versionOutput.Split('\n');
                 
-                // Determine Web URL (assume default port 80 or check lighttpd)
-                status.WebUrl = "/admin/"; 
+                foreach (var line in lines)
+                {
+                    if (line.Contains("Pi-hole version"))
+                        status.Version = ExtractVersion(line);
+                    else if (line.Contains("FTL version"))
+                        status.FtlVersion = ExtractVersion(line);
+                    else if (line.Contains("Web Interface version"))
+                        status.WebVersion = ExtractVersion(line);
+                }
+                
+                if (string.IsNullOrEmpty(status.Version))
+                    status.Version = lines.FirstOrDefault() ?? "Unknown";
+                
+                status.WebUrl = "/admin/";
             }
             catch
             {
@@ -178,49 +215,105 @@ public class PiholeService : IPiholeService
         return status;
     }
 
-    public async Task<bool> InstallAsync()
+    private string ExtractVersion(string line)
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        // Format: "  Pi-hole version is v5.17.1 (Latest: v5.17.1)"
+        var parts = line.Split(new[] { " is ", " v" }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
         {
-            _logger.LogError("Pi-hole installation is only supported on Linux.");
-            return false;
+            var ver = parts[1].Split(' ')[0].Trim();
+            return ver.StartsWith("v") ? ver : "v" + ver;
         }
+        return line.Trim();
+    }
 
-        _installLog = "Starting installation...\n";
+    public async Task<bool> EnableAsync()
+    {
+        if (!IsLinux) return false;
 
         try
         {
-            // Automated install requires setupVars.conf or interactive mode.
-            // We will try to run the unattended install if possible, or just the basic script.
-            // WARNING: This is a simplified approach. Real-world requires handling prompts.
-            // We'll use the official basic install command but piped to bash.
-            
-            // Note: Running curl | bash from code is risky and might hang on prompts.
-            // A better way for "Real" implementation in this context is to assume the user
-            // wants us to trigger the standard installer.
-            
-            // We will attempt to run the installer in non-interactive mode if possible
-            // by setting environment variables or pre-creating setupVars.conf
-            
-            // Create basic setupVars.conf if not exists
+            await RunCommandAsync("pihole", "enable");
+            _logger.LogInformation("Pi-hole enabled");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to enable Pi-hole");
+            return false;
+        }
+    }
+
+    public async Task<bool> DisableAsync(int? duration = null)
+    {
+        if (!IsLinux) return false;
+
+        try
+        {
+            var args = duration.HasValue ? $"disable {duration.Value}s" : "disable";
+            await RunCommandAsync("pihole", args);
+            _logger.LogInformation("Pi-hole disabled" + (duration.HasValue ? $" for {duration}s" : " permanently"));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to disable Pi-hole");
+            return false;
+        }
+    }
+
+    public async Task<bool> InstallAsync()
+    {
+        if (!IsLinux)
+        {
+            _logger.LogError("Pi-hole installation is only supported on Linux.");
+            _installLog = "Erreur: Pi-hole ne peut être installé que sur Linux.\n";
+            return false;
+        }
+
+        if (_isInstalling)
+        {
+            _logger.LogWarning("Installation already in progress");
+            return false;
+        }
+
+        _isInstalling = true;
+        _installLog = "=== Début de l'installation de Pi-hole ===\n";
+        _installLog += $"Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n";
+
+        try
+        {
+            // Create setupVars.conf for unattended install
             if (!File.Exists("/etc/pihole/setupVars.conf"))
             {
                 Directory.CreateDirectory("/etc/pihole");
+                
+                // Detect default interface
+                var defaultInterface = await GetDefaultNetworkInterfaceAsync();
+                
                 await File.WriteAllTextAsync("/etc/pihole/setupVars.conf", 
-                    "PIHOLE_INTERFACE=eth0\n" +
+                    $"PIHOLE_INTERFACE={defaultInterface}\n" +
                     "PIHOLE_DNS_1=8.8.8.8\n" +
                     "PIHOLE_DNS_2=8.8.4.4\n" +
                     "QUERY_LOGGING=true\n" +
                     "INSTALL_WEB_SERVER=true\n" +
                     "INSTALL_WEB_INTERFACE=true\n" +
-                    "LIGHTTPD_ENABLED=true\n");
+                    "LIGHTTPD_ENABLED=true\n" +
+                    "CACHE_SIZE=10000\n" +
+                    "DNS_FQDN_REQUIRED=true\n" +
+                    "DNS_BOGUS_PRIV=true\n" +
+                    "DNSMASQ_LISTENING=local\n" +
+                    "WEBPASSWORD=\n");
+                
+                _installLog += $"Configuration créée pour l'interface: {defaultInterface}\n";
             }
 
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    _installLog += "Downloading and running installer...\n";
+                    _installLog += "Téléchargement et exécution de l'installateur...\n";
+                    
                     var process = new Process
                     {
                         StartInfo = new ProcessStartInfo
@@ -234,19 +327,47 @@ public class PiholeService : IPiholeService
                         }
                     };
 
-                    process.OutputDataReceived += (s, e) => { if (e.Data != null) _installLog += e.Data + "\n"; };
-                    process.ErrorDataReceived += (s, e) => { if (e.Data != null) _installLog += "ERR: " + e.Data + "\n"; };
+                    process.OutputDataReceived += (s, e) => 
+                    { 
+                        if (e.Data != null) 
+                        {
+                            _installLog += e.Data + "\n";
+                            _logger.LogDebug("Pi-hole install: {Line}", e.Data);
+                        }
+                    };
+                    
+                    process.ErrorDataReceived += (s, e) => 
+                    { 
+                        if (e.Data != null) 
+                        {
+                            _installLog += "[ERR] " + e.Data + "\n";
+                            _logger.LogWarning("Pi-hole install error: {Line}", e.Data);
+                        }
+                    };
 
                     process.Start();
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
                     await process.WaitForExitAsync();
                     
-                    _installLog += $"Installation finished with code {process.ExitCode}\n";
+                    if (process.ExitCode == 0)
+                    {
+                        _installLog += "\n=== Installation terminée avec succès! ===\n";
+                        _installLog += "Pi-hole est maintenant actif.\n";
+                    }
+                    else
+                    {
+                        _installLog += $"\n=== Installation terminée avec code {process.ExitCode} ===\n";
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _installLog += $"Error: {ex.Message}\n";
+                    _installLog += $"\n[ERREUR FATALE] {ex.Message}\n";
+                    _logger.LogError(ex, "Pi-hole installation failed");
+                }
+                finally
+                {
+                    _isInstalling = false;
                 }
             });
 
@@ -255,36 +376,61 @@ public class PiholeService : IPiholeService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start Pi-hole installation");
+            _isInstalling = false;
             return false;
         }
     }
 
+    private async Task<string> GetDefaultNetworkInterfaceAsync()
+    {
+        try
+        {
+            // Get the default route interface
+            var output = await RunCommandAsync("ip", "route show default");
+            // Output format: "default via 192.168.1.1 dev eth0 proto dhcp..."
+            var parts = output.Split(' ');
+            var devIndex = Array.IndexOf(parts, "dev");
+            if (devIndex >= 0 && devIndex < parts.Length - 1)
+            {
+                return parts[devIndex + 1].Trim();
+            }
+        }
+        catch { }
+        
+        return "eth0"; // Default fallback
+    }
+
     public async Task<bool> UninstallAsync()
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return false;
+        if (!IsLinux) return false;
 
         try
         {
-            _installLog = "Starting uninstallation...\n";
-            // Use --unattended flag to skip confirmation prompts
+            _installLog = "=== Début de la désinstallation de Pi-hole ===\n";
+            _installLog += $"Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n";
+            
             var output = await RunCommandAsync("pihole", "uninstall --unattended");
             _installLog += output;
+            _installLog += "\n=== Désinstallation terminée ===\n";
+            
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to uninstall Pi-hole");
+            _installLog += $"\n[ERREUR] {ex.Message}\n";
             return false;
         }
     }
 
     public async Task<bool> SetPasswordAsync(string password)
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return false;
+        if (!IsLinux) return false;
 
         try
         {
-            await RunCommandAsync("pihole", $"-a -p {password}");
+            // Use echo to pipe the password to avoid shell escaping issues
+            await RunCommandAsync("bash", $"-c \"echo '{password}' | pihole -a -p\"");
             return true;
         }
         catch (Exception ex)
@@ -319,7 +465,7 @@ public class PiholeService : IPiholeService
         var error = await process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
 
-        if (process.ExitCode != 0)
+        if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
         {
             throw new Exception($"Command failed: {error}");
         }

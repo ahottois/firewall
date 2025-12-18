@@ -374,111 +374,159 @@
 
         <!-- Pi-hole Page -->
         <section id="pihole-page" class="page">
-            <div class="stats-grid">
-                <div class="stat-card" id="pihole-status-card">
-                    <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
-                    <div>
-                        <span class="stat-value" id="pihole-status-text">Inconnu</span>
-                        <span class="stat-label">Status Pi-hole</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-code-branch"></i></div>
-                    <div>
-                        <span class="stat-value" id="pihole-version">-</span>
-                        <span class="stat-label">Version</span>
+            <!-- Mode Non-Linux (Windows/Mac) -->
+            <div id="pihole-not-linux" class="pihole-unsupported" style="display: none;">
+                <div class="card">
+                    <div class="card-body" style="text-align: center; padding: 60px 20px;">
+                        <i class="fab fa-linux" style="font-size: 80px; color: var(--text-secondary); margin-bottom: 20px;"></i>
+                        <h2 style="margin-bottom: 15px;">Pi-hole n'est disponible que sur Linux</h2>
+                        <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto;">
+                            Pi-hole est un bloqueur de publicités au niveau DNS qui ne fonctionne que sur les systèmes Linux.
+                            Déployez WebGuard sur un serveur Linux (Raspberry Pi, Ubuntu, Debian...) pour utiliser Pi-hole.
+                        </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Pi-hole Stats (Hidden if not installed) -->
-            <div id="pihole-stats-container" style="display: none;">
-                <h3 class="section-title"><i class="fas fa-chart-pie"></i> Statistiques Globales</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon" style="color: var(--accent-primary);"><i class="fas fa-globe"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-queries">0</span>
-                            <span class="stat-label">Requ&ecirc;tes Totales</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="color: var(--danger);"><i class="fas fa-ban"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-blocked">0</span>
-                            <span class="stat-label">Bloqu&eacute;es</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="color: var(--warning);"><i class="fas fa-percentage"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-percent">0%</span>
-                            <span class="stat-label">Pourcentage</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon" style="color: var(--success);"><i class="fas fa-list"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-domains">0</span>
-                            <span class="stat-label">Domaines en Liste Noire</span>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 class="section-title" style="margin-top: 20px;"><i class="fas fa-info-circle"></i> D&eacute;tails &amp; Status</h3>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-users"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-clients">0</span>
-                            <span class="stat-label">Clients Uniques</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-database"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-gravity">Jamais</span>
-                            <span class="stat-label">Mise &agrave; jour Gravity</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-reply"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-reply-ip">0</span>
-                            <span class="stat-label">R&eacute;ponses IP</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
-                        <div>
-                            <span class="stat-value" id="ph-reply-nx">0</span>
-                            <span class="stat-label">NXDOMAIN</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h3><i class="fas fa-cogs"></i> Gestion Pi-hole</h3>
-                </div>
-                <div class="card-body">
-                    <div id="pihole-actions" class="admin-buttons">
-                        <button class="btn btn-primary" id="btn-install-pihole" onclick="app.installPihole()">
+            <!-- Mode Non Installé -->
+            <div id="pihole-not-installed" style="display: none;">
+                <div class="card">
+                    <div class="card-body" style="text-align: center; padding: 60px 20px;">
+                        <i class="fas fa-shield-alt" style="font-size: 80px; color: var(--accent-primary); margin-bottom: 20px;"></i>
+                        <h2 style="margin-bottom: 15px;">Pi-hole n'est pas installé</h2>
+                        <p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto 30px;">
+                            Pi-hole est un bloqueur de publicités et de traqueurs au niveau DNS. 
+                            Une fois installé, il protègera tous les appareils de votre réseau.
+                        </p>
+                        <button class="btn btn-primary btn-lg" onclick="app.installPihole()">
                             <i class="fas fa-download"></i> Installer Pi-hole
                         </button>
-                        <a href="#" target="_blank" class="btn btn-success" id="btn-open-pihole" style="display:none;">
-                            <i class="fas fa-external-link-alt"></i> Ouvrir Interface Web
-                        </a>
-                        <button class="btn btn-warning" id="btn-reset-pihole-pwd" onclick="app.showPiholePasswordModal()" style="display:none;">
-                            <i class="fas fa-key"></i> Changer Mot de Passe
-                        </button>
-                        <button class="btn btn-danger" id="btn-uninstall-pihole" onclick="app.uninstallPihole()" style="display:none;">
-                            <i class="fas fa-trash"></i> D&eacute;sinstaller
-                        </button>
+                        
+                        <div id="pihole-install-progress" style="display: none; margin-top: 30px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+                            <h4><i class="fas fa-terminal"></i> Logs d'installation</h4>
+                            <div id="pihole-install-logs" class="code-block" style="max-height: 300px; overflow-y: auto;"></div>
+                        </div>
                     </div>
-                    
-                    <div id="pihole-install-logs" class="code-block" style="margin-top: 20px; display: none; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+
+            <!-- Mode Installé -->
+            <div id="pihole-installed" style="display: none;">
+                <!-- Cartes Status et Version -->
+                <div class="stats-grid">
+                    <div class="stat-card" id="pihole-status-card">
+                        <div class="stat-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div>
+                            <span class="stat-value" id="pihole-status-text">Vérification...</span>
+                            <span class="stat-label">Statut Pi-hole</span>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="pihole-blocking-card">
+                        <div class="stat-icon"><i class="fas fa-ban"></i></div>
+                        <div>
+                            <span class="stat-value" id="pihole-blocking-text">-</span>
+                            <span class="stat-label">Blocage</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"><i class="fas fa-code-branch"></i></div>
+                        <div>
+                            <span class="stat-value" id="pihole-version">-</span>
+                            <span class="stat-label">Version</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pi-hole Stats -->
+                <div id="pihole-stats-container">
+                    <h3 class="section-title"><i class="fas fa-chart-pie"></i> Statistiques Globales</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="color: var(--accent-primary);"><i class="fas fa-globe"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-queries">0</span>
+                                <span class="stat-label">Requêtes Totales</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="color: var(--danger);"><i class="fas fa-ban"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-blocked">0</span>
+                                <span class="stat-label">Bloquées</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="color: var(--warning);"><i class="fas fa-percentage"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-percent">0%</span>
+                                <span class="stat-label">Pourcentage</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="color: var(--success);"><i class="fas fa-list"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-domains">0</span>
+                                <span class="stat-label">Domaines en Liste Noire</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="section-title" style="margin-top: 20px;"><i class="fas fa-info-circle"></i> Détails &amp; Status</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-users"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-clients">0</span>
+                                <span class="stat-label">Clients Uniques</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-database"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-gravity">Jamais</span>
+                                <span class="stat-label">Mise à jour Gravity</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-reply"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-reply-ip">0</span>
+                                <span class="stat-label">Réponses IP</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                            <div>
+                                <span class="stat-value" id="ph-reply-nx">0</span>
+                                <span class="stat-label">NXDOMAIN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-cogs"></i> Gestion Pi-hole</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="pihole-actions" class="admin-buttons">
+                            <a href="/admin/" target="_blank" class="btn btn-success" id="btn-open-pihole">
+                                <i class="fas fa-external-link-alt"></i> Ouvrir Interface Web
+                            </a>
+                            <button class="btn btn-primary" id="btn-enable-pihole" onclick="app.enablePihole()" style="display:none;">
+                                <i class="fas fa-play"></i> Activer le blocage
+                            </button>
+                            <button class="btn btn-warning" id="btn-disable-pihole" onclick="app.showDisablePiholeModal()">
+                                <i class="fas fa-pause"></i> Désactiver le blocage
+                            </button>
+                            <button class="btn btn-secondary" id="btn-reset-pihole-pwd" onclick="app.showPiholePasswordModal()">
+                                <i class="fas fa-key"></i> Changer Mot de Passe
+                            </button>
+                            <button class="btn btn-danger" id="btn-uninstall-pihole" onclick="app.uninstallPihole()">
+                                <i class="fas fa-trash"></i> Désinstaller
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
