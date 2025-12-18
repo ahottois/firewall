@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NetworkFirewall.Data;
+using NetworkFirewall.Hubs;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
 
@@ -9,7 +10,9 @@ namespace NetworkFirewall.Controllers;
 [Route("api/[controller]")]
 public class DevicesController(
     IDeviceRepository deviceRepository,
-    IDeviceDiscoveryService discoveryService) : ControllerBase
+    IDeviceDiscoveryService discoveryService,
+    INetworkBlockingService blockingService,
+    IDeviceHubNotifier hubNotifier) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NetworkDevice>>> GetAll()
@@ -32,6 +35,13 @@ public class DevicesController(
         return Ok(devices);
     }
 
+    [HttpGet("blocked")]
+    public async Task<ActionResult<IEnumerable<NetworkDevice>>> GetBlocked()
+    {
+        var devices = await deviceRepository.GetBlockedDevicesAsync();
+        return Ok(devices);
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<NetworkDevice>> GetById(int id)
     {
@@ -46,7 +56,6 @@ public class DevicesController(
     [HttpPost("scan")]
     public async Task<IActionResult> StartNetworkScan()
     {
-        // Lancer le scan en arrière-plan
         _ = Task.Run(async () =>
         {
             try
@@ -62,11 +71,72 @@ public class DevicesController(
         return Accepted(new { message = "Scan réseau démarré" });
     }
 
+    /// <summary>
+    /// Bloquer un appareil sur le réseau
+    /// </summary>
+    [HttpPost("{id}/block")]
+    public async Task<IActionResult> BlockDevice(int id)
+    {
+        var device = await deviceRepository.GetByIdAsync(id);
+        if (device == null) return NotFound(new { message = "Appareil non trouvé" });
+
+        if (device.Status == DeviceStatus.Blocked)
+            return BadRequest(new { message = "Appareil déjà bloqué" });
+
+        var success = await blockingService.BlockDeviceAsync(device.MacAddress, device.IpAddress);
+        if (!success && blockingService.IsSupported)
+        {
+            return StatusCode(500, new { message = "Échec du blocage réseau" });
+        }
+
+        // Mettre à jour le statut en base
+        device.Status = DeviceStatus.Blocked;
+        await deviceRepository.UpdateStatusAsync(id, DeviceStatus.Blocked);
+
+        // Notifier les clients SignalR
+        await hubNotifier.NotifyDeviceBlocked(device);
+
+        return Ok(new { message = "Appareil bloqué", device });
+    }
+
+    /// <summary>
+    /// Débloquer un appareil sur le réseau
+    /// </summary>
+    [HttpPost("{id}/unblock")]
+    public async Task<IActionResult> UnblockDevice(int id)
+    {
+        var device = await deviceRepository.GetByIdAsync(id);
+        if (device == null) return NotFound(new { message = "Appareil non trouvé" });
+
+        if (device.Status != DeviceStatus.Blocked)
+            return BadRequest(new { message = "Appareil non bloqué" });
+
+        var success = await blockingService.UnblockDeviceAsync(device.MacAddress, device.IpAddress);
+        if (!success && blockingService.IsSupported)
+        {
+            return StatusCode(500, new { message = "Échec du déblocage réseau" });
+        }
+
+        // Mettre à jour le statut en base (remettre à Unknown, le scanner déterminera le vrai statut)
+        device.Status = DeviceStatus.Unknown;
+        await deviceRepository.UpdateStatusAsync(id, DeviceStatus.Unknown);
+
+        // Notifier les clients SignalR
+        await hubNotifier.NotifyDeviceUnblocked(device);
+
+        return Ok(new { message = "Appareil débloqué", device });
+    }
+
     [HttpPost("{id}/trust")]
     public async Task<IActionResult> SetTrusted(int id, [FromBody] TrustRequest request)
     {
         var result = await deviceRepository.SetTrustedAsync(id, request.Trusted);
         if (!result) return NotFound();
+        
+        var device = await deviceRepository.GetByIdAsync(id);
+        if (device != null)
+            await hubNotifier.NotifyDeviceUpdated(device);
+        
         return Ok();
     }
 
@@ -75,6 +145,11 @@ public class DevicesController(
     {
         var result = await deviceRepository.SetKnownAsync(id, request.Known, request.Description);
         if (!result) return NotFound();
+        
+        var device = await deviceRepository.GetByIdAsync(id);
+        if (device != null)
+            await hubNotifier.NotifyDeviceUpdated(device);
+        
         return Ok();
     }
 
@@ -86,6 +161,11 @@ public class DevicesController(
     {
         var result = await deviceRepository.UpdateDeviceInfoAsync(id, request);
         if (!result) return NotFound();
+        
+        var device = await deviceRepository.GetByIdAsync(id);
+        if (device != null)
+            await hubNotifier.NotifyDeviceUpdated(device);
+        
         return Ok(new { message = "Appareil mis à jour" });
     }
 
@@ -112,6 +192,9 @@ public class DevicesController(
         };
 
         var saved = await deviceRepository.AddOrUpdateAsync(device);
+        
+        await hubNotifier.NotifyDeviceDiscovered(saved);
+        
         return Ok(saved);
     }
 
@@ -125,9 +208,6 @@ public class DevicesController(
 }
 
 public record TrustRequest(bool Trusted);
-
 public record KnownRequest(bool Known, string? Description);
-
 public record UpdateDeviceRequest(string? IpAddress, string? Vendor, string? Description, bool? IsKnown, bool? IsTrusted);
-
 public record CreateDeviceRequest(string MacAddress, string? IpAddress, string? Vendor, string? Description, bool IsTrusted);

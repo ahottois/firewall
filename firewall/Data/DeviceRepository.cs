@@ -12,6 +12,7 @@ public interface IDeviceRepository
     Task<IEnumerable<NetworkDevice>> GetAllAsync();
     Task<IEnumerable<NetworkDevice>> GetUnknownDevicesAsync();
     Task<IEnumerable<NetworkDevice>> GetOnlineDevicesAsync();
+    Task<IEnumerable<NetworkDevice>> GetBlockedDevicesAsync();
     Task<NetworkDevice> AddOrUpdateAsync(NetworkDevice device);
     Task<bool> SetTrustedAsync(int id, bool trusted);
     Task<bool> SetKnownAsync(int id, bool known, string? description = null);
@@ -61,6 +62,14 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
         var threshold = DateTime.UtcNow.AddMinutes(-5);
         return await context.Devices
             .Where(d => d.LastSeen >= threshold)
+            .OrderByDescending(d => d.LastSeen)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<NetworkDevice>> GetBlockedDevicesAsync()
+    {
+        return await context.Devices
+            .Where(d => d.Status == DeviceStatus.Blocked)
             .OrderByDescending(d => d.LastSeen)
             .ToListAsync();
     }

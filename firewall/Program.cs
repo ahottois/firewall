@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NetworkFirewall.Controllers;
 using NetworkFirewall.Data;
+using NetworkFirewall.Hubs;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
 using System.Text.Json.Serialization;
@@ -27,8 +28,15 @@ builder.Services.AddScoped<ICameraRepository, CameraRepository>();
 // HTTP Client Factory for camera detection and threat intelligence
 builder.Services.AddHttpClient();
 
+// SignalR
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IDeviceHubNotifier, DeviceHubNotifier>();
+
 // OUI Lookup Service (singleton avec dictionnaire en mémoire)
 builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
+
+// Network Blocking Service
+builder.Services.AddSingleton<INetworkBlockingService, NetworkBlockingService>();
 
 // Services (Singleton pour maintenir l'etat)
 builder.Services.AddSingleton<INotificationService, NotificationService>();
@@ -68,6 +76,9 @@ builder.Services.AddHostedService<DhcpService>(provider => (DhcpService)provider
 // Device Heartbeat Service (background service pour vérifier statut des appareils)
 builder.Services.AddHostedService<DeviceHeartbeatService>();
 
+// Network Scanner Worker (scan périodique avec notifications SignalR)
+builder.Services.AddHostedService<NetworkScannerWorker>();
+
 // Add Controllers
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -91,10 +102,14 @@ if (app.Environment.IsDevelopment())
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseRouting();
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapNotificationEndpoints();
+
+// Map SignalR Hub
+app.MapHub<DeviceHub>("/hubs/devices");
 
 // Initialize Database
 using (var scope = app.Services.CreateScope())
@@ -104,17 +119,13 @@ using (var scope = app.Services.CreateScope())
     
     try
     {
-        // Try to create database if it doesn't exist
         db.Database.EnsureCreated();
-        
-        // Test access to ensure schema matches the current model
-        // This will throw if the schema is outdated (e.g. missing columns)
         _ = db.Alerts.FirstOrDefault();
-        _ = db.Agents.FirstOrDefault(); // Check for Agents table
+        _ = db.Agents.FirstOrDefault();
     }
     catch (Exception ex)
     {
-        logger.LogWarning(ex, "Database schema mismatch detected. Recreating database to apply new 'Real' models...");
+        logger.LogWarning(ex, "Database schema mismatch detected. Recreating database...");
         try
         {
             db.Database.EnsureDeleted();

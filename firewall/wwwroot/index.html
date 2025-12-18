@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="css/style.css">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SignalR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 </head>
 <body>
     <nav class="sidebar">
@@ -190,6 +192,7 @@
                 <div class="card-header">
                     <h3>Liste des Appareils</h3>
                     <div class="header-actions">
+                        <span id="scan-status" class="scan-status"></span>
                         <button class="btn btn-sm" id="add-device-btn" onclick="app.showAddDeviceModal()">
                             <i class="fas fa-plus"></i> Ajouter manuellement
                         </button>
@@ -197,6 +200,7 @@
                             <button class="btn btn-sm active" data-filter="all">Tous</button>
                             <button class="btn btn-sm" data-filter="online">En ligne</button>
                             <button class="btn btn-sm" data-filter="unknown">Inconnus</button>
+                            <button class="btn btn-sm" data-filter="blocked">Bloqués</button>
                         </div>
                     </div>
                 </div>
@@ -1008,6 +1012,6 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=2"></script>
+    <script src="js/app.js?v=3"></script>
 </body>
 </html>
