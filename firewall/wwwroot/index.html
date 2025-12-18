@@ -842,6 +842,46 @@
         </div>
     </div>
 
+    <!-- Agent Details Modal -->
+    <div id="agent-details-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>D&eacute;tails de l'Agent</h3>
+                <button class="modal-close" onclick="document.getElementById('agent-details-modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="agent-header-info" style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                    <h2 id="agent-detail-hostname" style="color: var(--accent-primary);">Hostname</h2>
+                    <div style="display: flex; gap: 20px; margin-top: 10px; color: var(--text-secondary);">
+                        <span><i class="fab fa-linux"></i> <span id="agent-detail-os">OS</span></span>
+                        <span><i class="fas fa-network-wired"></i> <span id="agent-detail-ip">IP</span></span>
+                        <span><i class="fas fa-clock"></i> <span id="agent-detail-seen">Last Seen</span></span>
+                    </div>
+                </div>
+
+                <div class="details-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- Hardware -->
+                    <div class="detail-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <h4 style="margin-bottom: 15px; color: var(--accent-secondary);"><i class="fas fa-microchip"></i> Mat&eacute;riel</h4>
+                        <div id="agent-hardware-info">Chargement...</div>
+                    </div>
+
+                    <!-- Network -->
+                    <div class="detail-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <h4 style="margin-bottom: 15px; color: var(--accent-primary);"><i class="fas fa-network-wired"></i> R&eacute;seau</h4>
+                        <div id="agent-network-info">Chargement...</div>
+                    </div>
+
+                    <!-- System -->
+                    <div class="detail-card" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <h4 style="margin-bottom: 15px; color: var(--success);"><i class="fas fa-server"></i> Syst&egrave;me</h4>
+                        <div id="agent-system-info">Chargement...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Camera View Modal -->
     <div id="camera-modal" class="modal camera-modal">
         <div class="modal-content modal-large">

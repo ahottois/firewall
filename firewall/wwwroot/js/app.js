@@ -49,6 +49,7 @@ class FirewallApp {
         this.currentCameraId = null;
         this.currentSnapshot = null;
         this.currentDevices = [];
+        this.currentAgents = [];
         this.sortDirection = {};
         this.snifferInterval = null;
         this.init();
@@ -401,6 +402,7 @@ class FirewallApp {
     async loadAgents() {
         try {
             const agents = await this.api('agents');
+            this.currentAgents = agents; // Store for viewAgent
             this.renderAgents(agents);
         } catch (error) {
             console.error('Error loading agents:', error);
@@ -427,13 +429,78 @@ class FirewallApp {
                     <span class="status-badge ${agent.status === 'Online' ? 'online' : 'offline'}">${agent.status}</span>
                 </div>
                 <div class="card-body">
-                    <p><strong>OS:</strong> ${this.escapeHtml(agent.osDescription)}</p>
+                    <p><strong>OS:</strong> ${this.escapeHtml(agent.os)}</p>
                     <p><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress)}</p>
                     <p><strong>Last Seen:</strong> ${this.formatDate(agent.lastSeen)}</p>
                     <p><strong>Version:</strong> ${this.escapeHtml(agent.version)}</p>
+                    <div style="margin-top: 15px; display: flex; gap: 10px;">
+                        <button class="btn btn-sm btn-primary" onclick="app.viewAgent(${agent.id})" style="width: 100%;">
+                            <i class="fas fa-info-circle"></i> D&eacute;tails
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
+    }
+
+    async viewAgent(id) {
+        const agent = this.currentAgents ? this.currentAgents.find(a => a.id === id) : null;
+        if (!agent) return;
+
+        document.getElementById('agent-detail-hostname').textContent = agent.hostname;
+        document.getElementById('agent-detail-os').textContent = agent.os;
+        document.getElementById('agent-detail-ip').textContent = agent.ipAddress;
+        document.getElementById('agent-detail-seen').textContent = this.formatDate(agent.lastSeen);
+
+        // Parse Details
+        let details = {};
+        try {
+            if (agent.detailsJson) {
+                details = JSON.parse(agent.detailsJson);
+            }
+        } catch (e) {
+            console.error('Error parsing agent details', e);
+        }
+
+        // Render Hardware
+        const hw = details.hardware || {};
+        document.getElementById('agent-hardware-info').innerHTML = `
+            <p><strong>CPU:</strong> ${this.escapeHtml(hw.cpuModel || 'N/A')}</p>
+            <p><strong>Cores:</strong> ${hw.cpuCores || 'N/A'}</p>
+            <p><strong>RAM:</strong> ${hw.totalMemoryMb ? Math.round(hw.totalMemoryMb / 1024 * 10) / 10 + ' GB' : 'N/A'}</p>
+            <p><strong>Disques:</strong> ${this.escapeHtml(hw.disks || 'N/A')}</p>
+        `;
+
+        // Render Network
+        const net = details.network || {};
+        document.getElementById('agent-network-info').innerHTML = `
+            <p><strong>Interfaces:</strong> ${this.escapeHtml(net.interfaces || 'N/A')}</p>
+            <p><strong>MACs:</strong> ${this.escapeHtml(net.macAddresses || 'N/A')}</p>
+        `;
+
+        // Render System
+        const sys = details.system || {};
+        document.getElementById('agent-system-info').innerHTML = `
+            <p><strong>Kernel:</strong> ${this.escapeHtml(sys.kernel || 'N/A')}</p>
+            <p><strong>Uptime:</strong> ${this.escapeHtml(sys.uptime || 'N/A')}</p>
+            ${sys.manufacturer ? `<p><strong>Fabricant:</strong> ${this.escapeHtml(sys.manufacturer)}</p>` : ''}
+            ${sys.model ? `<p><strong>Mod&egrave;le:</strong> ${this.escapeHtml(sys.model)}</p>` : ''}
+        `;
+
+        document.getElementById('agent-details-modal').classList.add('active');
+    }
+
+    async deleteAgent(id) {
+        if (!confirm('Supprimer cet agent ?')) return;
+        try {
+            await this.api(`agents/${id}`, { method: 'DELETE' });
+            this.loadAgents();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
     }
 
     // Cameras

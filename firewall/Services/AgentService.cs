@@ -50,6 +50,11 @@ public class AgentService : IAgentService
         agent.Version = heartbeat.Version;
         agent.LastSeen = DateTime.UtcNow;
         agent.Status = AgentStatus.Online;
+        
+        if (!string.IsNullOrEmpty(heartbeat.DetailsJson))
+        {
+            agent.DetailsJson = heartbeat.DetailsJson;
+        }
 
         await context.SaveChangesAsync();
     }
@@ -114,17 +119,66 @@ SERVER_URL=""__SERVER_URL__""
 HOSTNAME=$(hostname)
 OS=""Linux $(uname -r)""
 
+get_details() {{
+    # Hardware Info
+    CPU_MODEL=$(grep ""model name"" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
+    CPU_CORES=$(nproc)
+    TOTAL_MEM=$(free -m | grep Mem | awk '{{print $2}}')
+    
+    # Network Info
+    INTERFACES=$(ip -o link show | awk -F': ' '{{print $2}}' | paste -sd "","" -)
+    MAC_ADDRS=$(ip -o link show | awk '{{print $(NF-2)}}' | paste -sd "","" -)
+    
+    # Disk Info
+    DISKS=$(lsblk -d -o NAME,SIZE,MODEL | grep -v NAME | awk '{{print $1 "" ("" $2 "") "" $3}}' | paste -sd "","" -)
+    
+    # Uptime
+    UPTIME=$(uptime -p)
+
+    # Construct JSON manually
+    cat <<JSON
+{{
+    ""hardware"": {{
+        ""cpuModel"": ""$CPU_MODEL"",
+        ""cpuCores"": $CPU_CORES,
+        ""totalMemoryMb"": $TOTAL_MEM,
+        ""disks"": ""$DISKS""
+    }},
+    ""network"": {{
+        ""interfaces"": ""$INTERFACES"",
+        ""macAddresses"": ""$MAC_ADDRS""
+    }},
+    ""system"": {{
+        ""uptime"": ""$UPTIME"",
+        ""kernel"": ""$(uname -r)"",
+        ""manufacturer"": ""$HOSTNAME"",
+        ""model"": ""$OS""
+    }}
+}}
+JSON
+}}
+
 while true; do
     # Gather stats
     CPU=$(top -bn1 | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{{print 100 - $1}}')
     MEM=$(free | grep Mem | awk '{{print $3/$2 * 100.0}}')
     DISK=$(df -h / | tail -1 | awk '{{print $5}}' | sed 's/%//')
     IP=$(hostname -I | awk '{{print $1}}')
+    
+    DETAILS=$(get_details)
 
     # Send heartbeat
+    # Note: We use jq to safely construct the final JSON if available, otherwise simple string concat
+    # For simplicity/portability here, we assume no jq and do careful string construction
+    
+    # Escape quotes in details for JSON embedding
+    DETAILS_ESCAPED=$(echo ""$DETAILS"" | tr -d '\n' | sed 's/""/\\""/g')
+
+    JSON_PAYLOAD=""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.1.0\"",\""detailsJson\"":\""$DETAILS_ESCAPED\""}}"")
+
     curl -s -X POST ""$SERVER_URL/api/agents/heartbeat"" \
         -H ""Content-Type: application/json"" \
-        -d ""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.0.0\""}}""
+        -d ""$JSON_PAYLOAD"\"
 
     sleep 60
 done
@@ -188,6 +242,34 @@ while (`$true) {{
         `$Disk = (Get-WmiObject Win32_LogicalDisk -Filter ""DeviceID='C:'"" | ForEach-Object {{ (`$_.Size - `$_.FreeSpace) / `$_.Size * 100 }})
         `$Ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {{ `$_.InterfaceAlias -notlike '*Loopback*' -and `$_.AddressState -eq 'Preferred' }} | Select-Object -First 1).IPAddress
 
+        # Gather Detailed Info
+        `$CpuInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
+        `$MemInfo = Get-CimInstance Win32_ComputerSystem
+        `$DiskInfo = Get-PhysicalDisk | Select-Object FriendlyName, Size, MediaType
+        `$NetInfo = Get-NetAdapter | Where-Object Status -eq 'Up'
+        `$OsInfo = Get-CimInstance Win32_OperatingSystem
+
+        `$Details = @{{
+            hardware = @{{
+                cpuModel = `$CpuInfo.Name
+                cpuCores = `$CpuInfo.NumberOfCores
+                totalMemoryMb = [math]::Round(`$MemInfo.TotalPhysicalMemory / 1MB)
+                disks = (`$DiskInfo | ForEach-Object {{ ""$(`$_.FriendlyName) ($([math]::Round(`$_.Size / 1GB)) GB)"" }}) -join "", ""
+            }}
+            network = @{{
+                interfaces = (`$NetInfo.Name) -join "", ""
+                macAddresses = (`$NetInfo.MacAddress) -join "", ""
+            }}
+            system = @{{
+                uptime = (Get-Date) - `$OsInfo.LastBootUpTime
+                kernel = `$OsInfo.Version
+                manufacturer = `$MemInfo.Manufacturer
+                model = `$MemInfo.Model
+            }}
+        }}
+
+        `$DetailsJson = `$Details | ConvertTo-Json -Compress
+
         `$Body = @{{
             hostname = `$Hostname
             os = `$OS
@@ -195,7 +277,8 @@ while (`$true) {{
             cpuUsage = `$Cpu
             memoryUsage = `$Mem
             diskUsage = `$Disk
-            version = ""1.0.0""
+            version = ""1.1.0""
+            detailsJson = `$DetailsJson
         }}
 
         Invoke-RestMethod -Uri ""`$ServerUrl/api/agents/heartbeat"" -Method Post -Body (`$Body | ConvertTo-Json) -ContentType ""application/json""

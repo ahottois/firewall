@@ -28,6 +28,8 @@ public class Agent
     [MaxLength(20)]
     public string Version { get; set; } = "1.0.0";
 
+    public string? DetailsJson { get; set; }
+
     public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
 }
 
@@ -48,4 +50,5 @@ public class AgentHeartbeat
     public double MemoryUsage { get; set; }
     public double DiskUsage { get; set; }
     public string Version { get; set; } = string.Empty;
+    public string? DetailsJson { get; set; }
 }
