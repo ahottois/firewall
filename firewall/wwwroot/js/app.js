@@ -1955,3 +1955,262 @@ FirewallApp.prototype.navigateTo = function(page) {
 window.addEventListener('beforeunload', () => {
     app.unload();
 });
+
+// ==========================================
+// ADMINISTRATION METHODS - Extension de FirewallApp
+// ==========================================
+
+FirewallApp.prototype.loadAdmin = async function() {
+    try {
+        // Charger le statut du système
+        const [systemStatus, serviceStatus] = await Promise.all([
+            this.api('system/status'),
+            this.api('system/service/status')
+        ]);
+
+        // Mettre à jour les informations système
+        const serviceStatusText = document.getElementById('service-status-text');
+        const serviceStatusCard = document.getElementById('service-status-card');
+        const appVersion = document.getElementById('app-version');
+
+        if (serviceStatusText) {
+            serviceStatusText.textContent = serviceStatus.status || 'Inconnu';
+            
+            if (serviceStatus.isRunning) {
+                serviceStatusCard?.classList.remove('danger');
+                serviceStatusCard?.classList.add('success');
+            } else {
+                serviceStatusCard?.classList.remove('success');
+                serviceStatusCard?.classList.add('danger');
+            }
+        }
+
+        if (appVersion) {
+            appVersion.textContent = systemStatus.version || '1.0.0';
+        }
+
+        // Afficher les informations supplémentaires
+        const serviceResult = document.getElementById('service-result');
+        if (serviceResult && serviceStatus.message) {
+            serviceResult.innerHTML = `<p class="text-muted"><i class="fas fa-info-circle"></i> ${this.escapeHtml(serviceStatus.message)}</p>`;
+        }
+
+        // Mettre à jour les boutons selon le statut
+        this.updateAdminButtons(serviceStatus);
+
+    } catch (error) {
+        console.error('Erreur chargement admin:', error);
+    }
+};
+
+FirewallApp.prototype.updateAdminButtons = function(serviceStatus) {
+    const btnStart = document.getElementById('btn-start-service');
+    const btnStop = document.getElementById('btn-stop-service');
+    const btnInstall = document.getElementById('btn-install-service');
+    const btnUninstall = document.getElementById('btn-uninstall-service');
+
+    if (serviceStatus.isInstalled) {
+        if (btnInstall) btnInstall.style.display = 'none';
+        if (btnUninstall) btnUninstall.style.display = 'inline-flex';
+        
+        if (serviceStatus.isRunning) {
+            if (btnStart) btnStart.disabled = true;
+            if (btnStop) btnStop.disabled = false;
+        } else {
+            if (btnStart) btnStart.disabled = false;
+            if (btnStop) btnStop.disabled = true;
+        }
+    } else {
+        if (btnInstall) btnInstall.style.display = 'inline-flex';
+        if (btnUninstall) btnUninstall.style.display = 'none';
+    }
+};
+
+FirewallApp.prototype.startService = async function() {
+    try {
+        this.showToast({ title: 'Service', message: 'Démarrage du service...', severity: 0 });
+        const result = await this.api('system/service/start', { method: 'POST' });
+        this.showToast({ title: 'Succès', message: result.message || 'Service démarré', severity: 0 });
+        setTimeout(() => this.loadAdmin(), 2000);
+    } catch (error) {
+        this.showToast({ title: 'Erreur', message: 'Impossible de démarrer le service', severity: 3 });
+    }
+};
+
+FirewallApp.prototype.stopService = async function() {
+    if (!confirm('Êtes-vous sûr de vouloir arrêter le service ?\n\nL\'interface web ne sera plus accessible.')) {
+        return;
+    }
+
+    try {
+        this.showToast({ title: 'Service', message: 'Arrêt du service...', severity: 1 });
+        const result = await this.api('system/service/stop', { method: 'POST' });
+        this.showToast({ title: 'Succès', message: result.message || 'Service arrêté', severity: 0 });
+    } catch (error) {
+        this.showToast({ title: 'Erreur', message: 'Impossible d\'arrêter le service', severity: 3 });
+    }
+};
+
+FirewallApp.prototype.restartService = async function() {
+    if (!confirm('Êtes-vous sûr de vouloir redémarrer le service ?\n\nL\'interface sera temporairement indisponible.')) {
+        return;
+    }
+
+    try {
+        this.showToast({ title: 'Service', message: 'Redémarrage en cours...', severity: 1 });
+        const result = await this.api('system/service/restart', { method: 'POST' });
+        
+        document.getElementById('service-result').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-spinner fa-spin"></i> Redémarrage en cours... La page se rechargera automatiquement.
+            </div>
+        `;
+
+        // Attendre puis recharger la page
+        setTimeout(() => {
+            this.checkServiceAndReload();
+        }, 3000);
+
+    } catch (error) {
+        this.showToast({ title: 'Erreur', message: 'Impossible de redémarrer le service', severity: 3 });
+    }
+};
+
+FirewallApp.prototype.checkServiceAndReload = async function() {
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const check = async () => {
+        attempts++;
+        try {
+            await this.api('system/status');
+            window.location.reload();
+        } catch (error) {
+            if (attempts < maxAttempts) {
+                setTimeout(check, 2000);
+            } else {
+                document.getElementById('service-result').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Le service ne répond pas. Rechargez la page manuellement.
+                    </div>
+                `;
+            }
+        }
+    };
+
+    check();
+};
+
+FirewallApp.prototype.installService = async function() {
+    if (!confirm('Voulez-vous installer WebGuard comme service système ?\n\nCela permettra au service de démarrer automatiquement au démarrage du système.')) {
+        return;
+    }
+
+    try {
+        this.showToast({ title: 'Installation', message: 'Installation du service en cours...', severity: 0 });
+        const result = await this.api('system/service/install', { method: 'POST' });
+        
+        document.getElementById('install-result').innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> ${this.escapeHtml(result.message)}
+            </div>
+        `;
+        
+        this.showToast({ title: 'Succès', message: result.message, severity: 0 });
+        setTimeout(() => this.loadAdmin(), 2000);
+    } catch (error) {
+        document.getElementById('install-result').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-times-circle"></i> Erreur lors de l'installation
+            </div>
+        `;
+        this.showToast({ title: 'Erreur', message: 'Impossible d\'installer le service', severity: 3 });
+    }
+};
+
+FirewallApp.prototype.uninstallService = async function() {
+    if (!confirm('Êtes-vous sûr de vouloir désinstaller le service ?\n\nWebGuard ne démarrera plus automatiquement.')) {
+        return;
+    }
+
+    try {
+        this.showToast({ title: 'Désinstallation', message: 'Désinstallation du service...', severity: 1 });
+        const result = await this.api('system/service/uninstall', { method: 'POST' });
+        
+        document.getElementById('install-result').innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> ${this.escapeHtml(result.message)}
+            </div>
+        `;
+        
+        this.showToast({ title: 'Succès', message: result.message, severity: 0 });
+        setTimeout(() => this.loadAdmin(), 2000);
+    } catch (error) {
+        this.showToast({ title: 'Erreur', message: 'Impossible de désinstaller le service', severity: 3 });
+    }
+};
+
+FirewallApp.prototype.loadServiceLogs = async function() {
+    const logsDiv = document.getElementById('service-logs');
+    if (!logsDiv) return;
+
+    logsDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Chargement des logs...';
+
+    try {
+        const result = await this.api('system/service/logs?lines=200');
+        logsDiv.textContent = result.logs || 'Aucun log disponible';
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    } catch (error) {
+        logsDiv.textContent = 'Erreur lors du chargement des logs';
+    }
+};
+
+FirewallApp.prototype.shutdownApp = async function() {
+    if (!confirm('Êtes-vous sûr de vouloir arrêter l\'application ?\n\nL\'interface web ne sera plus accessible jusqu\'au prochain démarrage manuel.')) {
+        return;
+    }
+
+    try {
+        this.showToast({ title: 'Arrêt', message: 'Arrêt de l\'application en cours...', severity: 2 });
+        await this.api('system/shutdown', { method: 'POST' });
+    } catch (error) {
+        // L'erreur est normale car le serveur s'arrête
+    }
+};
+
+FirewallApp.prototype.checkForUpdates = async function() {
+    const updateStatus = document.getElementById('update-status');
+    if (updateStatus) {
+        updateStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification des mises à jour...';
+    }
+
+    try {
+        // Simuler une vérification (à implémenter avec GitHub API si nécessaire)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        if (updateStatus) {
+            updateStatus.innerHTML = '<i class="fas fa-check-circle" style="color: var(--success);"></i> Vous utilisez la dernière version';
+        }
+    } catch (error) {
+        if (updateStatus) {
+            updateStatus.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: var(--warning);"></i> Impossible de vérifier les mises à jour';
+        }
+    }
+};
+
+FirewallApp.prototype.updateFromGithub = async function() {
+    this.showToast({ title: 'Mise à jour', message: 'Cette fonctionnalité sera disponible prochainement', severity: 1 });
+};
+
+// Ajouter admin aux titres de page dans navigateTo
+const originalNavigateToForAdmin = FirewallApp.prototype.navigateTo;
+FirewallApp.prototype.navigateTo = function(page) {
+    originalNavigateToForAdmin.call(this, page);
+    if (page === 'admin') {
+        document.getElementById('page-title').textContent = 'Administration';
+    }
+};
+
+window.addEventListener('beforeunload', () => {
+    app.unload();
+});
