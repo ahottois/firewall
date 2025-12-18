@@ -39,6 +39,9 @@ builder.Services.AddSingleton<IAlertHubNotifier, AlertHubNotifier>();
 // OUI Lookup Service (singleton avec dictionnaire en mémoire)
 builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
 
+// First Run Detection Service (détecte la première mise en place)
+builder.Services.AddSingleton<IFirstRunService, FirstRunService>();
+
 // Firewall Engine Services (moteur de règles de blocage)
 builder.Services.AddSingleton<WindowsFirewallEngine>();
 builder.Services.AddSingleton<LinuxIptablesEngine>();

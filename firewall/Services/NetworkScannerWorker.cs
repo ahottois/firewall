@@ -17,6 +17,7 @@ public class NetworkScannerWorker : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDeviceHubNotifier _hubNotifier;
     private readonly IOuiLookupService _ouiLookup;
+    private readonly IFirstRunService _firstRunService;
     private readonly TimeSpan _scanInterval = TimeSpan.FromSeconds(30);
     private readonly TimeSpan _offlineThreshold = TimeSpan.FromMinutes(2);
 
@@ -31,20 +32,44 @@ public class NetworkScannerWorker : BackgroundService
         ILogger<NetworkScannerWorker> logger,
         IServiceScopeFactory scopeFactory,
         IDeviceHubNotifier hubNotifier,
-        IOuiLookupService ouiLookup)
+        IOuiLookupService ouiLookup,
+        IFirstRunService firstRunService)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _hubNotifier = hubNotifier;
         _ouiLookup = ouiLookup;
+        _firstRunService = firstRunService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("NetworkScannerWorker démarré - intervalle: {Interval}s", _scanInterval.TotalSeconds);
 
-        // Attendre un peu au démarrage pour laisser l'application s'initialiser
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        // Vérifier si c'est la première exécution
+        var isFirstRun = await _firstRunService.IsFirstRunAsync();
+        
+        if (isFirstRun)
+        {
+            // Première exécution : scan immédiat sans délai
+            _logger.LogInformation("?? Première mise en place détectée - Lancement du scan réseau initial...");
+            
+            try
+            {
+                await PerformNetworkScanAsync(stoppingToken);
+                await _firstRunService.MarkFirstRunCompleteAsync();
+                _logger.LogInformation("? Scan initial terminé avec succès");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du scan initial");
+            }
+        }
+        else
+        {
+            // Exécution normale : attendre un peu au démarrage pour laisser l'application s'initialiser
+            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
