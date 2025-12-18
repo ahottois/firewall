@@ -55,6 +55,7 @@ class FirewallApp {
         this.sortDirection = {};
         this.snifferInterval = null;
         this.deviceHub = null;
+        this.piholeLogPolling = null; // Pour le polling des logs d'installation
         this.init();
     }
 
@@ -619,7 +620,312 @@ class FirewallApp {
         this.connectDeviceHub();
     }
 
-    // ...rest of existing code remains the same...
+    // ==========================================
+    // PI-HOLE METHODS
+    // ==========================================
+
+    async loadPihole() {
+        try {
+            const status = await this.api('pihole/status');
+            
+            // Masquer toutes les sections d'abord
+            document.getElementById('pihole-not-linux').style.display = 'none';
+            document.getElementById('pihole-not-installed').style.display = 'none';
+            document.getElementById('pihole-installed').style.display = 'none';
+
+            // Vérifier si on est sur Linux
+            if (!status.isLinux) {
+                document.getElementById('pihole-not-linux').style.display = 'block';
+                return;
+            }
+
+            // Vérifier si Pi-hole est installé
+            if (!status.isInstalled) {
+                document.getElementById('pihole-not-installed').style.display = 'block';
+                return;
+            }
+
+            // Pi-hole est installé - afficher l'interface complète
+            document.getElementById('pihole-installed').style.display = 'block';
+
+            // Mettre à jour le statut
+            const statusText = document.getElementById('pihole-status-text');
+            const statusCard = document.getElementById('pihole-status-card');
+            
+            if (status.isRunning) {
+                statusText.textContent = 'Actif';
+                statusCard.classList.remove('danger');
+                statusCard.classList.add('success');
+            } else {
+                statusText.textContent = 'Arrêté';
+                statusCard.classList.remove('success');
+                statusCard.classList.add('danger');
+            }
+
+            // Mettre à jour le statut de blocage
+            const blockingText = document.getElementById('pihole-blocking-text');
+            const blockingCard = document.getElementById('pihole-blocking-card');
+            const btnEnable = document.getElementById('btn-enable-pihole');
+            const btnDisable = document.getElementById('btn-disable-pihole');
+            
+            if (status.isEnabled) {
+                blockingText.textContent = 'Activé';
+                blockingCard.classList.remove('danger');
+                blockingCard.style.color = 'var(--success)';
+                btnEnable.style.display = 'none';
+                btnDisable.style.display = 'inline-flex';
+            } else {
+                blockingText.textContent = 'Désactivé';
+                blockingCard.style.color = 'var(--warning)';
+                btnEnable.style.display = 'inline-flex';
+                btnDisable.style.display = 'none';
+            }
+
+            // Mettre à jour la version
+            document.getElementById('pihole-version').textContent = status.version || '-';
+
+            // Charger les statistiques de l'API Pi-hole
+            await this.loadPiholeSummary();
+
+        } catch (error) {
+            console.error('Erreur chargement Pi-hole:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger le statut Pi-hole', severity: 2 });
+        }
+    }
+
+    async loadPiholeSummary() {
+        try {
+            const summary = await this.api('pihole/summary');
+            
+            if (summary && summary.status !== 'unavailable') {
+                document.getElementById('ph-queries').textContent = this.formatNumber(summary.dnsQueriesToday || 0);
+                document.getElementById('ph-blocked').textContent = this.formatNumber(summary.adsBlockedToday || 0);
+                document.getElementById('ph-percent').textContent = (summary.adsPercentageToday || 0).toFixed(1) + '%';
+                document.getElementById('ph-domains').textContent = this.formatNumber(summary.domainsBeingBlocked || 0);
+                document.getElementById('ph-clients').textContent = summary.uniqueClients || 0;
+                document.getElementById('ph-reply-ip').textContent = this.formatNumber(summary.replyIp || 0);
+                document.getElementById('ph-reply-nx').textContent = this.formatNumber(summary.replyNxdomain || 0);
+                
+                // Gravity last updated
+                if (summary.gravityLastUpdated && summary.gravityLastUpdated.relative) {
+                    const rel = summary.gravityLastUpdated.relative;
+                    if (rel.days > 0) {
+                        document.getElementById('ph-gravity').textContent = `Il y a ${rel.days}j ${rel.hours}h`;
+                    } else if (rel.hours > 0) {
+                        document.getElementById('ph-gravity').textContent = `Il y a ${rel.hours}h ${rel.minutes}m`;
+                    } else {
+                        document.getElementById('ph-gravity').textContent = `Il y a ${rel.minutes}m`;
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('Pi-hole summary non disponible');
+        }
+    }
+
+    formatNumber(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+        return num.toString();
+    }
+
+    async installPihole() {
+        if (!confirm('Voulez-vous installer Pi-hole ?\n\nCette opération peut prendre plusieurs minutes et nécessite une connexion Internet.')) {
+            return;
+        }
+
+        try {
+            // Afficher le modal de progression
+            this.showPiholeInstallModal();
+            
+            const result = await this.api('pihole/install', { method: 'POST' });
+            
+            if (result.message) {
+                this.showToast({ title: 'Installation', message: result.message, severity: 0 });
+            }
+
+            // Démarrer le polling des logs
+            this.startPiholeLogPolling();
+
+        } catch (error) {
+            this.closePiholeInstallModal();
+            this.showToast({ title: 'Erreur', message: 'Impossible de démarrer l\'installation: ' + error.message, severity: 3 });
+        }
+    }
+
+    showPiholeInstallModal() {
+        const modal = document.getElementById('pihole-install-modal');
+        if (modal) {
+            modal.classList.add('active');
+            document.getElementById('pihole-install-logs').textContent = 'Démarrage de l\'installation...\n';
+        }
+    }
+
+    closePiholeInstallModal() {
+        const modal = document.getElementById('pihole-install-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+        this.stopPiholeLogPolling();
+    }
+
+    startPiholeLogPolling() {
+        if (this.piholeLogPolling) return;
+        
+        let lastLength = 0;
+        
+        this.piholeLogPolling = setInterval(async () => {
+            try {
+                const result = await this.api('pihole/logs');
+                const logsDiv = document.getElementById('pihole-install-logs');
+                
+                if (result.logs && logsDiv) {
+                    // Ne montrer que les nouvelles lignes
+                    if (result.logs.length > lastLength) {
+                        logsDiv.textContent = result.logs;
+                        logsDiv.scrollTop = logsDiv.scrollHeight;
+                        lastLength = result.logs.length;
+                    }
+                    
+                    // Vérifier si l'installation est terminée
+                    if (result.logs.includes('=== Installation terminée')) {
+                        this.stopPiholeLogPolling();
+                        setTimeout(() => {
+                            this.closePiholeInstallModal();
+                            this.loadPihole();
+                            this.showToast({ title: 'Succès', message: 'Pi-hole a été installé avec succès!', severity: 0 });
+                        }, 2000);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur polling logs:', error);
+            }
+        }, 1000);
+    }
+
+    stopPiholeLogPolling() {
+        if (this.piholeLogPolling) {
+            clearInterval(this.piholeLogPolling);
+            this.piholeLogPolling = null;
+        }
+    }
+
+    async uninstallPihole() {
+        if (!confirm('Êtes-vous sûr de vouloir désinstaller Pi-hole ?\n\nCette action supprimera Pi-hole et tous ses paramètres.')) {
+            return;
+        }
+
+        try {
+            this.showToast({ title: 'Désinstallation', message: 'Désinstallation de Pi-hole en cours...', severity: 1 });
+            
+            const result = await this.api('pihole/uninstall', { method: 'POST' });
+            
+            this.showToast({ title: 'Succès', message: result.message || 'Pi-hole a été désinstallé', severity: 0 });
+            
+            // Recharger la page Pi-hole
+            setTimeout(() => this.loadPihole(), 1000);
+
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de désinstaller Pi-hole: ' + error.message, severity: 3 });
+        }
+    }
+
+    async enablePihole() {
+        try {
+            const result = await this.api('pihole/enable', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: result.message || 'Pi-hole activé', severity: 0 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'activer Pi-hole: ' + error.message, severity: 3 });
+        }
+    }
+
+    showDisablePiholeModal() {
+        this.showModal('Désactiver Pi-hole', `
+            <p>Pendant combien de temps voulez-vous désactiver le blocage ?</p>
+            <div class="admin-buttons" style="flex-wrap: wrap; margin-top: 20px;">
+                <button class="btn btn-warning" onclick="app.disablePihole(30)">30 secondes</button>
+                <button class="btn btn-warning" onclick="app.disablePihole(60)">1 minute</button>
+                <button class="btn btn-warning" onclick="app.disablePihole(300)">5 minutes</button>
+                <button class="btn btn-warning" onclick="app.disablePihole(900)">15 minutes</button>
+                <button class="btn btn-warning" onclick="app.disablePihole(3600)">1 heure</button>
+                <button class="btn btn-danger" onclick="app.disablePihole()">Indéfiniment</button>
+            </div>
+        `);
+    }
+
+    async disablePihole(duration = null) {
+        try {
+            this.closeModal();
+            
+            const body = duration ? { duration } : {};
+            const result = await this.api('pihole/disable', { 
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            
+            this.showToast({ title: 'Succès', message: result.message || 'Pi-hole désactivé', severity: 1 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de désactiver Pi-hole: ' + error.message, severity: 3 });
+        }
+    }
+
+    showPiholePasswordModal() {
+        this.showModal('Changer le mot de passe Pi-hole', `
+            <div class="form-group">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="pihole-new-password" class="form-control" placeholder="Entrez le nouveau mot de passe">
+            </div>
+            <div class="form-group">
+                <label>Confirmer le mot de passe</label>
+                <input type="password" id="pihole-confirm-password" class="form-control" placeholder="Confirmez le mot de passe">
+            </div>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 10px;">
+                Laissez vide pour supprimer le mot de passe.
+            </p>
+        `, `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.setPiholePassword()">Enregistrer</button>
+        `);
+    }
+
+    async setPiholePassword() {
+        const password = document.getElementById('pihole-new-password').value;
+        const confirm = document.getElementById('pihole-confirm-password').value;
+
+        if (password !== confirm) {
+            this.showToast({ title: 'Erreur', message: 'Les mots de passe ne correspondent pas', severity: 2 });
+            return;
+        }
+
+        try {
+            const result = await this.api('pihole/password', {
+                method: 'POST',
+                body: JSON.stringify({ password })
+            });
+
+            this.closeModal();
+            this.showToast({ title: 'Succès', message: result.message || 'Mot de passe mis à jour', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de changer le mot de passe: ' + error.message, severity: 3 });
+        }
+    }
+
+    // ==========================================
+    // MODAL METHODS
+    // ==========================================
+
+    showModal(title, bodyHtml, footerHtml = '') {
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-body').innerHTML = bodyHtml;
+        document.getElementById('modal-footer').innerHTML = footerHtml;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    closeModal() {
+        document.getElementById('modal').classList.remove('active');
+    }
 
     // Clear all intervals and timeouts on unload
     unload() {

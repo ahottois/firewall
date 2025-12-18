@@ -1938,3 +1938,209 @@ input:checked + .slider:before {
 .section-title i {
     color: var(--accent-primary);
 }
+
+/* ==========================================
+   PI-HOLE SPECIFIC STYLES
+   ========================================== */
+
+/* Pi-hole Install Progress */
+.install-progress {
+    text-align: center;
+}
+
+.progress-indicator {
+    padding: 30px 0;
+}
+
+.install-logs-container {
+    text-align: left;
+}
+
+.install-logs-container h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.install-logs {
+    background: #0d1117;
+    color: #58a6ff;
+    padding: 15px;
+    border-radius: 8px;
+    height: 300px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border: 1px solid var(--border-color);
+}
+
+.install-logs::-webkit-scrollbar {
+    width: 8px;
+}
+
+.install-logs::-webkit-scrollbar-track {
+    background: #161b22;
+}
+
+.install-logs::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 4px;
+}
+
+.install-logs::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}
+
+/* Pi-hole Status Cards */
+#pihole-status-card.success {
+    border-color: var(--success);
+}
+
+#pihole-status-card.success .stat-icon {
+    color: var(--success);
+}
+
+#pihole-status-card.danger {
+    border-color: var(--danger);
+}
+
+#pihole-status-card.danger .stat-icon {
+    color: var(--danger);
+}
+
+/* Pi-hole Unsupported Message */
+.pihole-unsupported {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+}
+
+/* Button Large */
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+}
+
+/* Alert badge in navigation */
+.nav-badge {
+    background: var(--danger);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin-left: auto;
+    animation: pulse 2s infinite;
+}
+
+/* Live indicator */
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--danger);
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.live-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--danger);
+    border-radius: 50%;
+    animation: live-pulse 1.5s infinite;
+}
+
+@keyframes live-pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+/* Block events container */
+.block-events-container {
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.block-event-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border-left: 3px solid var(--danger);
+    animation: slideInEvent 0.3s ease;
+}
+
+@keyframes slideInEvent {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.block-event-icon {
+    font-size: 1.5rem;
+    color: var(--danger);
+}
+
+.block-event-info {
+    flex: 1;
+}
+
+.block-event-title {
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.block-event-details {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.block-event-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Text muted helper class */
+.text-muted {
+    color: var(--text-secondary);
+}
+
+/* Form group improvements */
+.form-group input[type="password"] {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    width: 100%;
+}
+
+.form-group input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
