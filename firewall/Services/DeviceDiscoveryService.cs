@@ -42,6 +42,28 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     
     private readonly SemaphoreSlim _processingLock = new(1, 1);
 
+    private static readonly Dictionary<string, string> _vendors = new()
+    {
+        { "000C29", "VMware" },
+        { "005056", "VMware" },
+        { "001C42", "Parallels" },
+        { "080027", "VirtualBox" },
+        { "DC21E2", "Apple" },
+        { "A4C3F0", "Intel" },
+        { "B827EB", "Raspberry Pi" },
+        { "E45F01", "Raspberry Pi" },
+        { "2CCF67", "Apple" },
+        { "F0D5BF", "Google" },
+        { "94E6F7", "Intel" },
+        { "7483C2", "Intel" },
+        { "D83ADD", "Raspberry Pi" },
+        { "DCA632", "Raspberry Pi" },
+        { "001E06", "WIBRAIN" },
+        { "F4F5D8", "Google" },
+        { "3C5AB4", "Google" },
+        { "F8:FF:C2", "Apple" },
+    };
+
     [DllImport("iphlpapi.dll", ExactSpelling = true)]
     private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
 
@@ -239,35 +261,30 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 var subnet = GetSubnet(localAddress);
                 _logger.LogInformation("Analyse du sous-reseau : {Subnet}", subnet);
                 
-                var tasks = new List<Task>();
-                for (int i = 1; i <= 254; i++)
+                var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}");
+
+                await Parallel.ForEachAsync(ips, new ParallelOptions { MaxDegreeOfParallelism = 20 }, async (ip, ct) =>
                 {
-                    var ip = $"{subnet}.{i}";
-                    tasks.Add(Task.Run(async () => 
+                    try
                     {
-                        try
+                        if (await PingHostAsync(ip))
                         {
-                            if (await PingHostAsync(ip))
+                            Interlocked.Increment(ref foundCount);
+                            var mac = await GetMacAddressAsync(ip);
+                            if (!string.IsNullOrEmpty(mac))
                             {
-                                Interlocked.Increment(ref foundCount);
-                                var mac = await GetMacAddressAsync(ip);
-                                if (!string.IsNullOrEmpty(mac))
-                                {
-                                    await RegisterDiscoveredDeviceAsync(ip, mac);
-                                }
+                                await RegisterDiscoveredDeviceAsync(ip, mac);
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            _logger.LogTrace(ex, "Error scanning host {Ip}", ip);
-                        }
-                        
-                        Interlocked.Increment(ref scannedCount);
-                        if (scannedCount % 10 == 0) await _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
-                    }));
-                }
-                
-                await Task.WhenAll(tasks);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogTrace(ex, "Error scanning host {Ip}", ip);
+                    }
+                    
+                    Interlocked.Increment(ref scannedCount);
+                    if (scannedCount % 10 == 0) await _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
+                });
             }
             
             var summary = $"Scan completed. Scanned {scannedCount} hosts. Found {foundCount} active devices.";
@@ -482,28 +499,6 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         // Recherche OUI simplifiée - utiliser une base de données OUI complète en production
         var oui = mac.Replace(":", "").Replace("-", "").ToUpper()[..6];
         
-        var vendors = new Dictionary<string, string>
-        {
-            { "000C29", "VMware" },
-            { "005056", "VMware" },
-            { "001C42", "Parallels" },
-            { "080027", "VirtualBox" },
-            { "DC21E2", "Apple" },
-            { "A4C3F0", "Intel" },
-            { "B827EB", "Raspberry Pi" },
-            { "E45F01", "Raspberry Pi" },
-            { "2CCF67", "Apple" },
-            { "F0D5BF", "Google" },
-            { "94E6F7", "Intel" },
-            { "7483C2", "Intel" },
-            { "D83ADD", "Raspberry Pi" },
-            { "DCA632", "Raspberry Pi" },
-            { "001E06", "WIBRAIN" },
-            { "F4F5D8", "Google" },
-            { "3C5AB4", "Google" },
-            { "F8:FF:C2", "Apple" },
-        };
-
-        return vendors.TryGetValue(oui, out var vendor) ? vendor : null;
+        return _vendors.TryGetValue(oui, out var vendor) ? vendor : null;
     }
 }

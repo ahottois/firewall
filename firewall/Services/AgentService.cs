@@ -14,20 +14,11 @@ public interface IAgentService
     string GenerateWindowsInstallScript(string serverUrl);
 }
 
-public class AgentService : IAgentService
+public class AgentService(IServiceScopeFactory scopeFactory, ILogger<AgentService> logger) : IAgentService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<AgentService> _logger;
-
-    public AgentService(IServiceScopeFactory scopeFactory, ILogger<AgentService> logger)
-    {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
-
     public async Task ProcessHeartbeatAsync(AgentHeartbeat heartbeat)
     {
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
 
         var agent = await context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname);
@@ -61,7 +52,7 @@ public class AgentService : IAgentService
 
     public async Task<IEnumerable<Agent>> GetAllAgentsAsync()
     {
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
         
         var agents = await context.Agents.ToListAsync();
@@ -81,14 +72,14 @@ public class AgentService : IAgentService
 
     public async Task<Agent?> GetAgentByIdAsync(int id)
     {
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
         return await context.Agents.FindAsync(id);
     }
 
     public async Task DeleteAgentAsync(int id)
     {
-        using var scope = _scopeFactory.CreateScope();
+        using var scope = scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
         var agent = await context.Agents.FindAsync(id);
         if (agent != null)

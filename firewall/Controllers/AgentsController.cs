@@ -6,28 +6,19 @@ namespace NetworkFirewall.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AgentsController : ControllerBase
+public class AgentsController(IAgentService agentService, ILogger<AgentsController> logger) : ControllerBase
 {
-    private readonly IAgentService _agentService;
-    private readonly ILogger<AgentsController> _logger;
-
-    public AgentsController(IAgentService agentService, ILogger<AgentsController> logger)
-    {
-        _agentService = agentService;
-        _logger = logger;
-    }
-
     [HttpPost("heartbeat")]
     public async Task<IActionResult> Heartbeat([FromBody] AgentHeartbeat heartbeat)
     {
         try
         {
-            await _agentService.ProcessHeartbeatAsync(heartbeat);
+            await agentService.ProcessHeartbeatAsync(heartbeat);
             return Ok();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing heartbeat");
+            logger.LogError(ex, "Error processing heartbeat");
             return StatusCode(500, "Internal server error");
         }
     }
@@ -35,14 +26,14 @@ public class AgentsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllAgents()
     {
-        var agents = await _agentService.GetAllAgentsAsync();
+        var agents = await agentService.GetAllAgentsAsync();
         return Ok(agents);
     }
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteAgent(int id)
     {
-        await _agentService.DeleteAgentAsync(id);
+        await agentService.DeleteAgentAsync(id);
         return Ok();
     }
 
@@ -75,12 +66,12 @@ public class AgentsController : ControllerBase
         
         if (platform.Equals("linux", StringComparison.OrdinalIgnoreCase))
         {
-            var script = _agentService.GenerateLinuxInstallScript(serverUrl);
+            var script = agentService.GenerateLinuxInstallScript(serverUrl);
             return Content(script, "text/x-shellscript");
         }
         else if (platform.Equals("windows", StringComparison.OrdinalIgnoreCase))
         {
-            var script = _agentService.GenerateWindowsInstallScript(serverUrl);
+            var script = agentService.GenerateWindowsInstallScript(serverUrl);
             return Content(script, "text/plain");
         }
         

@@ -44,8 +44,6 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
     private readonly ILogger<PacketCaptureService> _logger;
     private readonly AppSettings _settings;
     private ILiveDevice? _device;
-    private CancellationTokenSource? _cts;
-    private Task? _captureTask;
 
     public event EventHandler<PacketCapturedEventArgs>? PacketCaptured;
     public bool IsCapturing => _device?.Started ?? false;
@@ -133,23 +131,12 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             _device.OnPacketArrival += OnPacketArrival;
             _device.StartCapture();
 
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            _captureTask = Task.Run(() => MonitorCapture(_cts.Token), _cts.Token);
-
             _logger.LogInformation("Packet capture started successfully on {Interface}", interfaceName);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start packet capture. Run with elevated privileges (sudo on Linux).");
             throw;
-        }
-    }
-
-    private async Task MonitorCapture(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested && IsCapturing)
-        {
-            await Task.Delay(1000, cancellationToken);
         }
     }
 
@@ -241,8 +228,6 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
     {
         _logger.LogInformation("Stopping packet capture...");
         
-        _cts?.Cancel();
-        
         if (_device != null)
         {
             _device.OnPacketArrival -= OnPacketArrival;
@@ -253,22 +238,13 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             _device.Close();
         }
 
-        if (_captureTask != null)
-        {
-            try
-            {
-                await _captureTask;
-            }
-            catch (OperationCanceledException) { }
-        }
-
         _logger.LogInformation("Packet capture stopped");
+        await Task.CompletedTask;
     }
 
     public void Dispose()
     {
         StopAsync().GetAwaiter().GetResult();
         _device?.Dispose();
-        _cts?.Dispose();
     }
 }
