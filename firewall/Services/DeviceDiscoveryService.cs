@@ -40,6 +40,28 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     private DateTime _lastCleanup = DateTime.UtcNow;
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
+    // Reseaux a ignorer (Docker, virtualisation, etc.)
+    private static readonly string[] IgnoredSubnets = new[]
+    {
+        "172.17.",  // Docker bridge par defaut
+        "172.18.",  // Docker networks
+        "172.19.",  // Docker networks
+        "172.20.",  // Docker networks
+        "172.21.",  // Docker networks
+        "172.22.",  // Docker networks
+        "172.23.",  // Docker networks
+        "172.24.",  // Docker networks
+        "172.25.",  // Docker networks
+        "172.26.",  // Docker networks
+        "172.27.",  // Docker networks
+        "172.28.",  // Docker networks
+        "172.29.",  // Docker networks
+        "172.30.",  // Docker networks
+        "172.31.",  // Docker networks
+        "169.254.", // Link-local (APIPA)
+        "127.",     // Loopback
+    };
+
     public event EventHandler<DeviceDiscoveredEventArgs>? DeviceDiscovered;
     public event EventHandler<DeviceDiscoveredEventArgs>? UnknownDeviceDetected;
 
@@ -57,9 +79,112 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         _settings = settings.Value;
     }
 
+    /// <summary>
+    /// Verifie si une adresse MAC est localement administree (randomisee).
+    /// Le bit U/L (bit 1 du premier octet) est a 1 pour les adresses locales.
+    /// Cela inclut les MAC aleatoires d'iOS, Android, Windows, et les conteneurs Docker.
+    /// </summary>
+    private static bool IsLocallyAdministeredMac(string mac)
+    {
+        if (string.IsNullOrEmpty(mac) || mac.Length < 2)
+            return false;
+
+        // Normaliser la MAC (enlever : ou -)
+        var cleanMac = mac.Replace(":", "").Replace("-", "").ToUpperInvariant();
+        if (cleanMac.Length < 2)
+            return false;
+
+        // Le premier octet en hexa
+        if (!int.TryParse(cleanMac.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out int firstByte))
+            return false;
+
+        // Bit 1 (U/L) = 1 signifie localement administree
+        // Le 2eme caractere hexa sera 2, 6, A ou E si le bit est set
+        return (firstByte & 0x02) != 0;
+    }
+
+    /// <summary>
+    /// Verifie si une adresse MAC est multicast (broadcast inclus).
+    /// Le bit I/G (bit 0 du premier octet) est a 1 pour les multicast.
+    /// </summary>
+    private static bool IsMulticastMac(string mac)
+    {
+        if (string.IsNullOrEmpty(mac) || mac.Length < 2)
+            return false;
+
+        var cleanMac = mac.Replace(":", "").Replace("-", "").ToUpperInvariant();
+        if (cleanMac.Length < 2)
+            return false;
+
+        if (!int.TryParse(cleanMac.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out int firstByte))
+            return false;
+
+        // Bit 0 (I/G) = 1 signifie multicast/broadcast
+        return (firstByte & 0x01) != 0;
+    }
+
+    /// <summary>
+    /// Verifie si une IP appartient a un reseau a ignorer (Docker, link-local, etc.)
+    /// </summary>
+    private static bool IsIgnoredSubnet(string? ip)
+    {
+        if (string.IsNullOrEmpty(ip))
+            return false;
+
+        foreach (var subnet in IgnoredSubnets)
+        {
+            if (ip.StartsWith(subnet))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Verifie si un appareil doit etre ignore (faux positif)
+    /// </summary>
+    private bool ShouldIgnoreDevice(string mac, string? ip)
+    {
+        // Ignorer les MAC invalides
+        if (string.IsNullOrEmpty(mac) ||
+            mac == "00:00:00:00:00:00" ||
+            mac == "FF:FF:FF:FF:FF:FF")
+        {
+            return true;
+        }
+
+        // Ignorer les MAC multicast
+        if (IsMulticastMac(mac))
+        {
+            _logger.LogDebug("Ignoring multicast MAC: {Mac}", mac);
+            return true;
+        }
+
+        // Ignorer les reseaux Docker/virtualisation
+        if (IsIgnoredSubnet(ip))
+        {
+            _logger.LogDebug("Ignoring device on ignored subnet: {Mac} ({Ip})", mac, ip);
+            return true;
+        }
+
+        // Ignorer les MAC localement administrees (randomisees) sur les reseaux Docker
+        // Mais les garder sur le reseau principal (smartphones avec MAC random)
+        if (IsLocallyAdministeredMac(mac) && IsIgnoredSubnet(ip))
+        {
+            _logger.LogDebug("Ignoring locally administered MAC on Docker network: {Mac}", mac);
+            return true;
+        }
+
+        return false;
+    }
+
     public async Task<string?> ResolveHostnameAsync(string ipAddress)
     {
         if (string.IsNullOrEmpty(ipAddress)) return null;
+
+        // Ne pas resoudre les IPs des reseaux ignores
+        if (IsIgnoredSubnet(ipAddress))
+            return null;
 
         if (_dnsCache.TryGetValue(ipAddress, out var cached) &&
             (DateTime.UtcNow - cached.CachedAt).TotalMinutes < 5)
@@ -87,23 +212,23 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
     public async Task ProcessPacketAsync(PacketCapturedEventArgs packet)
     {
-        if (string.IsNullOrEmpty(packet.SourceMac) || 
-            packet.SourceMac == "00:00:00:00:00:00" ||
-            packet.SourceMac == "FF:FF:FF:FF:FF:FF")
+        var mac = packet.SourceMac?.ToUpperInvariant();
+        
+        // Filtrer les faux positifs
+        if (ShouldIgnoreDevice(mac!, packet.SourceIp))
         {
             return;
         }
 
         var now = DateTime.UtcNow;
-        var mac = packet.SourceMac.ToUpperInvariant();
 
-        if (_recentlySeenMacs.TryGetValue(mac, out var lastSeen) &&
+        if (_recentlySeenMacs.TryGetValue(mac!, out var lastSeen) &&
             (now - lastSeen).TotalSeconds < 30)
         {
             return;
         }
 
-        _recentlySeenMacs[mac] = now;
+        _recentlySeenMacs[mac!] = now;
         
         if (now - _lastCleanup > CleanupInterval)
         {
@@ -121,7 +246,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             using var scope = _scopeFactory.CreateScope();
             var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
 
-            var existingDevice = await deviceRepo.GetByMacAddressAsync(mac);
+            var existingDevice = await deviceRepo.GetByMacAddressAsync(mac!);
             var isNew = existingDevice == null;
 
             var hostname = !string.IsNullOrEmpty(packet.SourceIp) 
@@ -130,10 +255,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
             var device = new NetworkDevice
             {
-                MacAddress = mac,
+                MacAddress = mac!,
                 IpAddress = packet.SourceIp,
                 Hostname = hostname,
-                Vendor = _ouiLookup.GetVendor(mac),
+                Vendor = _ouiLookup.GetVendor(mac!),
                 Status = DeviceStatus.Online
             };
 
@@ -208,6 +333,13 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             
             foreach (var localAddress in localAddresses)
             {
+                // Ignorer les interfaces sur les reseaux Docker
+                if (IsIgnoredSubnet(localAddress))
+                {
+                    _logger.LogInformation("SCAN: Ignoring Docker/virtual interface: {Addr}", localAddress);
+                    continue;
+                }
+
                 var subnet = GetSubnet(localAddress);
                 _logger.LogInformation("SCAN: Scan du sous-reseau {Subnet}.0/24", subnet);
 
@@ -216,8 +348,16 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 var arpDevices = await ReadArpTableAsync();
                 _logger.LogInformation("SCAN: {Count} entrees dans la table ARP", arpDevices.Count);
                 
+                int filteredCount = 0;
                 foreach (var (ip, mac) in arpDevices)
                 {
+                    // Filtrer les faux positifs
+                    if (ShouldIgnoreDevice(mac, ip))
+                    {
+                        filteredCount++;
+                        continue;
+                    }
+
                     if (ip.StartsWith(subnet + "."))
                     {
                         var hostname = await ResolveHostnameAsync(ip);
@@ -235,7 +375,12 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     }
                 }
 
-                // METHODE 2: Ping pour découvrir de nouveaux hôtes (peut échouer sans root)
+                if (filteredCount > 0)
+                {
+                    _logger.LogInformation("SCAN: {Count} entrees ARP filtrees (Docker/MAC random)", filteredCount);
+                }
+
+                // METHODE 2: Ping pour decouvrir de nouveaux hotes (peut echouer sans root)
                 _logger.LogInformation("SCAN: Tentative de ping sur {Subnet}.0/24...", subnet);
                 var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}").ToList();
                 var respondingIps = new ConcurrentBag<string>();
@@ -263,7 +408,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     _logger.LogWarning("SCAN: Ping echoue (permissions?): {Error}", ex.Message);
                 }
 
-                // Attendre et relire la table ARP après les pings
+                // Attendre et relire la table ARP apres les pings
                 if (respondingIps.Any())
                 {
                     await Task.Delay(1000);
@@ -271,6 +416,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     var newArpDevices = await ReadArpTableAsync();
                     foreach (var (ip, mac) in newArpDevices)
                     {
+                        // Filtrer les faux positifs
+                        if (ShouldIgnoreDevice(mac, ip))
+                            continue;
+
                         if (ip.StartsWith(subnet + ".") && !devices.Any(d => d.MacAddress == mac.ToUpperInvariant()))
                         {
                             var hostname = await ResolveHostnameAsync(ip);
@@ -290,7 +439,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
             }
 
-            _logger.LogInformation("SCAN: Total {Count} appareils trouves", devices.Count);
+            _logger.LogInformation("SCAN: Total {Count} appareils trouves (apres filtrage)", devices.Count);
             _logger.LogInformation("SCAN: Sauvegarde en base...");
 
             int savedCount = 0;
@@ -326,7 +475,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     }
 
     /// <summary>
-    /// Lit la table ARP du système (fonctionne sans permissions root)
+    /// Lit la table ARP du systeme (fonctionne sans permissions root)
     /// </summary>
     private async Task<List<(string Ip, string Mac)>> ReadArpTableAsync()
     {
@@ -336,7 +485,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         {
             if (OperatingSystem.IsLinux())
             {
-                // Méthode 1: /proc/net/arp (la plus fiable sur Linux)
+                // Methode 1: /proc/net/arp (la plus fiable sur Linux)
                 if (File.Exists("/proc/net/arp"))
                 {
                     _logger.LogDebug("Lecture de /proc/net/arp...");
@@ -358,7 +507,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     }
                 }
                 
-                // Méthode 2: commande ip neigh
+                // Methode 2: commande ip neigh
                 if (results.Count == 0)
                 {
                     _logger.LogDebug("Tentative avec 'ip neigh'...");
@@ -446,7 +595,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         return results;
     }
 
-    private static IEnumerable<string> GetLocalIPAddresses()
+    private IEnumerable<string> GetLocalIPAddresses()
     {
         var addresses = new List<string>();
         
@@ -455,11 +604,28 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             if (ni.OperationalStatus != OperationalStatus.Up) continue;
             if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
             
+            // Ignorer les interfaces Docker (docker0, br-xxx, veth-xxx)
+            var name = ni.Name.ToLowerInvariant();
+            if (name.StartsWith("docker") || 
+                name.StartsWith("br-") || 
+                name.StartsWith("veth") ||
+                name.StartsWith("virbr"))
+            {
+                _logger.LogDebug("Ignoring virtual interface: {Name}", ni.Name);
+                continue;
+            }
+
             foreach (var ua in ni.GetIPProperties().UnicastAddresses)
             {
                 if (ua.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
                 {
-                    addresses.Add(ua.Address.ToString());
+                    var ip = ua.Address.ToString();
+                    
+                    // Ne pas ajouter les IPs des reseaux ignores
+                    if (!IsIgnoredSubnet(ip))
+                    {
+                        addresses.Add(ip);
+                    }
                 }
             }
         }

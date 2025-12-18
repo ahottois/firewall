@@ -927,6 +927,30 @@ class FirewallApp {
         }
     }
 
+    async cleanupDevices() {
+        if (!confirm('Supprimer tous les appareils fantomes (Docker, MAC aleatoires sur reseaux virtuels) ?')) {
+            return;
+        }
+
+        try {
+            this.showToast({ title: 'Nettoyage', message: 'Suppression des appareils fantomes...', severity: 0 });
+            
+            const result = await this.api('devices/cleanup', { method: 'POST' });
+            
+            this.showToast({ 
+                title: 'Nettoyage termine', 
+                message: result.message || `${result.deletedCount} appareils supprimes`, 
+                severity: 0 
+            });
+
+            // Recharger la liste
+            await this.loadDevices();
+        } catch (error) {
+            console.error('Erreur cleanup:', error);
+            this.showToast({ title: 'Erreur', message: 'Erreur lors du nettoyage: ' + error.message, severity: 2 });
+        }
+    }
+
     async scanNetwork() {
         const btn = document.getElementById('scan-network-btn');
         const icon = document.getElementById('scan-icon');

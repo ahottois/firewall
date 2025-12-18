@@ -21,6 +21,15 @@ public class DevicesController : ControllerBase
     private readonly ISecurityLogService _securityLogService;
     private readonly ILogger<DevicesController> _logger;
 
+    // Reseaux a ignorer (Docker, virtualisation, etc.)
+    private static readonly string[] IgnoredSubnets = new[]
+    {
+        "172.17.", "172.18.", "172.19.", "172.20.", "172.21.",
+        "172.22.", "172.23.", "172.24.", "172.25.", "172.26.",
+        "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
+        "169.254.", "127."
+    };
+
     public DevicesController(
         IDeviceRepository deviceRepository,
         IDeviceDiscoveryService discoveryService,
@@ -38,7 +47,7 @@ public class DevicesController : ControllerBase
     }
 
     /// <summary>
-    /// Lancer un scan réseau complet
+    /// Lancer un scan reseau complet
     /// </summary>
     [HttpPost("scan")]
     public async Task<IActionResult> StartNetworkScan()
@@ -49,10 +58,10 @@ public class DevicesController : ControllerBase
         
         try
         {
-            // Exécuter le scan et attendre le résultat
+            // Executer le scan et attendre le resultat
             var devicesFound = await _discoveryService.ScanNetworkAsync();
             
-            // Vérifier combien d'appareils sont en base après le scan
+            // Verifier combien d'appareils sont en base apres le scan
             var allDevices = await _deviceRepository.GetAllAsync();
             var deviceCount = allDevices.Count();
             
@@ -73,6 +82,113 @@ public class DevicesController : ControllerBase
                 success = false
             });
         }
+    }
+
+    /// <summary>
+    /// Nettoyer les appareils fantomes (Docker, MAC random, etc.)
+    /// </summary>
+    [HttpPost("cleanup")]
+    public async Task<IActionResult> CleanupPhantomDevices()
+    {
+        _logger.LogInformation("CLEANUP: Demarrage du nettoyage des appareils fantomes");
+        
+        try
+        {
+            var allDevices = await _deviceRepository.GetAllAsync();
+            var toDelete = new List<NetworkDevice>();
+            
+            foreach (var device in allDevices)
+            {
+                bool shouldDelete = false;
+                string reason = "";
+
+                // Verifier si l'IP est sur un reseau Docker
+                if (!string.IsNullOrEmpty(device.IpAddress))
+                {
+                    foreach (var subnet in IgnoredSubnets)
+                    {
+                        if (device.IpAddress.StartsWith(subnet))
+                        {
+                            shouldDelete = true;
+                            reason = $"Reseau Docker/virtuel ({subnet}x)";
+                            break;
+                        }
+                    }
+                }
+
+                // Verifier si la MAC est localement administree ET sur reseau Docker
+                if (!shouldDelete && IsLocallyAdministeredMac(device.MacAddress))
+                {
+                    if (!string.IsNullOrEmpty(device.IpAddress))
+                    {
+                        foreach (var subnet in IgnoredSubnets)
+                        {
+                            if (device.IpAddress.StartsWith(subnet))
+                            {
+                                shouldDelete = true;
+                                reason = "MAC random sur reseau Docker";
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (shouldDelete)
+                {
+                    toDelete.Add(device);
+                    _logger.LogInformation("  CLEANUP: {Mac} ({Ip}) - {Reason}", 
+                        device.MacAddress, device.IpAddress, reason);
+                }
+            }
+
+            // Supprimer les appareils
+            int deletedCount = 0;
+            foreach (var device in toDelete)
+            {
+                try
+                {
+                    await _deviceRepository.DeleteAsync(device.Id);
+                    deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "CLEANUP: Erreur suppression {Mac}", device.MacAddress);
+                }
+            }
+
+            _logger.LogInformation("CLEANUP TERMINE: {Count} appareils fantomes supprimes", deletedCount);
+
+            return Ok(new
+            {
+                message = $"Nettoyage termine: {deletedCount} appareils fantomes supprimes",
+                deletedCount = deletedCount,
+                success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "CLEANUP ERREUR");
+            return StatusCode(500, new { message = ex.Message, success = false });
+        }
+    }
+
+    /// <summary>
+    /// Verifie si une adresse MAC est localement administree (randomisee)
+    /// </summary>
+    private static bool IsLocallyAdministeredMac(string? mac)
+    {
+        if (string.IsNullOrEmpty(mac) || mac.Length < 2)
+            return false;
+
+        var cleanMac = mac.Replace(":", "").Replace("-", "").ToUpperInvariant();
+        if (cleanMac.Length < 2)
+            return false;
+
+        if (!int.TryParse(cleanMac.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out int firstByte))
+            return false;
+
+        // Bit 1 (U/L) = 1 signifie localement administree
+        return (firstByte & 0x02) != 0;
     }
 
     [HttpGet]
