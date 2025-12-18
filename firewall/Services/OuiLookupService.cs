@@ -71,7 +71,7 @@ public class OuiLookupService : IOuiLookupService
         { "00215D", "Intel" }, { "002314", "Intel" }, { "00248C", "Intel" },
         { "0026C6", "Intel" }, { "0026C7", "Intel" }, { "0027EE", "Intel" },
         { "003067", "Intel" }, { "003676", "Intel" }, { "00A0C9", "Intel" },
-        { "00AA00", "Intel" }, { "080027", "Intel" }, { "3C970E", "Intel" },
+        { "00AA00", "Intel" }, { "3C970E", "Intel" },
         { "40A6B7", "Intel" }, { "485B39", "Intel" }, { "4CEF5D", "Intel" },
         { "58A839", "Intel" }, { "5C514F", "Intel" }, { "6036DD", "Intel" },
         { "68053B", "Intel" }, { "6891D0", "Intel" }, { "7C7A91", "Intel" },
