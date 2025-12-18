@@ -289,50 +289,91 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         
         try
         {
-            // Obtenir les adresses IP locales pour determiner le sous-reseau
-            var localAddresses = GetLocalIPAddresses();
-            var totalHosts = localAddresses.Count() * 254;
-            await _scanSessionService.StartSessionAsync(ScanType.Network, totalHosts); // Update total items
+            using var scope = _scopeFactory.CreateScope();
+            var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
             
+            // Obtenir les adresses IP locales pour determiner le sous-reseau
+            var localAddresses = GetLocalIPAddresses().ToList();
+            
+            if (!localAddresses.Any())
+            {
+                _logger.LogWarning("Aucune interface réseau trouvée!");
+                return 0;
+            }
+            
+            var totalHosts = localAddresses.Count * 254;
             int scannedCount = 0;
-            int foundCount = 0;
+            int savedCount = 0;
+            var respondingIps = new ConcurrentBag<string>();
 
             foreach (var localAddress in localAddresses)
             {
                 var subnet = GetSubnet(localAddress);
-                _logger.LogInformation("Analyse du sous-reseau : {Subnet}", subnet);
+                _logger.LogInformation("Scan du sous-réseau: {Subnet}.0/24", subnet);
                 
-                var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}");
+                var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}").ToList();
 
-                await Parallel.ForEachAsync(ips, new ParallelOptions { MaxDegreeOfParallelism = 20 }, async (ip, ct) =>
+                // Première passe: ping pour remplir la table ARP
+                await Parallel.ForEachAsync(ips, new ParallelOptions { MaxDegreeOfParallelism = 50 }, async (ip, ct) =>
                 {
                     try
                     {
                         if (await PingHostAsync(ip))
                         {
-                            Interlocked.Increment(ref foundCount);
-                            var mac = await GetMacAddressAsync(ip);
-                            if (!string.IsNullOrEmpty(mac))
-                            {
-                                await RegisterDiscoveredDeviceAsync(ip, mac);
-                            }
+                            respondingIps.Add(ip);
                         }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogTrace(ex, "Error scanning host {Ip}", ip);
-                    }
-                    
+                    catch { }
                     Interlocked.Increment(ref scannedCount);
-                    if (scannedCount % 10 == 0) await _scanSessionService.UpdateProgressAsync(session.Id, scannedCount);
                 });
+                
+                _logger.LogInformation("{Count} hôtes répondent au ping sur {Subnet}.0/24", respondingIps.Count, subnet);
+            }
+
+            // Attendre que la table ARP se mette à jour
+            if (respondingIps.Any())
+            {
+                await Task.Delay(1000);
+            }
+
+            // Deuxième passe: récupérer les MAC et sauvegarder
+            foreach (var ip in respondingIps)
+            {
+                try
+                {
+                    var mac = await GetMacAddressAsync(ip);
+                    if (!string.IsNullOrEmpty(mac) && mac != "00:00:00:00:00:00")
+                    {
+                        var hostname = await ResolveHostnameAsync(ip);
+                        var vendor = _ouiLookup.GetVendor(mac);
+
+                        var device = new NetworkDevice
+                        {
+                            MacAddress = mac.ToUpperInvariant(),
+                            IpAddress = ip,
+                            Hostname = hostname,
+                            Vendor = vendor,
+                            Status = DeviceStatus.Online,
+                            FirstSeen = DateTime.UtcNow,
+                            LastSeen = DateTime.UtcNow
+                        };
+
+                        await deviceRepo.AddOrUpdateAsync(device);
+                        savedCount++;
+                        _logger.LogDebug("Appareil sauvegardé: {Mac} ({Ip})", mac, ip);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogTrace(ex, "Erreur pour {Ip}", ip);
+                }
             }
             
-            var summary = $"Scan completed. Scanned {scannedCount} hosts. Found {foundCount} active devices.";
+            var summary = $"Scan terminé: {savedCount} appareils sauvegardés sur {respondingIps.Count} hôtes actifs";
             _logger.LogInformation(summary);
             await _scanSessionService.CompleteSessionAsync(session.Id, summary);
             
-            return foundCount;
+            return savedCount;
         }
         catch (Exception ex)
         {
