@@ -891,4 +891,365 @@ class FirewallApp {
         `;
     }
 
-    // ...existing code...
+    // ==========================================
+    // NETWORK SCAN METHODS
+    // ==========================================
+
+    async scanNetwork() {
+        const btn = document.getElementById('scan-network-btn');
+        const icon = document.getElementById('scan-icon');
+        const scanStatus = document.getElementById('scan-status');
+        
+        if (!btn) return;
+        
+        // Désactiver le bouton et montrer l'animation
+        btn.disabled = true;
+        btn.classList.add('scanning');
+        if (icon) {
+            icon.className = 'fas fa-spinner fa-spin';
+        }
+        if (scanStatus) {
+            scanStatus.textContent = 'Scan en cours...';
+            scanStatus.style.color = 'var(--accent-primary)';
+        }
+
+        try {
+            this.showToast({ title: 'Scan réseau', message: 'Démarrage du scan du réseau local...', severity: 0 });
+            
+            const result = await this.api('devices/scan', { method: 'POST' });
+            
+            this.showToast({ 
+                title: 'Scan terminé', 
+                message: result.message || `${result.devicesFound || 0} appareil(s) découvert(s)`, 
+                severity: 0 
+            });
+
+            // Recharger la liste des appareils
+            await this.loadDevices();
+            
+            if (scanStatus) {
+                scanStatus.textContent = `Scan terminé: ${result.devicesFound || 0} appareil(s)`;
+                scanStatus.style.color = 'var(--success)';
+                setTimeout(() => { scanStatus.textContent = ''; }, 5000);
+            }
+
+        } catch (error) {
+            console.error('Erreur scan réseau:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de scanner le réseau: ' + error.message, severity: 3 });
+            
+            if (scanStatus) {
+                scanStatus.textContent = 'Erreur de scan';
+                scanStatus.style.color = 'var(--danger)';
+            }
+        } finally {
+            // Réactiver le bouton
+            btn.disabled = false;
+            btn.classList.remove('scanning');
+            if (icon) {
+                icon.className = 'fas fa-search';
+            }
+        }
+    }
+
+    // ==========================================
+    // DEVICES LIST
+    // ==========================================
+
+    async loadDevices() {
+        try {
+            const devices = await this.api('devices');
+            this.currentDevices = devices;
+            this.renderDevicesTable(devices);
+        } catch (error) {
+            console.error('Error loading devices:', error);
+        }
+    }
+
+    renderDevicesTable(devices) {
+        const tbody = document.getElementById('devices-table');
+        if (!tbody) return;
+
+        if (!devices.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil détecté</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => this.createDeviceRowHtml(device)).join('');
+    }
+
+    async blockDevice(id) {
+        if (!confirm('Bloquer cet appareil ?')) return;
+
+        try {
+            await this.api(`devices/${id}/block`, { method: 'POST' });
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil bloqué', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de bloquer', severity: 2 });
+        }
+    }
+
+    async unblockDevice(id) {
+        try {
+            await this.api(`devices/${id}/unblock`, { method: 'POST' });
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil débloqué', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de débloquer', severity: 2 });
+        }
+    }
+
+    // ==========================================
+    // API HELPER
+    // ==========================================
+
+    async api(endpoint, options = {}) {
+        const url = `/api/${endpoint}`;
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+
+        const text = await response.text();
+        return text ? JSON.parse(text) : {};
+    }
+
+    // ==========================================
+    // NAVIGATION
+    // ==========================================
+
+    setupNavigation() {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                this.navigateTo(page);
+            });
+        });
+    }
+
+    navigateTo(page) {
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.page === page);
+        });
+
+        // Update pages
+        document.querySelectorAll('.page').forEach(p => {
+            p.classList.toggle('active', p.id === `${page}-page`);
+        });
+
+        // Update title
+        const titles = {
+            dashboard: 'Dashboard',
+            devices: 'Appareils',
+            agents: 'Agents',
+            cameras: 'Caméras',
+            alerts: 'Alertes & Logs',
+            traffic: 'Trafic',
+            pihole: 'Pi-hole',
+            dhcp: 'DHCP',
+            setup: 'Installation',
+            sniffer: 'Sniffer',
+            router: 'Règles & Policies',
+            settings: 'Paramètres',
+            admin: 'Administration',
+            parental: 'Contrôle Parental',
+            reports: 'Rapports'
+        };
+        document.getElementById('page-title').textContent = titles[page] || page;
+
+        this.currentPage = page;
+
+        // Load page data
+        switch (page) {
+            case 'dashboard': this.loadDashboard(); break;
+            case 'devices': this.loadDevices(); break;
+            case 'agents': this.loadAgents(); break;
+            case 'alerts': this.loadAlerts(); break;
+            case 'pihole': this.loadPihole(); break;
+        }
+    }
+
+    // ==========================================
+    // EVENT LISTENERS
+    // ==========================================
+
+    setupEventListeners() {
+        // Modal close buttons
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal').classList.remove('active');
+            });
+        });
+
+        // Click outside modal to close
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // Device filter buttons
+        document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.filterDevices(btn.dataset.filter);
+            });
+        });
+    }
+
+    filterDevices(filter) {
+        let devices = this.currentDevices;
+        
+        switch (filter) {
+            case 'online':
+                devices = devices.filter(d => d.status === 1 || d.status === 'Online');
+                break;
+            case 'unknown':
+                devices = devices.filter(d => !d.isKnown && !d.isTrusted);
+                break;
+            case 'blocked':
+                devices = devices.filter(d => d.status === 3 || d.status === 'Blocked' || d.isBlocked);
+                break;
+        }
+        
+        this.renderDevicesTable(devices);
+    }
+
+    // ==========================================
+    // SORTING
+    // ==========================================
+
+    setupSorting() {
+        document.querySelectorAll('.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const column = th.dataset.sort;
+                this.sortDevices(column);
+            });
+        });
+    }
+
+    sortDevices(column) {
+        const direction = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
+        this.sortDirection[column] = direction;
+
+        this.currentDevices.sort((a, b) => {
+            let valA = a[column] || '';
+            let valB = b[column] || '';
+
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+
+            if (valA < valB) return direction === 'asc' ? -1 : 1;
+            if (valA > valB) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        this.renderDevicesTable(this.currentDevices);
+    }
+
+    // ==========================================
+    // NOTIFICATIONS (SSE)
+    // ==========================================
+
+    connectNotifications() {
+        // Initialize AlertHub if available
+        if (typeof AlertHub !== 'undefined') {
+            this.alertHub = new AlertHub();
+        }
+    }
+
+    // ==========================================
+    // PI-HOLE
+    // ==========================================
+
+    async loadPihole() {
+        try {
+            const status = await this.api('pihole/status');
+            
+            document.getElementById('pihole-not-linux').style.display = 'none';
+            document.getElementById('pihole-not-installed').style.display = 'none';
+            document.getElementById('pihole-installed').style.display = 'none';
+
+            if (!status.isLinux) {
+                document.getElementById('pihole-not-linux').style.display = 'block';
+                return;
+            }
+
+            if (!status.isInstalled) {
+                document.getElementById('pihole-not-installed').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('pihole-installed').style.display = 'block';
+            
+            // Update stats
+            document.getElementById('pihole-status-text').textContent = status.isRunning ? 'Actif' : 'Inactif';
+            document.getElementById('pihole-blocking-text').textContent = status.blockingEnabled ? 'Activé' : 'Désactivé';
+            document.getElementById('pihole-version').textContent = status.version || '-';
+
+            if (status.stats) {
+                document.getElementById('ph-queries').textContent = status.stats.dnsQueriesToday || 0;
+                document.getElementById('ph-blocked').textContent = status.stats.adsBlockedToday || 0;
+                document.getElementById('ph-percent').textContent = (status.stats.adsPercentageToday || 0).toFixed(1) + '%';
+                document.getElementById('ph-domains').textContent = status.stats.domainsBeingBlocked || 0;
+                document.getElementById('ph-clients').textContent = status.stats.uniqueClients || 0;
+            }
+
+        } catch (error) {
+            console.error('Error loading Pi-hole status:', error);
+        }
+    }
+
+    async installPihole() {
+        if (!confirm('Installer Pi-hole ? Cette opération peut prendre plusieurs minutes.')) return;
+        
+        document.getElementById('pihole-install-modal').classList.add('active');
+        document.getElementById('pihole-install-logs').textContent = 'Démarrage de l\'installation...\n';
+
+        try {
+            await this.api('pihole/install', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Pi-hole installé avec succès', severity: 0 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Échec de l\'installation', severity: 2 });
+        }
+    }
+
+    closePiholeInstallModal() {
+        document.getElementById('pihole-install-modal').classList.remove('active');
+    }
+
+    // ==========================================
+    // PARENTAL CONTROL
+    // ==========================================
+
+    showCreateProfileModal() {
+        document.getElementById('parental-profile-modal').classList.add('active');
+        document.getElementById('parental-modal-title').innerHTML = '<i class="fas fa-child"></i> Nouveau Profil';
+        document.getElementById('profile-id').value = '';
+    }
+
+    closeParentalModal() {
+        document.getElementById('parental-profile-modal').classList.remove('active');
+    }
+
+    async saveProfile() {
+        // Implement profile saving
+        this.showToast({ title: 'Info', message: 'Fonctionnalité en cours de développement', severity: 0 });
+    }
+}
+
+// Initialize application
+const app = new FirewallApp();
