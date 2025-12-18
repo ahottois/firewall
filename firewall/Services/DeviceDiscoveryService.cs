@@ -15,6 +15,7 @@ public interface IDeviceDiscoveryService
     Task ProcessPacketAsync(PacketCapturedEventArgs packet);
     Task<IEnumerable<NetworkDevice>> GetOnlineDevicesAsync();
     Task ScanNetworkAsync();
+    Task<string?> ResolveHostnameAsync(string ipAddress);
 }
 
 public class DeviceDiscoveredEventArgs : EventArgs
@@ -28,41 +29,22 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     private readonly ILogger<DeviceDiscoveryService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IScanSessionService _scanSessionService;
+    private readonly IOuiLookupService _ouiLookup;
     private readonly AppSettings _settings;
     
     // Suivre les MAC recemment vues pour eviter de traiter trop souvent
     private readonly ConcurrentDictionary<string, DateTime> _recentlySeenMacs = new();
     
     // Suivre les appareils qui ont déjà déclenché une alerte "inconnue"
-    // Clé : adresse MAC, Valeur : Quand l'alerte a été envoyée
     private readonly ConcurrentDictionary<string, DateTime> _unknownDeviceAlertsSent = new();
     
     // Suivre les appareils qui ont déjà déclenché une alerte "nouvel appareil"  
     private readonly ConcurrentDictionary<string, bool> _newDeviceAlertsSent = new();
     
+    // Cache DNS pour éviter les requêtes répétées
+    private readonly ConcurrentDictionary<string, (string? Hostname, DateTime CachedAt)> _dnsCache = new();
+    
     private readonly SemaphoreSlim _processingLock = new(1, 1);
-
-    private static readonly Dictionary<string, string> _vendors = new()
-    {
-        { "000C29", "VMware" },
-        { "005056", "VMware" },
-        { "001C42", "Parallels" },
-        { "080027", "VirtualBox" },
-        { "DC21E2", "Apple" },
-        { "A4C3F0", "Intel" },
-        { "B827EB", "Raspberry Pi" },
-        { "E45F01", "Raspberry Pi" },
-        { "2CCF67", "Apple" },
-        { "F0D5BF", "Google" },
-        { "94E6F7", "Intel" },
-        { "7483C2", "Intel" },
-        { "D83ADD", "Raspberry Pi" },
-        { "DCA632", "Raspberry Pi" },
-        { "001E06", "WIBRAIN" },
-        { "F4F5D8", "Google" },
-        { "3C5AB4", "Google" },
-        { "F8:FF:C2", "Apple" },
-    };
 
     [DllImport("iphlpapi.dll", ExactSpelling = true)]
     private static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
@@ -74,12 +56,46 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         ILogger<DeviceDiscoveryService> logger,
         IServiceScopeFactory scopeFactory,
         IScanSessionService scanSessionService,
+        IOuiLookupService ouiLookup,
         IOptions<AppSettings> settings)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _scanSessionService = scanSessionService;
+        _ouiLookup = ouiLookup;
         _settings = settings.Value;
+    }
+
+    public async Task<string?> ResolveHostnameAsync(string ipAddress)
+    {
+        if (string.IsNullOrEmpty(ipAddress)) return null;
+
+        // Vérifier le cache (5 minutes)
+        if (_dnsCache.TryGetValue(ipAddress, out var cached) &&
+            (DateTime.UtcNow - cached.CachedAt).TotalMinutes < 5)
+        {
+            return cached.Hostname;
+        }
+
+        try
+        {
+            var hostEntry = await Dns.GetHostEntryAsync(ipAddress);
+            var hostname = hostEntry.HostName;
+            
+            // Ne pas retourner l'IP comme hostname
+            if (hostname != ipAddress)
+            {
+                _dnsCache[ipAddress] = (hostname, DateTime.UtcNow);
+                return hostname;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogTrace(ex, "DNS inverse échoué pour {Ip}", ipAddress);
+        }
+
+        _dnsCache[ipAddress] = (null, DateTime.UtcNow);
+        return null;
     }
 
     public async Task ProcessPacketAsync(PacketCapturedEventArgs packet)
@@ -102,8 +118,6 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         }
 
         _recentlySeenMacs[mac] = now;
-
-        // Nettoyer les anciennes entrées de temps en temps
         CleanupOldEntries(now);
 
         await _processingLock.WaitAsync();
@@ -120,16 +134,21 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             {
                 if (existingDevice.IpAddress != packet.SourceIp && !string.IsNullOrEmpty(packet.SourceIp))
                 {
-                    // IP Changed
                     await CreateDeviceModifiedAlertAsync(existingDevice, "IP Address", existingDevice.IpAddress, packet.SourceIp);
                 }
             }
+
+            // Résoudre le hostname si on a une IP
+            var hostname = !string.IsNullOrEmpty(packet.SourceIp) 
+                ? await ResolveHostnameAsync(packet.SourceIp) 
+                : null;
 
             var device = new NetworkDevice
             {
                 MacAddress = mac,
                 IpAddress = packet.SourceIp,
-                Vendor = GetVendorFromMac(mac),
+                Hostname = hostname,
+                Vendor = _ouiLookup.GetVendor(mac),
                 Status = DeviceStatus.Online
             };
 
@@ -141,12 +160,8 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 IsNew = isNew
             };
 
-            // Toujours déclencher DeviceDiscovered pour le suivi
             DeviceDiscovered?.Invoke(this, eventArgs);
 
-            // Déclencher UnknownDeviceDetected uniquement si :
-            // 1. L'appareil est reellement nouveau (jamais vu auparavant) - alerte unique
-            // 2. OU l'appareil n'est pas connu et nous n'avons pas alerte recemment (temps de recharge de 1 heure)
             if (await ShouldAlertForDeviceAsync(device, isNew, now))
             {
                 _logger.LogWarning("Alerte appareil inconnu/nouveau : {Mac} ({Ip}) - EstNouveau : {IsNew}", 
@@ -232,6 +247,16 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         {
             _unknownDeviceAlertsSent.TryRemove(key, out _);
         }
+        
+        // Nettoyer le cache DNS (entrées > 10 minutes)
+        var oldDns = _dnsCache
+            .Where(kvp => (now - kvp.Value.CachedAt).TotalMinutes > 10)
+            .Select(kvp => kvp.Key)
+            .ToList();
+        foreach (var key in oldDns)
+        {
+            _dnsCache.TryRemove(key, out _);
+        }
     }
 
     public async Task<IEnumerable<NetworkDevice>> GetOnlineDevicesAsync()
@@ -309,11 +334,15 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             var existingDevice = await deviceRepo.GetByMacAddressAsync(mac);
             var isNew = existingDevice == null;
 
+            // Résoudre le hostname
+            var hostname = await ResolveHostnameAsync(ip);
+
             var device = new NetworkDevice
             {
                 MacAddress = mac,
                 IpAddress = ip,
-                Vendor = GetVendorFromMac(mac),
+                Hostname = hostname,
+                Vendor = _ouiLookup.GetVendor(mac),
                 Status = DeviceStatus.Online
             };
 
@@ -408,7 +437,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             }
         }
 
-        // Fallback: Check ARP table via command line (cross-platform fallback)
+        // Fallback: Check ARP table via command line
         try
         {
             var process = new System.Diagnostics.Process
@@ -424,13 +453,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             };
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync();
-            process.WaitForExit();
+            await process.WaitForExitAsync();
 
-            // Parse output for IP and extract MAC
-            // This is a rough implementation, regex would be better
             if (output.Contains(ipAddress))
             {
-                // Simple regex for MAC address
                 var match = System.Text.RegularExpressions.Regex.Match(output, $@"{ipAddress}.*?([0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}}[:-][0-9a-fA-F]{{2}})");
                 if (match.Success)
                 {
@@ -492,13 +518,5 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     {
         var parts = ip.Split('.');
         return $"{parts[0]}.{parts[1]}.{parts[2]}";
-    }
-
-    private static string? GetVendorFromMac(string mac)
-    {
-        // Recherche OUI simplifiée - utiliser une base de données OUI complète en production
-        var oui = mac.Replace(":", "").Replace("-", "").ToUpper()[..6];
-        
-        return _vendors.TryGetValue(oui, out var vendor) ? vendor : null;
     }
 }

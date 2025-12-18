@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
+using NetworkFirewall.Services;
 
 namespace NetworkFirewall.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class DevicesController(IDeviceRepository deviceRepository) : ControllerBase
+public class DevicesController(
+    IDeviceRepository deviceRepository,
+    IDeviceDiscoveryService discoveryService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NetworkDevice>>> GetAll()
@@ -35,6 +38,28 @@ public class DevicesController(IDeviceRepository deviceRepository) : ControllerB
         var device = await deviceRepository.GetByIdAsync(id);
         if (device == null) return NotFound();
         return Ok(device);
+    }
+
+    /// <summary>
+    /// Lancer un scan réseau complet
+    /// </summary>
+    [HttpPost("scan")]
+    public async Task<IActionResult> StartNetworkScan()
+    {
+        // Lancer le scan en arrière-plan
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await discoveryService.ScanNetworkAsync();
+            }
+            catch (Exception)
+            {
+                // Log géré dans le service
+            }
+        });
+
+        return Accepted(new { message = "Scan réseau démarré" });
     }
 
     [HttpPost("{id}/trust")]

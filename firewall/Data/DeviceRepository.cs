@@ -16,6 +16,7 @@ public interface IDeviceRepository
     Task<bool> SetTrustedAsync(int id, bool trusted);
     Task<bool> SetKnownAsync(int id, bool known, string? description = null);
     Task<bool> UpdateDeviceInfoAsync(int id, UpdateDeviceRequest request);
+    Task<bool> UpdateStatusAsync(int id, DeviceStatus status);
     Task<bool> DeleteAsync(int id);
 }
 
@@ -121,6 +122,21 @@ public class DeviceRepository(FirewallDbContext context) : IDeviceRepository
         if (request.IsKnown.HasValue) device.IsKnown = request.IsKnown.Value;
         if (request.IsTrusted.HasValue) device.IsTrusted = request.IsTrusted.Value;
 
+        await context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UpdateStatusAsync(int id, DeviceStatus status)
+    {
+        var device = await context.Devices.FindAsync(id);
+        if (device == null) return false;
+        
+        device.Status = status;
+        if (status == DeviceStatus.Online)
+        {
+            device.LastSeen = DateTime.UtcNow;
+        }
+        
         await context.SaveChangesAsync();
         return true;
     }

@@ -27,6 +27,9 @@ builder.Services.AddScoped<ICameraRepository, CameraRepository>();
 // HTTP Client Factory for camera detection and threat intelligence
 builder.Services.AddHttpClient();
 
+// OUI Lookup Service (singleton avec dictionnaire en mémoire)
+builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
+
 // Services (Singleton pour maintenir l'etat)
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 builder.Services.AddSingleton<IPacketCaptureService, PacketCaptureService>();
@@ -61,6 +64,9 @@ builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
 // DHCP Service
 builder.Services.AddSingleton<IDhcpService, DhcpService>();
 builder.Services.AddHostedService<DhcpService>(provider => (DhcpService)provider.GetRequiredService<IDhcpService>());
+
+// Device Heartbeat Service (background service pour vérifier statut des appareils)
+builder.Services.AddHostedService<DeviceHeartbeatService>();
 
 // Add Controllers
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -123,6 +129,52 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
