@@ -10,6 +10,7 @@ public interface IOuiLookupService
 public class OuiLookupService : IOuiLookupService
 {
     // Dictionnaire OUI des fabricants les plus courants (préfixe MAC -> Fabricant)
+    // ATTENTION: Pas de clés dupliquées!
     private static readonly FrozenDictionary<string, string> _ouiDatabase = new Dictionary<string, string>
     {
         // Apple
@@ -48,8 +49,8 @@ public class OuiLookupService : IOuiLookupService
         // Samsung
         { "00124E", "Samsung" }, { "0015B9", "Samsung" }, { "001632", "Samsung" },
         { "001A8A", "Samsung" }, { "001EE1", "Samsung" }, { "001EE2", "Samsung" },
-        { "002339", "Samsung" }, { "0024E9", "Samsung" }, { "0025669", "Samsung" },
-        { "0026374", "Samsung" }, { "08D42B", "Samsung" }, { "10D38A", "Samsung" },
+        { "002339", "Samsung" }, { "0024E9", "Samsung" },
+        { "08D42B", "Samsung" }, { "10D38A", "Samsung" },
         { "14568E", "Samsung" }, { "14B484", "Samsung" }, { "18227E", "Samsung" },
         { "1C62B8", "Samsung" }, { "206E9C", "Samsung" }, { "24DB96", "Samsung" },
         { "283737", "Samsung" }, { "2C4401", "Samsung" }, { "30CBF8", "Samsung" },
@@ -82,11 +83,11 @@ public class OuiLookupService : IOuiLookupService
         { "D0ABD5", "Intel" }, { "D4258B", "Intel" }, { "E4A7A0", "Intel" },
         
         // Raspberry Pi
-        { "B827EB", "Raspberry Pi" }, { "DC:A6:32", "Raspberry Pi" },
+        { "B827EB", "Raspberry Pi" }, { "DCA632", "Raspberry Pi" },
         { "E45F01", "Raspberry Pi" }, { "D83ADD", "Raspberry Pi" },
         
         // Google / Nest
-        { "1C7B21", "Google" }, { "54608", "Google" }, { "94EB2C", "Google" },
+        { "1C7B21", "Google" }, { "94EB2C", "Google" },
         { "F47F35", "Google" }, { "F4F5D8", "Google" }, { "3C5AB4", "Google" },
         
         // Amazon
@@ -105,18 +106,18 @@ public class OuiLookupService : IOuiLookupService
         
         // Microsoft
         { "001DD8", "Microsoft" }, { "0025AE", "Microsoft" }, { "0050F2", "Microsoft" },
-        { "28186D", "Microsoft" }, { "60457", "Microsoft" }, { "7C1E52", "Microsoft" },
+        { "28186D", "Microsoft" }, { "7C1E52", "Microsoft" },
         { "B4AE2B", "Microsoft" }, { "C8D9D2", "Microsoft" }, { "DC536C", "Microsoft" },
         
         // HP
         { "001083", "HP" }, { "0014C2", "HP" }, { "001871", "HP" },
         { "001A4B", "HP" }, { "001E0B", "HP" }, { "0021F4", "HP" },
-        { "0022A5", "HP" }, { "0024815", "HP" }, { "002655", "HP" },
+        { "0022A5", "HP" }, { "002655", "HP" },
         { "00306E", "HP" }, { "0402B3", "HP" }, { "08002B", "HP" },
         
         // Dell
         { "000874", "Dell" }, { "00188B", "Dell" }, { "001A19", "Dell" },
-        { "001E4F", "Dell" }, { "0021700", "Dell" }, { "0024E8", "Dell" },
+        { "001E4F", "Dell" }, { "0024E8", "Dell" },
         { "002648", "Dell" }, { "00B0D0", "Dell" }, { "18A99B", "Dell" },
         { "246E96", "Dell" }, { "34E6D7", "Dell" }, { "5C260A", "Dell" },
         
@@ -144,7 +145,7 @@ public class OuiLookupService : IOuiLookupService
         { "000569", "VMware" }, { "000C29", "VMware" }, { "001C14", "VMware" },
         { "005056", "VMware" },
         
-        // VirtualBox
+        // VirtualBox (Oracle)
         { "080027", "VirtualBox" },
         
         // Xiaomi
@@ -169,9 +170,30 @@ public class OuiLookupService : IOuiLookupService
         { "2021A5", "LG" }, { "2C54CF", "LG" }, { "34FC6F", "LG" },
         
         // Lenovo
-        { "00061B", "Lenovo" }, { "000874", "Lenovo" }, { "001E68", "Lenovo" },
+        { "00061B", "Lenovo" }, { "001E68", "Lenovo" },
         { "002564", "Lenovo" }, { "28D244", "Lenovo" }, { "4CE933", "Lenovo" },
         { "6C0B84", "Lenovo" }, { "7011BB", "Lenovo" }, { "98FA9B", "Lenovo" },
+        
+        // Synology
+        { "0011320", "Synology" }, { "001132", "Synology" },
+        
+        // Ubiquiti
+        { "0027220", "Ubiquiti" }, { "002722", "Ubiquiti" }, { "04180F", "Ubiquiti" },
+        { "24A43C", "Ubiquiti" }, { "687251", "Ubiquiti" }, { "788A20", "Ubiquiti" },
+        { "802AA8", "Ubiquiti" }, { "B4FBE4", "Ubiquiti" }, { "F09FC2", "Ubiquiti" },
+        
+        // Roku
+        { "B0A737", "Roku" }, { "C83A6B", "Roku" }, { "D83134", "Roku" },
+        
+        // Sonos
+        { "000E58", "Sonos" }, { "5CDAD4", "Sonos" }, { "7828CA", "Sonos" },
+        { "949F3E", "Sonos" }, { "B8E937", "Sonos" },
+        
+        // Ring (Amazon)
+        { "347E5C", "Ring" }, { "D03972", "Ring" },
+        
+        // Philips Hue
+        { "001788", "Philips Hue" }, { "ECB5FA", "Philips Hue" },
         
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
