@@ -14,11 +14,20 @@ public interface IAgentService
     string GenerateWindowsInstallScript(string serverUrl);
 }
 
-public class AgentService(FirewallDbContext context, ILogger<AgentService> logger) : IAgentService
+public class AgentService : IAgentService
 {
+    private readonly FirewallDbContext _context;
+    private readonly ILogger<AgentService> _logger;
+
+    public AgentService(FirewallDbContext context, ILogger<AgentService> logger)
+    {
+        _context = context;
+        _logger = logger;
+    }
+
     public async Task ProcessHeartbeatAsync(AgentHeartbeat heartbeat)
     {
-        var agent = await context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname && a.MacAddress == heartbeat.MacAddress);
+        var agent = await _context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname && a.MacAddress == heartbeat.MacAddress);
         if (agent == null)
         {
             agent = new Agent
@@ -29,7 +38,8 @@ public class AgentService(FirewallDbContext context, ILogger<AgentService> logge
                 OS = heartbeat.OS,
                 RegisteredAt = DateTime.UtcNow
             };
-            context.Agents.Add(agent);
+            _context.Agents.Add(agent);
+            _logger.LogInformation("Nouvel agent enregistré: {Hostname} ({Mac})", heartbeat.Hostname, heartbeat.MacAddress);
         }
 
         agent.LastSeen = DateTime.UtcNow;
@@ -40,21 +50,22 @@ public class AgentService(FirewallDbContext context, ILogger<AgentService> logge
         agent.Version = heartbeat.Version;
         agent.DetailsJson = heartbeat.DetailsJson;
         
-        await context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<Agent>> GetAllAgentsAsync()
     {
-        return await context.Agents.ToListAsync();
+        return await _context.Agents.ToListAsync();
     }
 
     public async Task DeleteAgentAsync(int id)
     {
-        var agent = await context.Agents.FindAsync(id);
+        var agent = await _context.Agents.FindAsync(id);
         if (agent != null)
         {
-            context.Agents.Remove(agent);
-            await context.SaveChangesAsync();
+            _context.Agents.Remove(agent);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Agent supprimé: {Id}", id);
         }
     }
 
