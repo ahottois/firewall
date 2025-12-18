@@ -395,12 +395,13 @@ class FirewallApp {
     }
 
     createAgentCard(agent) {
-        const statusClass = agent.status === 'Online' ? 'online' : 'offline';
+        const statusClass = agent.status === 1 || agent.status === 'Online' ? 'online' : 'offline';
+        const statusText = agent.status === 1 || agent.status === 'Online' ? 'En ligne' : 'Hors ligne';
         return `
             <div class="card agent-card">
                 <div class="card-header">
                     <h4>${this.escapeHtml(agent.hostname)}</h4>
-                    <span class="status-badge ${statusClass}">${agent.status}</span>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
                 </div>
                 <div class="card-body">
                     <p><i class="fas fa-network-wired"></i> ${this.escapeHtml(agent.ipAddress || '-')}</p>
@@ -414,6 +415,82 @@ class FirewallApp {
                 </div>
             </div>
         `;
+    }
+
+    async showAgentDetails(agentId) {
+        try {
+            const agent = this.currentAgents.find(a => a.id === agentId);
+            if (!agent) {
+                this.showToast({ title: 'Erreur', message: 'Agent non trouvé', severity: 2 });
+                return;
+            }
+
+            // Remplir les informations de base
+            document.getElementById('agent-detail-hostname').textContent = agent.hostname || 'Inconnu';
+            document.getElementById('agent-detail-os').textContent = agent.os || 'Inconnu';
+            document.getElementById('agent-detail-ip').textContent = agent.ipAddress || 'Inconnue';
+            document.getElementById('agent-detail-seen').textContent = this.formatDate(agent.lastSeen);
+
+            // Informations matériel
+            document.getElementById('agent-hardware-info').innerHTML = `
+                <p><strong>CPU:</strong> ${agent.cpuUsage?.toFixed(1) || 0}%</p>
+                <p><strong>Mémoire:</strong> ${agent.memoryUsage?.toFixed(1) || 0}%</p>
+                <p><strong>Disque:</strong> ${agent.diskUsage?.toFixed(1) || 0}%</p>
+            `;
+
+            // Informations réseau
+            document.getElementById('agent-network-info').innerHTML = `
+                <p><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress || '-')}</p>
+                <p><strong>MAC:</strong> ${this.escapeHtml(agent.macAddress || '-')}</p>
+            `;
+
+            // Informations système
+            document.getElementById('agent-system-info').innerHTML = `
+                <p><strong>OS:</strong> ${this.escapeHtml(agent.os || '-')}</p>
+                <p><strong>Version Agent:</strong> ${this.escapeHtml(agent.version || '1.0.0')}</p>
+                <p><strong>Enregistré le:</strong> ${this.formatDate(agent.registeredAt)}</p>
+            `;
+
+            // Détails JSON supplémentaires si disponibles
+            if (agent.detailsJson) {
+                try {
+                    const details = JSON.parse(agent.detailsJson);
+                    
+                    if (details.hardware) {
+                        document.getElementById('agent-hardware-info').innerHTML += `
+                            ${details.hardware.cpuModel ? `<p><strong>Processeur:</strong> ${this.escapeHtml(details.hardware.cpuModel)}</p>` : ''}
+                            ${details.hardware.totalRam ? `<p><strong>RAM totale:</strong> ${details.hardware.totalRam}</p>` : ''}
+                            ${details.hardware.diskTotal ? `<p><strong>Disque total:</strong> ${details.hardware.diskTotal}</p>` : ''}
+                        `;
+                    }
+                    
+                    if (details.network && details.network.interfaces) {
+                        let networkHtml = document.getElementById('agent-network-info').innerHTML;
+                        networkHtml += '<p style="margin-top: 10px;"><strong>Interfaces:</strong></p>';
+                        details.network.interfaces.forEach(iface => {
+                            networkHtml += `<p style="font-size: 0.85rem; margin-left: 10px;">• ${this.escapeHtml(iface.name)}: ${this.escapeHtml(iface.ip || '-')}</p>`;
+                        });
+                        document.getElementById('agent-network-info').innerHTML = networkHtml;
+                    }
+                    
+                    if (details.system) {
+                        document.getElementById('agent-system-info').innerHTML += `
+                            ${details.system.hostname ? `<p><strong>Hostname:</strong> ${this.escapeHtml(details.system.hostname)}</p>` : ''}
+                            ${details.system.uptime ? `<p><strong>Uptime:</strong> ${this.escapeHtml(details.system.uptime)}</p>` : ''}
+                            ${details.system.kernel ? `<p><strong>Kernel:</strong> ${this.escapeHtml(details.system.kernel)}</p>` : ''}
+                        `;
+                    }
+                } catch (e) {
+                    console.warn('Impossible de parser detailsJson:', e);
+                }
+            }
+
+            // Afficher le modal
+            document.getElementById('agent-details-modal').classList.add('active');
+        } catch (error) {
+            console.error('Error showing agent details:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'afficher les détails', severity: 2 });
+        }
     }
 
     showInstallAgentModal() {
