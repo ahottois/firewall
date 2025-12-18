@@ -205,76 +205,93 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             }
             
             var devices = new ConcurrentBag<NetworkDevice>();
-            int totalResponding = 0;
             
             foreach (var localAddress in localAddresses)
             {
                 var subnet = GetSubnet(localAddress);
-                var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}").ToList();
-                _logger.LogInformation("SCAN: Ping du sous-reseau {Subnet}.0/24 (254 IPs)", subnet);
+                _logger.LogInformation("SCAN: Scan du sous-reseau {Subnet}.0/24", subnet);
 
-                var respondingIps = new ConcurrentBag<string>();
+                // METHODE 1: Lire directement la table ARP existante
+                _logger.LogInformation("SCAN: Lecture de la table ARP existante...");
+                var arpDevices = await ReadArpTableAsync();
+                _logger.LogInformation("SCAN: {Count} entrees dans la table ARP", arpDevices.Count);
                 
-                await Parallel.ForEachAsync(ips, new ParallelOptions { MaxDegreeOfParallelism = 100 }, async (ip, ct) =>
+                foreach (var (ip, mac) in arpDevices)
                 {
-                    try
+                    if (ip.StartsWith(subnet + "."))
                     {
-                        using var ping = new Ping();
-                        var reply = await ping.SendPingAsync(ip, 1000);
-                        if (reply.Status == IPStatus.Success)
+                        var hostname = await ResolveHostnameAsync(ip);
+                        var vendor = _ouiLookup.GetVendor(mac);
+                        
+                        devices.Add(new NetworkDevice
                         {
-                            respondingIps.Add(ip);
-                            _logger.LogDebug("PING OK: {Ip}", ip);
-                        }
+                            MacAddress = mac.ToUpperInvariant(),
+                            IpAddress = ip,
+                            Hostname = hostname,
+                            Vendor = vendor,
+                            Status = DeviceStatus.Online
+                        });
+                        _logger.LogInformation("  ARP: {Ip} -> {Mac} ({Vendor})", ip, mac, vendor ?? "Inconnu");
                     }
-                    catch { }
-                });
-
-                totalResponding += respondingIps.Count;
-                _logger.LogInformation("SCAN: {Count} hote(s) repondent au ping sur {Subnet}.0/24", respondingIps.Count, subnet);
-
-                if (respondingIps.Any())
-                {
-                    _logger.LogInformation("SCAN: Attente 500ms pour table ARP...");
-                    await Task.Delay(500);
-                    
-                    _logger.LogInformation("SCAN: Recuperation des adresses MAC...");
                 }
 
-                foreach (var ip in respondingIps)
+                // METHODE 2: Ping pour découvrir de nouveaux hôtes (peut échouer sans root)
+                _logger.LogInformation("SCAN: Tentative de ping sur {Subnet}.0/24...", subnet);
+                var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}").ToList();
+                var respondingIps = new ConcurrentBag<string>();
+                
+                try
                 {
-                    try
+                    await Parallel.ForEachAsync(ips, new ParallelOptions { MaxDegreeOfParallelism = 50 }, async (ip, ct) =>
                     {
-                        var mac = await GetMacFromArpTableAsync(ip);
-                        _logger.LogInformation("  ARP: {Ip} -> MAC={Mac}", ip, mac ?? "NULL");
-                        
-                        if (!string.IsNullOrEmpty(mac) && mac != "00:00:00:00:00:00")
+                        try
+                        {
+                            using var ping = new Ping();
+                            var reply = await ping.SendPingAsync(ip, 500);
+                            if (reply.Status == IPStatus.Success)
+                            {
+                                respondingIps.Add(ip);
+                            }
+                        }
+                        catch { }
+                    });
+                    
+                    _logger.LogInformation("SCAN: {Count} hote(s) repondent au ping", respondingIps.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("SCAN: Ping echoue (permissions?): {Error}", ex.Message);
+                }
+
+                // Attendre et relire la table ARP après les pings
+                if (respondingIps.Any())
+                {
+                    await Task.Delay(1000);
+                    
+                    var newArpDevices = await ReadArpTableAsync();
+                    foreach (var (ip, mac) in newArpDevices)
+                    {
+                        if (ip.StartsWith(subnet + ".") && !devices.Any(d => d.MacAddress == mac.ToUpperInvariant()))
                         {
                             var hostname = await ResolveHostnameAsync(ip);
                             var vendor = _ouiLookup.GetVendor(mac);
                             
-                            var device = new NetworkDevice
+                            devices.Add(new NetworkDevice
                             {
                                 MacAddress = mac.ToUpperInvariant(),
                                 IpAddress = ip,
                                 Hostname = hostname,
                                 Vendor = vendor,
                                 Status = DeviceStatus.Online
-                            };
-                            
-                            devices.Add(device);
-                            _logger.LogInformation("  DEVICE: {Mac} ({Ip}) - {Vendor}", mac, ip, vendor ?? "Inconnu");
+                            });
+                            _logger.LogInformation("  NEW: {Ip} -> {Mac} ({Vendor})", ip, mac, vendor ?? "Inconnu");
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning("  ERREUR ARP pour {Ip}: {Error}", ip, ex.Message);
                     }
                 }
             }
 
-            _logger.LogInformation("SCAN: {Total} hotes ont repondu, {Devices} ont une MAC valide", totalResponding, devices.Count);
-            _logger.LogInformation("SCAN: Sauvegarde des appareils en base...");
+            _logger.LogInformation("SCAN: Total {Count} appareils trouves", devices.Count);
+            _logger.LogInformation("SCAN: Sauvegarde en base...");
 
             int savedCount = 0;
             foreach (var device in devices)
@@ -291,7 +308,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
             }
 
-            var summary = $"Scan termine: {savedCount} appareils sauvegardes";
+            var summary = $"Scan termine: {savedCount} appareils";
             _logger.LogInformation("========================================");
             _logger.LogInformation("SCAN TERMINE: {Summary}", summary);
             _logger.LogInformation("========================================");
@@ -308,11 +325,83 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         }
     }
 
-    private static async Task<string?> GetMacFromArpTableAsync(string ip)
+    /// <summary>
+    /// Lit la table ARP du système (fonctionne sans permissions root)
+    /// </summary>
+    private async Task<List<(string Ip, string Mac)>> ReadArpTableAsync()
     {
+        var results = new List<(string Ip, string Mac)>();
+        
         try
         {
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsLinux())
+            {
+                // Méthode 1: /proc/net/arp (la plus fiable sur Linux)
+                if (File.Exists("/proc/net/arp"))
+                {
+                    _logger.LogDebug("Lecture de /proc/net/arp...");
+                    var lines = await File.ReadAllLinesAsync("/proc/net/arp");
+                    foreach (var line in lines.Skip(1)) // Skip header
+                    {
+                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 4)
+                        {
+                            var ip = parts[0];
+                            var mac = parts[3].ToUpperInvariant();
+                            
+                            if (mac != "00:00:00:00:00:00" && !mac.Contains("INCOMPLETE"))
+                            {
+                                results.Add((ip, mac));
+                                _logger.LogDebug("  /proc/net/arp: {Ip} -> {Mac}", ip, mac);
+                            }
+                        }
+                    }
+                }
+                
+                // Méthode 2: commande ip neigh
+                if (results.Count == 0)
+                {
+                    _logger.LogDebug("Tentative avec 'ip neigh'...");
+                    var psi = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "ip",
+                        Arguments = "neigh show",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    };
+
+                    using var process = System.Diagnostics.Process.Start(psi);
+                    if (process != null)
+                    {
+                        var output = await process.StandardOutput.ReadToEndAsync();
+                        await process.WaitForExitAsync();
+                        
+                        _logger.LogDebug("ip neigh output: {Output}", output);
+
+                        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var line in lines)
+                        {
+                            // Format: 192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+                            var match = System.Text.RegularExpressions.Regex.Match(
+                                line, @"(\d+\.\d+\.\d+\.\d+).*lladdr\s+([0-9a-fA-F:]+)");
+                            
+                            if (match.Success)
+                            {
+                                var ip = match.Groups[1].Value;
+                                var mac = match.Groups[2].Value.ToUpperInvariant();
+                                
+                                if (mac != "00:00:00:00:00:00")
+                                {
+                                    results.Add((ip, mac));
+                                    _logger.LogDebug("  ip neigh: {Ip} -> {Mac}", ip, mac);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if (OperatingSystem.IsWindows())
             {
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
@@ -332,73 +421,29 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     var lines = output.Split('\n');
                     foreach (var line in lines)
                     {
-                        var trimmedLine = line.Trim();
-                        if (trimmedLine.StartsWith(ip + " ") || trimmedLine.Contains(" " + ip + " "))
+                        var match = System.Text.RegularExpressions.Regex.Match(
+                            line, @"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F-]+)");
+                        
+                        if (match.Success)
                         {
-                            var match = System.Text.RegularExpressions.Regex.Match(
-                                line, @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
-
-                            if (match.Success)
+                            var ip = match.Groups[1].Value;
+                            var mac = match.Groups[2].Value.Replace("-", ":").ToUpperInvariant();
+                            
+                            if (mac != "FF:FF:FF:FF:FF:FF" && mac != "00:00:00:00:00:00")
                             {
-                                var mac = match.Value.Replace("-", ":").ToUpperInvariant();
-                                if (mac != "FF:FF:FF:FF:FF:FF" && mac != "00:00:00:00:00:00")
-                                {
-                                    return mac;
-                                }
+                                results.Add((ip, mac));
                             }
                         }
                     }
                 }
             }
-            else if (OperatingSystem.IsLinux())
-            {
-                // Methode 1: Lire /proc/net/arp
-                if (File.Exists("/proc/net/arp"))
-                {
-                    var lines = await File.ReadAllLinesAsync("/proc/net/arp");
-                    foreach (var line in lines.Skip(1))
-                    {
-                        var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (parts.Length >= 4 && parts[0] == ip)
-                        {
-                            var mac = parts[3].ToUpperInvariant();
-                            if (mac != "00:00:00:00:00:00")
-                                return mac;
-                        }
-                    }
-                }
-
-                // Methode 2: Commande arp
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "arp",
-                    Arguments = $"-n {ip}",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = System.Diagnostics.Process.Start(psi);
-                if (process != null)
-                {
-                    var output = await process.StandardOutput.ReadToEndAsync();
-                    await process.WaitForExitAsync();
-
-                    var match = System.Text.RegularExpressions.Regex.Match(
-                        output, @"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}");
-
-                    if (match.Success)
-                    {
-                        var mac = match.Value.ToUpperInvariant();
-                        if (mac != "00:00:00:00:00:00")
-                            return mac;
-                    }
-                }
-            }
         }
-        catch { }
-
-        return null;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur lecture table ARP");
+        }
+        
+        return results;
     }
 
     private static IEnumerable<string> GetLocalIPAddresses()
