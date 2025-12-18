@@ -77,21 +77,31 @@ public class DevicesController : ControllerBase
     /// Lancer un scan réseau complet
     /// </summary>
     [HttpPost("scan")]
-    public IActionResult StartNetworkScan()
+    public async Task<IActionResult> StartNetworkScan()
     {
-        _ = Task.Run(async () =>
+        _logger.LogInformation("?? Scan réseau manuel demandé via API");
+        
+        try
         {
-            try
-            {
-                await _discoveryService.ScanNetworkAsync();
-            }
-            catch (Exception)
-            {
-                // Log géré dans le service
-            }
-        });
-
-        return Accepted(new { message = "Scan réseau démarré" });
+            // Exécuter le scan et attendre le résultat
+            var devicesFound = await _discoveryService.ScanNetworkAsync();
+            
+            _logger.LogInformation("? Scan réseau terminé: {Count} appareil(s) découvert(s)", devicesFound);
+            
+            return Ok(new { 
+                message = $"Scan terminé: {devicesFound} appareil(s) découvert(s)",
+                devicesFound = devicesFound,
+                success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur lors du scan réseau");
+            return StatusCode(500, new { 
+                message = "Erreur lors du scan réseau: " + ex.Message,
+                success = false
+            });
+        }
     }
 
     /// <summary>

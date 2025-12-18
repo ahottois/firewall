@@ -14,7 +14,7 @@ public interface IDeviceDiscoveryService
     event EventHandler<DeviceDiscoveredEventArgs>? UnknownDeviceDetected;
     Task ProcessPacketAsync(PacketCapturedEventArgs packet);
     Task<IEnumerable<NetworkDevice>> GetOnlineDevicesAsync();
-    Task ScanNetworkAsync();
+    Task<int> ScanNetworkAsync();
     Task<string?> ResolveHostnameAsync(string ipAddress);
 }
 
@@ -282,7 +282,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
         return await deviceRepo.GetOnlineDevicesAsync();
     }
 
-    public async Task ScanNetworkAsync()
+    public async Task<int> ScanNetworkAsync()
     {
         _logger.LogInformation("Debut de l'analyse du reseau...");
         var session = await _scanSessionService.StartSessionAsync(ScanType.Network);
@@ -331,11 +331,14 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
             var summary = $"Scan completed. Scanned {scannedCount} hosts. Found {foundCount} active devices.";
             _logger.LogInformation(summary);
             await _scanSessionService.CompleteSessionAsync(session.Id, summary);
+            
+            return foundCount;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erreur lors de l'analyse du reseau");
             await _scanSessionService.FailSessionAsync(session.Id, ex.Message);
+            return 0;
         }
     }
 
