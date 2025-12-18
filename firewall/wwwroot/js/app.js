@@ -981,6 +981,7 @@ class FirewallApp {
             case 'router': this.loadRouter(); break;
             case 'settings': this.loadSettings(); break;
             case 'admin': this.loadAdmin(); break;
+            case 'parental': this.loadParentalControl(); break;
         }
     }
 
@@ -1538,6 +1539,166 @@ class FirewallApp {
         if (this.snifferInterval) clearInterval(this.snifferInterval);
         if (this.deviceHub) {
             this.deviceHub.stop().catch(err => console.error('Error stopping device hub:', err));
+        }
+    }
+
+    // ==========================================
+    // ROUTER / NAT METHODS
+    // ==========================================
+
+    async loadRouter() {
+        await Promise.all([
+            this.loadRouterInterfaces(),
+            this.loadRouterMappings()
+        ]);
+    }
+
+    async loadRouterInterfaces() {
+        try {
+            const interfaces = await this.api('router/interfaces');
+            const container = document.getElementById('router-interfaces-list');
+            
+            if (!container) return;
+            
+            if (!interfaces || interfaces.length === 0) {
+                container.innerHTML = '<p class="empty-state">Aucune interface réseau détectée</p>';
+                return;
+            }
+            
+            container.innerHTML = interfaces.map(iface => `
+                <div class="interface-card">
+                    <div class="interface-header">
+                        <i class="fas fa-ethernet"></i>
+                        <span class="interface-name">${this.escapeHtml(iface.name || iface.friendlyName || 'Interface')}</span>
+                        <span class="status-badge ${iface.isUp ? 'online' : 'offline'}">${iface.isUp ? 'Actif' : 'Inactif'}</span>
+                    </div>
+                    <div class="interface-details">
+                        ${iface.ipAddress ? `<p><i class="fas fa-network-wired"></i> IP: ${this.escapeHtml(iface.ipAddress)}</p>` : ''}
+                        ${iface.macAddress ? `<p><i class="fas fa-barcode"></i> MAC: ${this.escapeHtml(iface.macAddress)}</p>` : ''}
+                        ${iface.description ? `<p><i class="fas fa-info-circle"></i> ${this.escapeHtml(iface.description)}</p>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Erreur chargement interfaces:', error);
+            const container = document.getElementById('router-interfaces-list');
+            if (container) {
+                container.innerHTML = '<p class="text-danger">Erreur de chargement des interfaces</p>';
+            }
+        }
+    }
+
+    async loadRouterMappings() {
+        try {
+            const mappings = await this.api('router/mappings');
+            const tbody = document.getElementById('router-mappings-table');
+            
+            if (!tbody) return;
+            
+            if (!mappings || mappings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucune règle de port mapping</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = mappings.map(rule => `
+                <tr data-id="${rule.id}">
+                    <td>${this.escapeHtml(rule.name || 'Sans nom')}</td>
+                    <td>${rule.listenPort}</td>
+                    <td>${this.escapeHtml(rule.targetIp)}:${rule.targetPort}</td>
+                    <td><span class="badge">${rule.protocol}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-danger" onclick="app.deleteMapping('${rule.id}')" title="Supprimer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Erreur chargement mappings:', error);
+        }
+    }
+
+    showAddMappingModal() {
+        this.showModal('Ajouter une règle NAT', `
+            <div class="form-group">
+                <label>Nom de la règle</label>
+                <input type="text" id="mapping-name" class="form-control" placeholder="Ex: Serveur Web">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Port d'écoute</label>
+                    <input type="number" id="mapping-listen-port" class="form-control" placeholder="80" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                    <label>Protocole</label>
+                    <select id="mapping-protocol" class="form-control">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>IP cible</label>
+                    <input type="text" id="mapping-target-ip" class="form-control" placeholder="192.168.1.100">
+                </div>
+                <div class="form-group">
+                    <label>Port cible</label>
+                    <input type="number" id="mapping-target-port" class="form-control" placeholder="80" min="1" max="65535">
+                </div>
+            </div>
+        `, `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.saveMapping()">
+                <i class="fas fa-save"></i> Enregistrer
+            </button>
+        `);
+    }
+
+    async saveMapping() {
+        const name = document.getElementById('mapping-name').value.trim();
+        const listenPort = parseInt(document.getElementById('mapping-listen-port').value);
+        const protocol = document.getElementById('mapping-protocol').value;
+        const targetIp = document.getElementById('mapping-target-ip').value.trim();
+        const targetPort = parseInt(document.getElementById('mapping-target-port').value);
+
+        if (!listenPort || !targetIp || !targetPort) {
+            this.showToast({ title: 'Erreur', message: 'Tous les champs sont requis', severity: 2 });
+            return;
+        }
+
+        try {
+            await this.api('router/mappings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: name || `Port ${listenPort}`,
+                    listenPort,
+                    protocol,
+                    targetIp,
+                    targetPort,
+                    enabled: true
+                })
+            });
+
+            this.closeModal();
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succès', message: 'Règle NAT ajoutée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'ajouter la règle', severity: 3 });
+        }
+    }
+
+    async deleteMapping(id) {
+        if (!confirm('Supprimer cette règle de port mapping ?')) return;
+
+        try {
+            await this.api(`router/mappings/${id}`, { method: 'DELETE' });
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succès', message: 'Règle supprimée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de supprimer la règle', severity: 3 });
         }
     }
 }
