@@ -1720,7 +1720,6 @@ input:checked + .slider:before {
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
-    border: 1px solid var(--border-color);
 }
 
 /* Device Checkbox List */
@@ -1837,3 +1836,153 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================
+   AGENTS GRID & CARDS
+   ========================================== */
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.agent-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.agent-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--accent-primary);
+}
+
+.agent-card .card-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: linear-gradient(135deg, rgba(0, 217, 255, 0.08) 0%, rgba(123, 104, 238, 0.05) 100%);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.agent-card .card-header h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.agent-card .card-header h4::before {
+    content: '\f233';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: var(--accent-primary);
+    font-size: 1rem;
+}
+
+.agent-card .card-body {
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.agent-card .card-body p {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+}
+
+.agent-card .card-body p:last-child {
+    border-bottom: none;
+}
+
+.agent-card .card-body p i {
+    width: 20px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.agent-card .card-body p i.fa-network-wired { color: var(--info); }
+.agent-card .card-body p i.fa-linux { color: #f0ad4e; }
+.agent-card .card-body p i.fa-windows { color: #00a4ef; }
+.agent-card .card-body p i.fa-apple { color: #a2aaad; }
+.agent-card .card-body p i.fa-microchip { color: var(--accent-secondary); }
+.agent-card .card-body p i.fa-memory { color: var(--success); }
+
+.agent-card .card-footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(0, 0, 0, 0.15);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
+.agent-card .card-footer .btn {
+    flex: 1;
+    max-width: 120px;
+}
+
+/* Agent Status Variations */
+.agent-card.online {
+    border-left: 4px solid var(--success);
+}
+
+.agent-card.offline {
+    border-left: 4px solid var(--danger);
+    opacity: 0.85;
+}
+
+.agent-card.warning {
+    border-left: 4px solid var(--warning);
+}
+
+/* Agent Metrics */
+.agent-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.agent-metric-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+}
+
+.agent-metric-value {
+    font-weight: 600;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.agent-metric-bar {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+    flex: 1;
+    margin: 0 var(--spacing-md);
+}
+
+.agent-metric-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+
+.agent-metric-bar-fill.cpu { background: var(--accent-secondary); }
+.agent-metric-bar-fill.memory { background: var(--success); }
+.agent-metric-bar-fill.disk { background: var(--warning); }

@@ -395,23 +395,79 @@ class FirewallApp {
     }
 
     createAgentCard(agent) {
-        const statusClass = agent.status === 1 || agent.status === 'Online' ? 'online' : 'offline';
-        const statusText = agent.status === 1 || agent.status === 'Online' ? 'En ligne' : 'Hors ligne';
+        const isOnline = agent.status === 1 || agent.status === 'Online';
+        const statusClass = isOnline ? 'online' : 'offline';
+        const statusText = isOnline ? 'En ligne' : 'Hors ligne';
+        
+        // Icône OS
+        let osIcon = 'fa-server';
+        const osLower = (agent.os || '').toLowerCase();
+        if (osLower.includes('linux') || osLower.includes('ubuntu') || osLower.includes('debian')) {
+            osIcon = 'fab fa-linux';
+        } else if (osLower.includes('windows')) {
+            osIcon = 'fab fa-windows';
+        } else if (osLower.includes('mac') || osLower.includes('darwin')) {
+            osIcon = 'fab fa-apple';
+        }
+        
+        // Barres de progression pour les métriques
+        const cpuPercent = agent.cpuUsage || 0;
+        const memPercent = agent.memoryUsage || 0;
+        const diskPercent = agent.diskUsage || 0;
+        
+        // Couleurs des métriques selon le niveau
+        const getCpuColor = (val) => val > 80 ? 'var(--danger)' : val > 50 ? 'var(--warning)' : 'var(--accent-secondary)';
+        const getMemColor = (val) => val > 85 ? 'var(--danger)' : val > 70 ? 'var(--warning)' : 'var(--success)';
+        
         return `
-            <div class="card agent-card">
+            <div class="agent-card ${statusClass}">
                 <div class="card-header">
                     <h4>${this.escapeHtml(agent.hostname)}</h4>
                     <span class="status-badge ${statusClass}">${statusText}</span>
                 </div>
                 <div class="card-body">
-                    <p><i class="fas fa-network-wired"></i> ${this.escapeHtml(agent.ipAddress || '-')}</p>
-                    <p><i class="fab fa-linux"></i> ${this.escapeHtml(agent.os || '-')}</p>
-                    <p><i class="fas fa-microchip"></i> CPU: ${agent.cpuUsage?.toFixed(1) || 0}%</p>
-                    <p><i class="fas fa-memory"></i> RAM: ${agent.memoryUsage?.toFixed(1) || 0}%</p>
+                    <div class="agent-metric">
+                        <span class="agent-metric-label">
+                            <i class="fas fa-network-wired"></i>
+                            IP
+                        </span>
+                        <span class="agent-metric-value">${this.escapeHtml(agent.ipAddress || '-')}</span>
+                    </div>
+                    <div class="agent-metric">
+                        <span class="agent-metric-label">
+                            <i class="${osIcon}"></i>
+                            OS
+                        </span>
+                        <span class="agent-metric-value" style="font-size: 0.8rem;">${this.escapeHtml(agent.os || 'Inconnu')}</span>
+                    </div>
+                    <div class="agent-metric">
+                        <span class="agent-metric-label">
+                            <i class="fas fa-microchip"></i>
+                            CPU
+                        </span>
+                        <div class="agent-metric-bar">
+                            <div class="agent-metric-bar-fill cpu" style="width: ${cpuPercent}%; background: ${getCpuColor(cpuPercent)};"></div>
+                        </div>
+                        <span class="agent-metric-value">${cpuPercent.toFixed(1)}%</span>
+                    </div>
+                    <div class="agent-metric">
+                        <span class="agent-metric-label">
+                            <i class="fas fa-memory"></i>
+                            RAM
+                        </span>
+                        <div class="agent-metric-bar">
+                            <div class="agent-metric-bar-fill memory" style="width: ${memPercent}%; background: ${getMemColor(memPercent)};"></div>
+                        </div>
+                        <span class="agent-metric-value">${memPercent.toFixed(1)}%</span>
+                    </div>
                 </div>
                 <div class="card-footer">
-                    <button class="btn btn-sm btn-primary" onclick="app.showAgentDetails(${agent.id})">Détails</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">Supprimer</button>
+                    <button class="btn btn-sm btn-primary" onclick="app.showAgentDetails(${agent.id})">
+                        <i class="fas fa-info-circle"></i> Détails
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">
+                        <i class="fas fa-trash"></i> Supprimer
+                    </button>
                 </div>
             </div>
         `;
