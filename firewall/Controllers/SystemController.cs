@@ -270,7 +270,7 @@ WantedBy=multi-user.target
     /// Redémarrer le service ou l'application
     /// </summary>
     [HttpPost("service/restart")]
-    public async Task<IActionResult> RestartService()
+    public IActionResult RestartService()
     {
         _logger.LogInformation("Demande de redémarrage du service");
 
@@ -279,22 +279,14 @@ WantedBy=multi-user.target
             // Vérifier si c'est un service systemd
             if (System.IO.File.Exists("/etc/systemd/system/webguard.service"))
             {
-                try
+                // Le service systemd redémarrera l'application
+                _ = Task.Run(async () =>
                 {
-                    // Le service systemd redémarrera l'application
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(1000);
-                        await RunCommandAsync("systemctl", "restart webguard.service");
-                    });
+                    await Task.Delay(1000);
+                    await RunCommandAsync("systemctl", "restart webguard.service");
+                });
 
-                    return Ok(new { success = true, message = "Redémarrage du service en cours..." });
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erreur lors du redémarrage du service");
-                    return StatusCode(500, new { message = $"Erreur: {ex.Message}" });
-                }
+                return Ok(new { success = true, message = "Redémarrage du service en cours..." });
             }
         }
 

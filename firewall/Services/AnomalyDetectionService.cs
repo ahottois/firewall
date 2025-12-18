@@ -182,7 +182,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         }
     }
 
-    private async Task CheckTrafficVolumeAsync(PacketCapturedEventArgs packet)
+    private Task CheckTrafficVolumeAsync(PacketCapturedEventArgs packet)
     {
         var key = packet.SourceMac;
         var now = DateTime.UtcNow;
@@ -194,7 +194,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
             tracker.BytesInWindow += packet.PacketSize;
             tracker.PacketsInWindow++;
             
-            // Vrifier toutes les 10 secondes
+            // Vérifier toutes les 10 secondes
             if ((now - tracker.WindowStart).TotalSeconds >= 10)
             {
                 var bytesPerSecond = tracker.BytesInWindow / 10.0;
@@ -211,19 +211,21 @@ public class AnomalyDetectionService : IAnomalyDetectionService
                             Type = AlertType.HighTrafficVolume,
                             Severity = AlertSeverity.Medium,
                             Title = "High Traffic Volume",
-                            Message = $"Trafic eleve detecte: {bytesPerSecond / 1_000_000:F2} MB/s, {packetsPerSecond:F0} paquets/s",
+                            Message = $"Trafic élevé détecté: {bytesPerSecond / 1_000_000:F2} MB/s, {packetsPerSecond:F0} paquets/s",
                             SourceMac = packet.SourceMac,
                             SourceIp = packet.SourceIp
                         });
                     }
                 }
                 
-                // Rinitialiser la fentre
+                // Réinitialiser la fenêtre
                 tracker.BytesInWindow = 0;
                 tracker.PacketsInWindow = 0;
                 tracker.WindowStart = now;
             }
         }
+
+        return Task.CompletedTask;
     }
 
     private Task CheckMalformedPacketAsync(PacketCapturedEventArgs packet)
