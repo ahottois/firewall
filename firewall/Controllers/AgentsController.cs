@@ -46,6 +46,28 @@ public class AgentsController : ControllerBase
         return Ok();
     }
 
+    [HttpGet("install-script")]
+    public IActionResult GetInstallCommand([FromQuery] string os)
+    {
+        var serverUrl = $"{Request.Scheme}://{Request.Host}";
+        string command;
+
+        if (string.Equals(os, "linux", StringComparison.OrdinalIgnoreCase))
+        {
+            command = $"curl -s {serverUrl}/api/agents/install/linux | sudo bash";
+        }
+        else if (string.Equals(os, "windows", StringComparison.OrdinalIgnoreCase))
+        {
+            command = $"powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm {serverUrl}/api/agents/install/windows | iex\"";
+        }
+        else
+        {
+            return BadRequest("Unknown OS. Supported: linux, windows");
+        }
+
+        return Ok(new { command });
+    }
+
     [HttpGet("install/{platform}")]
     public IActionResult GetInstallScript(string platform)
     {

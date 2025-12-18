@@ -912,8 +912,19 @@ class FirewallApp {
 
     async getInstallScript(os) {
         try {
-            const result = await this.api(`agents/install-script?os=${os}`);
-            document.getElementById('install-command').textContent = result.command;
+            // Use the correct route defined in AgentsController: api/agents/install/{platform}
+            // Also, since the controller returns raw text (ContentResult), we need to handle it.
+            // However, the api() method returns {} if not JSON.
+            // Let's use fetch directly here to handle text response, or modify api() to handle text.
+            // But wait, the previous plan was to modify controller to return JSON.
+            // Let's stick to modifying JS to match the route first.
+            
+            // Actually, let's use a direct fetch to get the text content, as the controller returns raw script.
+            const response = await fetch(`/api/agents/install/${os}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const script = await response.text();
+            
+            document.getElementById('install-command').textContent = script;
             document.getElementById('install-script-container').style.display = 'block';
         } catch (error) {
             alert('Erreur: ' + error.message);
