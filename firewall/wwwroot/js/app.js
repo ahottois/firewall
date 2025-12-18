@@ -56,6 +56,7 @@ class FirewallApp {
         this.snifferInterval = null;
         this.deviceHub = null;
         this.piholeLogPolling = null; // Pour le polling des logs d'installation
+        this.alertHub = null;
         this.init();
     }
 
@@ -68,6 +69,476 @@ class FirewallApp {
         this.loadDashboard();
         this.startAutoRefresh();
     }
+
+    // ==========================================
+    // UTILITY METHODS
+    // ==========================================
+    
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 60000) return 'À l\'instant';
+        if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
+        if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)} h`;
+        
+        return date.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    getStatusClass(status) {
+        const statusMap = {
+            0: 'unknown', 'Unknown': 'unknown',
+            1: 'online', 'Online': 'online',
+            2: 'offline', 'Offline': 'offline',
+            3: 'blocked', 'Blocked': 'blocked'
+        };
+        return statusMap[status] || 'unknown';
+    }
+
+    getStatusText(status) {
+        const statusMap = {
+            0: 'Inconnu', 'Unknown': 'Inconnu',
+            1: 'En ligne', 'Online': 'En ligne',
+            2: 'Hors ligne', 'Offline': 'Hors ligne',
+            3: 'Bloqué', 'Blocked': 'Bloqué'
+        };
+        return statusMap[status] || 'Inconnu';
+    }
+
+    // ==========================================
+    // TOAST NOTIFICATIONS
+    // ==========================================
+
+    showToast(alert) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const severityClasses = ['info', 'warning', 'danger', 'critical'];
+        const severityClass = severityClasses[alert.severity] || 'info';
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${severityClass}`;
+        toast.innerHTML = `
+            <div class="toast-header">
+                <strong>${this.escapeHtml(alert.title || 'Notification')}</strong>
+                <button class="toast-close">&times;</button>
+            </div>
+            <div class="toast-body">${this.escapeHtml(alert.message)}</div>
+        `;
+
+        toast.querySelector('.toast-close').addEventListener('click', () => {
+            toast.remove();
+        });
+
+        container.appendChild(toast);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) toast.remove();
+        }, 5000);
+    }
+
+    // ==========================================
+    // DASHBOARD
+    // ==========================================
+
+    async loadDashboard() {
+        try {
+            // Load security dashboard data
+            const [security, devices, alerts] = await Promise.all([
+                this.api('security/dashboard').catch(() => ({})),
+                this.api('devices').catch(() => []),
+                this.api('alerts?count=5').catch(() => [])
+            ]);
+
+            // Update traffic overview
+            this.updateTrafficCharts(security);
+            this.updateTopThreats(security.recentThreats || []);
+            this.updateFirewallRules();
+            this.updateSystemStatus(security);
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+
+    updateTrafficCharts(security) {
+        const stats = security.threatStats || {};
+        const allowed = stats.allowedCount || 0;
+        const blocked = stats.blockedCount || 0;
+        const total = allowed + blocked || 1;
+
+        const allowedPercent = Math.round((allowed / total) * 100);
+        const blockedPercent = Math.round((blocked / total) * 100);
+
+        document.getElementById('allowed-percent').textContent = `${allowedPercent}%`;
+        document.getElementById('blocked-percent').textContent = `${blockedPercent}%`;
+
+        // Update donut charts
+        const allowedChart = document.getElementById('allowed-traffic-chart');
+        const blockedChart = document.getElementById('blocked-traffic-chart');
+        
+        if (allowedChart) {
+            allowedChart.style.setProperty('--percent', allowedPercent);
+        }
+        if (blockedChart) {
+            blockedChart.style.setProperty('--percent', blockedPercent);
+        }
+    }
+
+    updateTopThreats(threats) {
+        const container = document.getElementById('top-threats-list');
+        if (!container) return;
+
+        if (!threats.length) {
+            container.innerHTML = '<p class="empty-state">Aucune menace détectée</p>';
+            return;
+        }
+
+        container.innerHTML = threats.slice(0, 5).map(threat => `
+            <div class="threat-item">
+                <span class="threat-name">${this.escapeHtml(threat.sourceIp || 'Inconnu')}</span>
+                <span class="threat-type">${this.escapeHtml(threat.threatType || 'N/A')}</span>
+                <span class="threat-count">${threat.count || 1}</span>
+            </div>
+        `).join('');
+    }
+
+    updateFirewallRules() {
+        const tbody = document.getElementById('firewall-rules-body');
+        if (!tbody) return;
+
+        // Example static rules - can be made dynamic
+        tbody.innerHTML = `
+            <tr>
+                <td>R001</td>
+                <td><span class="status-badge online">Allow</span></td>
+                <td>192.168.1.0/24</td>
+                <td>Any</td>
+                <td>All</td>
+                <td><span class="status-badge online">Active</span></td>
+            </tr>
+            <tr>
+                <td>R002</td>
+                <td><span class="status-badge blocked">Block</span></td>
+                <td>External</td>
+                <td>22/TCP</td>
+                <td>SSH</td>
+                <td><span class="status-badge online">Active</span></td>
+            </tr>
+        `;
+    }
+
+    updateSystemStatus(security) {
+        const score = security.securityScore || {};
+        const cpuText = document.getElementById('cpu-status-text');
+        if (cpuText) {
+            cpuText.textContent = `Score de sécurité: ${score.overallScore || 0}/100`;
+        }
+    }
+
+    startAutoRefresh() {
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(() => {
+            if (this.currentPage === 'dashboard') {
+                this.loadDashboard();
+            }
+        }, 30000);
+    }
+
+    updateAlertBadge() {
+        const badge = document.getElementById('alert-badge');
+        if (badge) {
+            this.api('alerts/unread/count').then(data => {
+                const count = data.count || 0;
+                badge.textContent = count;
+                badge.style.display = count > 0 ? 'inline-flex' : 'none';
+            }).catch(() => {});
+        }
+    }
+
+    // ==========================================
+    // ALERTS & LOGS
+    // ==========================================
+
+    async loadAlerts() {
+        try {
+            const [alerts, stats] = await Promise.all([
+                this.api('alerts?count=50'),
+                this.api('alerts/stats').catch(() => ({}))
+            ]);
+
+            // Update stats
+            document.getElementById('total-alerts-count').textContent = stats.total || 0;
+            document.getElementById('critical-alerts-count').textContent = stats.critical || 0;
+            document.getElementById('blocked-attempts-count').textContent = stats.blocked || 0;
+            document.getElementById('last-24h-count').textContent = stats.last24h || 0;
+
+            // Render alerts table
+            this.renderAlertsTable(alerts);
+            
+            // Load security logs
+            this.loadSecurityLogs();
+
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+        }
+    }
+
+    renderAlertsTable(alerts) {
+        const tbody = document.getElementById('alerts-table');
+        if (!tbody) return;
+
+        if (!alerts.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucune alerte</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = alerts.map(alert => `
+            <tr class="${alert.isRead ? '' : 'unread'}">
+                <td><span class="severity-badge severity-${alert.severity}">${this.getSeverityText(alert.severity)}</span></td>
+                <td>${this.escapeHtml(alert.type)}</td>
+                <td>${this.escapeHtml(alert.message)}</td>
+                <td>${this.escapeHtml(alert.sourceIp || '-')}</td>
+                <td>${this.formatDate(alert.timestamp)}</td>
+                <td>
+                    <button class="btn btn-sm" onclick="app.markAlertRead(${alert.id})" title="Marquer comme lu">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    getSeverityText(severity) {
+        const severities = ['Info', 'Moyen', 'Haut', 'Critique'];
+        return severities[severity] || 'Info';
+    }
+
+    async loadSecurityLogs() {
+        try {
+            const logs = await this.api('logs/security?count=50');
+            const tbody = document.getElementById('security-logs-table');
+            if (!tbody) return;
+
+            if (!logs.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun log de sécurité</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${this.formatDate(log.timestamp)}</td>
+                    <td><span class="severity-badge severity-${log.severity}">${log.severity}</span></td>
+                    <td>${this.escapeHtml(log.category)}</td>
+                    <td>${this.escapeHtml(log.actionTaken)}</td>
+                    <td>${this.escapeHtml(log.message)}</td>
+                    <td>${this.escapeHtml(log.sourceIp || '-')}</td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading security logs:', error);
+        }
+    }
+
+    filterLogs() {
+        // Implement log filtering
+        this.loadSecurityLogs();
+    }
+
+    async markAlertRead(id) {
+        try {
+            await this.api(`alerts/${id}/read`, { method: 'POST' });
+            this.loadAlerts();
+        } catch (error) {
+            console.error('Error marking alert as read:', error);
+        }
+    }
+
+    // ==========================================
+    // AGENTS
+    // ==========================================
+
+    async loadAgents() {
+        try {
+            const agents = await this.api('agents');
+            this.currentAgents = agents;
+
+            const grid = document.getElementById('agents-grid');
+            const empty = document.getElementById('agents-empty');
+
+            if (!agents.length) {
+                grid.innerHTML = '';
+                empty.style.display = 'block';
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.innerHTML = agents.map(agent => this.createAgentCard(agent)).join('');
+        } catch (error) {
+            console.error('Error loading agents:', error);
+        }
+    }
+
+    createAgentCard(agent) {
+        const statusClass = agent.status === 'Online' ? 'online' : 'offline';
+        return `
+            <div class="card agent-card">
+                <div class="card-header">
+                    <h4>${this.escapeHtml(agent.hostname)}</h4>
+                    <span class="status-badge ${statusClass}">${agent.status}</span>
+                </div>
+                <div class="card-body">
+                    <p><i class="fas fa-network-wired"></i> ${this.escapeHtml(agent.ipAddress || '-')}</p>
+                    <p><i class="fab fa-linux"></i> ${this.escapeHtml(agent.os || '-')}</p>
+                    <p><i class="fas fa-microchip"></i> CPU: ${agent.cpuUsage?.toFixed(1) || 0}%</p>
+                    <p><i class="fas fa-memory"></i> RAM: ${agent.memoryUsage?.toFixed(1) || 0}%</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-sm btn-primary" onclick="app.showAgentDetails(${agent.id})">Détails</button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">Supprimer</button>
+                </div>
+            </div>
+        `;
+    }
+
+    showInstallAgentModal() {
+        document.getElementById('install-agent-modal').classList.add('active');
+    }
+
+    async getInstallScript(os) {
+        try {
+            const result = await this.api(`agents/install-script/${os}`);
+            const container = document.getElementById('install-script-container');
+            const command = document.getElementById('install-command');
+            
+            command.textContent = result.script;
+            container.style.display = 'block';
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de générer le script', severity: 2 });
+        }
+    }
+
+    copyInstallCommand() {
+        const command = document.getElementById('install-command').textContent;
+        navigator.clipboard.writeText(command).then(() => {
+            this.showToast({ title: 'Copié', message: 'Commande copiée dans le presse-papiers', severity: 0 });
+        });
+    }
+
+    async deleteAgent(id) {
+        if (!confirm('Supprimer cet agent ?')) return;
+        
+        try {
+            await this.api(`agents/${id}`, { method: 'DELETE' });
+            this.loadAgents();
+            this.showToast({ title: 'Succès', message: 'Agent supprimé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de supprimer l\'agent', severity: 2 });
+        }
+    }
+
+    // ==========================================
+    // DEVICE METHODS
+    // ==========================================
+
+    async viewDevice(id) {
+        try {
+            const device = await this.api(`devices/${id}`);
+            
+            document.getElementById('device-id').value = device.id;
+            document.getElementById('device-mac').value = device.macAddress;
+            document.getElementById('device-ip').value = device.ipAddress || '';
+            document.getElementById('device-vendor').value = device.vendor || '';
+            document.getElementById('device-hostname').value = device.hostname || '';
+            document.getElementById('device-description').value = device.description || '';
+            document.getElementById('device-is-known').checked = device.isKnown;
+            document.getElementById('device-is-trusted').checked = device.isTrusted;
+            document.getElementById('device-first-seen').textContent = this.formatDate(device.firstSeen);
+            document.getElementById('device-last-seen').textContent = this.formatDate(device.lastSeen);
+
+            document.getElementById('device-details-modal').classList.add('active');
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger les détails', severity: 2 });
+        }
+    }
+
+    async saveDeviceDetails() {
+        const id = document.getElementById('device-id').value;
+        const data = {
+            ipAddress: document.getElementById('device-ip').value,
+            vendor: document.getElementById('device-vendor').value,
+            hostname: document.getElementById('device-hostname').value,
+            description: document.getElementById('device-description').value,
+            isKnown: document.getElementById('device-is-known').checked,
+            isTrusted: document.getElementById('device-is-trusted').checked
+        };
+
+        try {
+            await this.api(`devices/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            });
+
+            document.getElementById('device-details-modal').classList.remove('active');
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil mis à jour', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de sauvegarder', severity: 2 });
+        }
+    }
+
+    async approveDevice(id) {
+        try {
+            await this.api(`devices/${id}/approve`, { method: 'POST' });
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil approuvé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'approuver', severity: 2 });
+        }
+    }
+
+    async deleteDevice(id) {
+        if (!confirm('Supprimer cet appareil ?')) return;
+
+        try {
+            await this.api(`devices/${id}`, { method: 'DELETE' });
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil supprimé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de supprimer', severity: 2 });
+        }
+    }
+
+    // ==========================================
+    // OTHER PAGE LOADERS (stubs)
+    // ==========================================
+
+    async loadCameras() { /* Implement as needed */ }
+    async loadTraffic() { /* Implement as needed */ }
+    async loadDhcp() { /* Implement as needed */ }
+    async loadSniffer() { /* Implement as needed */ }
+    async loadRouter() { /* Implement as needed */ }
+    async loadSettings() { /* Implement as needed */ }
+    async loadAdmin() { /* Implement as needed */ }
+    
+    showAddMappingModal() { /* Implement as needed */ }
+    showAddDeviceModal() { /* Implement as needed */ }
+    saveDhcpConfig() { /* Implement as needed */ }
 
     // SignalR Device Hub Connection
     async connectDeviceHub() {
