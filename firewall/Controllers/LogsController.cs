@@ -39,6 +39,17 @@ public class LogsController : ControllerBase
     }
 
     /// <summary>
+    /// Récupérer les logs de sécurité (alias pour compatibilité frontend)
+    /// </summary>
+    [HttpGet("security")]
+    public async Task<ActionResult<IEnumerable<SecurityLogDto>>> GetSecurityLogs([FromQuery] int count = 100)
+    {
+        var logs = await _logRepository.GetRecentAsync(count);
+        var dtos = logs.Select(SecurityLogDto.FromEntity);
+        return Ok(dtos);
+    }
+
+    /// <summary>
     /// Récupérer les logs non lus
     /// </summary>
     [HttpGet("unread")]
