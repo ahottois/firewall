@@ -46,33 +46,27 @@ public class NetworkScannerWorker : BackgroundService
     {
         _logger.LogInformation("NetworkScannerWorker démarré - intervalle: {Interval}s", _scanInterval.TotalSeconds);
 
-        // Vérifier si c'est la première exécution
-        var isFirstRun = await _firstRunService.IsFirstRunAsync();
+        // Attendre que l'application soit prête
+        await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
+        // Toujours effectuer un scan initial au démarrage
+        _logger.LogInformation("?? Lancement du scan réseau initial au démarrage...");
         
-        if (isFirstRun)
+        try
         {
-            // Première exécution : scan immédiat sans délai
-            _logger.LogInformation("?? Première mise en place détectée - Lancement du scan réseau initial...");
-            
-            try
-            {
-                await PerformNetworkScanAsync(stoppingToken);
-                await _firstRunService.MarkFirstRunCompleteAsync();
-                _logger.LogInformation("? Scan initial terminé avec succès");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erreur lors du scan initial");
-            }
+            await PerformNetworkScanAsync(stoppingToken);
+            _logger.LogInformation("? Scan initial terminé avec succès");
         }
-        else
+        catch (Exception ex)
         {
-            // Exécution normale : attendre un peu au démarrage pour laisser l'application s'initialiser
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+            _logger.LogError(ex, "Erreur lors du scan initial");
         }
 
+        // Boucle de scan périodique
         while (!stoppingToken.IsCancellationRequested)
         {
+            await Task.Delay(_scanInterval, stoppingToken);
+            
             try
             {
                 await PerformNetworkScanAsync(stoppingToken);
@@ -85,8 +79,6 @@ public class NetworkScannerWorker : BackgroundService
             {
                 _logger.LogError(ex, "Erreur lors du scan réseau");
             }
-
-            await Task.Delay(_scanInterval, stoppingToken);
         }
 
         _logger.LogInformation("NetworkScannerWorker arrêté");
@@ -351,7 +343,6 @@ public class NetworkScannerWorker : BackgroundService
 
     private static async Task<string?> GetMacFromArpWindows(string ip)
     {
-        // D'abord essayer avec arp -a pour l'IP spécifique
         var psi = new System.Diagnostics.ProcessStartInfo
         {
             FileName = "arp",
@@ -367,17 +358,26 @@ public class NetworkScannerWorker : BackgroundService
             var output = await process.StandardOutput.ReadToEndAsync();
             await process.WaitForExitAsync();
 
-            // Chercher la ligne contenant l'IP
+            // Chercher la ligne contenant l'IP exacte
             var lines = output.Split('\n');
             foreach (var line in lines)
             {
-                if (line.Contains(ip))
+                // Vérifier que l'IP est exactement présente (avec des espaces autour)
+                var trimmedLine = line.Trim();
+                if (trimmedLine.StartsWith(ip + " ") || trimmedLine.Contains(" " + ip + " "))
                 {
                     var match = System.Text.RegularExpressions.Regex.Match(
                         line, @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
 
                     if (match.Success)
-                        return match.Value.Replace("-", ":").ToUpperInvariant();
+                    {
+                        var mac = match.Value.Replace("-", ":").ToUpperInvariant();
+                        // Ignorer les adresses MAC de broadcast ou invalides
+                        if (mac != "FF:FF:FF:FF:FF:FF" && mac != "00:00:00:00:00:00")
+                        {
+                            return mac;
+                        }
+                    }
                 }
             }
         }
@@ -386,19 +386,56 @@ public class NetworkScannerWorker : BackgroundService
 
     private static async Task<string?> GetMacFromArpLinux(string ip)
     {
-        if (!File.Exists("/proc/net/arp")) return null;
-
-        var lines = await File.ReadAllLinesAsync("/proc/net/arp");
-        foreach (var line in lines)
+        // Méthode 1: Lire /proc/net/arp
+        if (File.Exists("/proc/net/arp"))
         {
-            var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length >= 4 && parts[0] == ip)
+            var lines = await File.ReadAllLinesAsync("/proc/net/arp");
+            foreach (var line in lines.Skip(1)) // Skip header
             {
-                var mac = parts[3];
-                if (mac != "00:00:00:00:00:00")
-                    return mac.ToUpperInvariant();
+                var parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 4 && parts[0] == ip)
+                {
+                    var mac = parts[3].ToUpperInvariant();
+                    if (mac != "00:00:00:00:00:00")
+                        return mac;
+                }
             }
         }
+
+        // Méthode 2: Utiliser la commande arp
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "arp",
+                Arguments = $"-n {ip}",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(psi);
+            if (process != null)
+            {
+                var output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    output, @"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}");
+
+                if (match.Success)
+                {
+                    var mac = match.Value.ToUpperInvariant();
+                    if (mac != "00:00:00:00:00:00")
+                        return mac;
+                }
+            }
+        }
+        catch
+        {
+            // Ignorer les erreurs
+        }
+
         return null;
     }
 
