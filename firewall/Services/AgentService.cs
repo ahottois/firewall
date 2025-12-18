@@ -174,11 +174,11 @@ while true; do
     # Escape quotes in details for JSON embedding
     DETAILS_ESCAPED=$(echo ""$DETAILS"" | tr -d '\n' | sed 's/""/\\""/g')
 
-    JSON_PAYLOAD=""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.1.0\"",\""detailsJson\"":\""$DETAILS_ESCAPED\""}}"")
+    JSON_PAYLOAD=""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.1.0\"",\""detailsJson\"":\""$DETAILS_ESCAPED\""}}""
 
     curl -s -X POST ""$SERVER_URL/api/agents/heartbeat"" \
         -H ""Content-Type: application/json"" \
-        -d ""$JSON_PAYLOAD"\"
+        -d ""$JSON_PAYLOAD""
 
     sleep 60
 done
