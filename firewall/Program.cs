@@ -25,6 +25,7 @@ builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<IAlertRepository, AlertRepository>();
 builder.Services.AddScoped<ITrafficLogRepository, TrafficLogRepository>();
 builder.Services.AddScoped<ICameraRepository, CameraRepository>();
+builder.Services.AddScoped<ISecurityLogRepository, SecurityLogRepository>();
 
 // HTTP Client Factory for camera detection and threat intelligence
 builder.Services.AddHttpClient();
@@ -32,6 +33,7 @@ builder.Services.AddHttpClient();
 // SignalR
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IDeviceHubNotifier, DeviceHubNotifier>();
+builder.Services.AddSingleton<IAlertHubNotifier, AlertHubNotifier>();
 
 // OUI Lookup Service (singleton avec dictionnaire en mémoire)
 builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
@@ -42,8 +44,14 @@ builder.Services.AddSingleton<LinuxIptablesEngine>();
 builder.Services.AddSingleton<FirewallEngineFactory>();
 builder.Services.AddSingleton<INetworkBlockingService, FirewallService>();
 
+// Security Log Service (logs de sécurité avec notifications temps réel)
+builder.Services.AddSingleton<ISecurityLogService, SecurityLogService>();
+
 // Firewall Rule Restoration Service (restaure les règles au démarrage)
 builder.Services.AddHostedService<FirewallRuleRestorationService>();
+
+// Blocked Traffic Monitor Service (surveillance des tentatives de connexion bloquées)
+builder.Services.AddHostedService<BlockedTrafficMonitorService>();
 
 // Services (Singleton pour maintenir l'etat)
 builder.Services.AddSingleton<INotificationService, NotificationService>();
@@ -115,8 +123,9 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapNotificationEndpoints();
 
-// Map SignalR Hub
+// Map SignalR Hubs
 app.MapHub<DeviceHub>("/hubs/devices");
+app.MapHub<AlertHub>("/hubs/alerts");
 
 // Initialize Database
 using (var scope = app.Services.CreateScope())
@@ -129,8 +138,9 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();
         _ = db.Alerts.FirstOrDefault();
         _ = db.Agents.FirstOrDefault();
-        // Vérifier aussi les nouveaux champs du modèle Device
+        // Vérifier aussi les nouveaux champs du modèle Device et SecurityLogs
         _ = db.Devices.Select(d => d.IsBlocked).FirstOrDefault();
+        _ = db.SecurityLogs.FirstOrDefault();
     }
     catch (Exception ex)
     {

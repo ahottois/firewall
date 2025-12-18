@@ -15,6 +15,7 @@ public class FirewallDbContext : DbContext
     public DbSet<NetworkCamera> Cameras { get; set; }
     public DbSet<ScanSession> ScanSessions { get; set; }
     public DbSet<Agent> Agents { get; set; }
+    public DbSet<SecurityLog> SecurityLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,6 +96,28 @@ public class FirewallDbContext : DbContext
             entity.Property(e => e.Hostname).IsRequired().HasMaxLength(255);
             entity.Property(e => e.OS).HasMaxLength(50);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
+        });
+
+        modelBuilder.Entity<SecurityLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Severity);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.IsRead);
+            entity.HasIndex(e => e.IsArchived);
+            entity.Property(e => e.ActionTaken).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Message).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.SourceMac).HasMaxLength(17);
+            entity.Property(e => e.SourceIp).HasMaxLength(45);
+            entity.Property(e => e.DestinationIp).HasMaxLength(45);
+            entity.Property(e => e.Protocol).HasMaxLength(20);
+            entity.Property(e => e.DeviceName).HasMaxLength(255);
+            
+            entity.HasOne(e => e.Device)
+                  .WithMany()
+                  .HasForeignKey(e => e.DeviceId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

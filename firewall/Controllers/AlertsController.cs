@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using NetworkFirewall.Data;
+using NetworkFirewall.Hubs;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
 
@@ -7,70 +8,102 @@ namespace NetworkFirewall.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AlertsController(
-    IAlertRepository alertRepository,
-    INotificationService notificationService,
-    IDeviceDiscoveryService deviceDiscovery,
-    IAnomalyDetectionService anomalyDetection) : ControllerBase
+public class AlertsController : ControllerBase
 {
+    private readonly IAlertRepository _alertRepository;
+    private readonly INotificationService _notificationService;
+    private readonly IDeviceDiscoveryService _deviceDiscovery;
+    private readonly IAnomalyDetectionService _anomalyDetection;
+    private readonly IAlertHubNotifier _alertHubNotifier;
+    private readonly ILogger<AlertsController> _logger;
+
+    public AlertsController(
+        IAlertRepository alertRepository,
+        INotificationService notificationService,
+        IDeviceDiscoveryService deviceDiscovery,
+        IAnomalyDetectionService anomalyDetection,
+        IAlertHubNotifier alertHubNotifier,
+        ILogger<AlertsController> logger)
+    {
+        _alertRepository = alertRepository;
+        _notificationService = notificationService;
+        _deviceDiscovery = deviceDiscovery;
+        _anomalyDetection = anomalyDetection;
+        _alertHubNotifier = alertHubNotifier;
+        _logger = logger;
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetRecent([FromQuery] int count = 50)
     {
-        var alerts = await alertRepository.GetRecentAsync(count);
+        var alerts = await _alertRepository.GetRecentAsync(count);
         return Ok(alerts);
     }
 
     [HttpGet("unread")]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetUnread()
     {
-        var alerts = await alertRepository.GetUnreadAsync();
+        var alerts = await _alertRepository.GetUnreadAsync();
         return Ok(alerts);
     }
 
-    [HttpGet("unread/count")]
-    public async Task<ActionResult<int>> GetUnreadCount()
+    [HttpGet("unread-count")]
+    public async Task<IActionResult> GetUnreadCount()
     {
-        var count = await alertRepository.GetUnreadCountAsync();
-        return Ok(count);
+        var count = await _alertRepository.GetUnreadCountAsync();
+        return Ok(new { count });
     }
 
     [HttpGet("device/{deviceId}")]
     public async Task<ActionResult<IEnumerable<NetworkAlert>>> GetByDevice(int deviceId)
     {
-        var alerts = await alertRepository.GetByDeviceAsync(deviceId);
+        var alerts = await _alertRepository.GetByDeviceAsync(deviceId);
         return Ok(alerts);
     }
 
     [HttpPost("{id}/read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
-        var result = await alertRepository.MarkAsReadAsync(id);
+        var result = await _alertRepository.MarkAsReadAsync(id);
         if (!result) return NotFound();
+        
+        // Notifier via SignalR
+        await _alertHubNotifier.NotifyAlertReadAsync(id);
+        
         return Ok();
     }
 
+    /// <summary>
+    /// Marquer toutes les alertes comme lues
+    /// </summary>
     [HttpPost("read-all")]
     public async Task<IActionResult> MarkAllAsRead()
     {
-        await alertRepository.MarkAllAsReadAsync();
-        return Ok();
+        await _alertRepository.MarkAllAsReadAsync();
+        
+        // Notifier via SignalR
+        await _alertHubNotifier.NotifyAllAlertsReadAsync();
+        
+        _logger.LogInformation("Toutes les alertes ont été marquées comme lues");
+        return Ok(new { message = "Toutes les alertes ont été marquées comme lues" });
     }
 
     [HttpPost("{id}/resolve")]
     public async Task<IActionResult> Resolve(int id)
     {
-        var result = await alertRepository.ResolveAsync(id);
+        var result = await _alertRepository.ResolveAsync(id);
         if (!result) return NotFound();
+        
+        // Notifier via SignalR
+        await _alertHubNotifier.NotifyAlertResolvedAsync(id);
+        
         return Ok();
     }
 
-    /// <summary>
-    /// Résoudre une alerte et la supprimer de la liste
-    /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await alertRepository.DeleteAsync(id);
+        var result = await _alertRepository.DeleteAsync(id);
         if (!result) return NotFound();
         return Ok();
     }
@@ -81,7 +114,12 @@ public class AlertsController(
     [HttpPost("resolve-all")]
     public async Task<IActionResult> ResolveAll()
     {
-        await alertRepository.ResolveAllAsync();
+        await _alertRepository.ResolveAllAsync();
+        
+        // Notifier via SignalR
+        await _alertHubNotifier.NotifyAllAlertsResolvedAsync();
+        
+        _logger.LogInformation("Toutes les alertes ont été résolues");
         return Ok(new { message = "Toutes les alertes ont été résolues" });
     }
 
@@ -91,7 +129,7 @@ public class AlertsController(
     [HttpDelete("all")]
     public async Task<IActionResult> DeleteAll()
     {
-        await alertRepository.DeleteAllAsync();
+        await _alertRepository.DeleteAllAsync();
         return Ok(new { message = "Toutes les alertes ont été supprimées" });
     }
 
@@ -102,20 +140,25 @@ public class AlertsController(
     public async Task<IActionResult> Reset()
     {
         // 1. Supprimer toutes les alertes
-        await alertRepository.DeleteAllAsync();
+        await _alertRepository.DeleteAllAsync();
 
         // 2. Clear notification cooldowns
-        notificationService.ClearNotifications();
+        _notificationService.ClearNotifications();
 
         // 3. Reset anomaly detection trackers
-        anomalyDetection.Reset();
+        _anomalyDetection.Reset();
 
-        // 4. Relancer un scan réseau
+        // 4. Notifier via SignalR
+        await _alertHubNotifier.NotifyResetAsync();
+
+        // 5. Relancer un scan réseau
         _ = Task.Run(async () =>
         {
             await Task.Delay(1000);
-            await deviceDiscovery.ScanNetworkAsync();
+            await _deviceDiscovery.ScanNetworkAsync();
         });
+
+        _logger.LogInformation("Réinitialisation des alertes effectuée");
 
         return Ok(new { 
             message = "Réinitialisation effectuée. Un nouveau scan réseau a été lancé.",
@@ -135,7 +178,7 @@ public class AlertsController(
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
-        var alerts = await alertRepository.GetRecentAsync(1000);
+        var alerts = await _alertRepository.GetRecentAsync(1000);
         var alertList = alerts.ToList();
 
         var stats = new
@@ -148,8 +191,11 @@ public class AlertsController(
             ByType = alertList.GroupBy(a => a.Type)
                 .ToDictionary(g => g.Key.ToString(), g => g.Count()),
             Last24Hours = alertList.Count(a => a.Timestamp > DateTime.UtcNow.AddHours(-24)),
-            NotificationStats = notificationService.GetStats()
+            NotificationStats = _notificationService.GetStats()
         };
+
+        // Envoyer les stats mises à jour via SignalR
+        await _alertHubNotifier.NotifyStatsUpdateAsync(stats);
 
         return Ok(stats);
     }

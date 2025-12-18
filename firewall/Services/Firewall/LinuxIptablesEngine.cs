@@ -11,6 +11,7 @@ namespace NetworkFirewall.Services.Firewall;
 public class LinuxIptablesEngine : IFirewallEngine
 {
     private readonly ILogger<LinuxIptablesEngine> _logger;
+    private readonly ISecurityLogService? _securityLogService;
     private readonly ConcurrentDictionary<string, FirewallRule> _activeRules = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _lock = new(1, 1);
     private const string CHAIN_NAME = "WEBGUARD_BLOCK";
@@ -19,9 +20,10 @@ public class LinuxIptablesEngine : IFirewallEngine
     public bool IsSupported => RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
     public string EngineName => "Linux iptables/nftables";
 
-    public LinuxIptablesEngine(ILogger<LinuxIptablesEngine> logger)
+    public LinuxIptablesEngine(ILogger<LinuxIptablesEngine> logger, IServiceProvider serviceProvider)
     {
         _logger = logger;
+        _securityLogService = serviceProvider.GetService<ISecurityLogService>();
     }
 
     public async Task<FirewallResult> BlockDeviceAsync(string macAddress, string? ipAddress = null)
@@ -77,9 +79,10 @@ public class LinuxIptablesEngine : IFirewallEngine
                     string.Join("; ", errors));
             }
 
+            var ruleName = $"BLOCK_{macAddress.Replace(":", "")}";
             _activeRules.TryAdd(macAddress, new FirewallRule
             {
-                RuleName = $"BLOCK_{macAddress.Replace(":", "")}",
+                RuleName = ruleName,
                 MacAddress = macAddress,
                 IpAddress = ipAddress,
                 CreatedAt = DateTime.UtcNow,
@@ -88,6 +91,13 @@ public class LinuxIptablesEngine : IFirewallEngine
             });
 
             _logger.LogInformation("Appareil bloqué via iptables: MAC={Mac}, IP={Ip}", macAddress, ipAddress ?? "N/A");
+
+            // Logger l'événement de sécurité
+            if (_securityLogService != null)
+            {
+                await _securityLogService.LogFirewallRuleAddedAsync(ruleName, macAddress, ipAddress);
+            }
+
             return FirewallResult.Ok($"Appareil {macAddress} bloqué avec succès");
         }
         finally
@@ -118,9 +128,17 @@ public class LinuxIptablesEngine : IFirewallEngine
             // Supprimer la règle ebtables
             await RunCommandAsync("ebtables", $"-D FORWARD -s {macAddress} -j DROP");
 
+            var ruleName = $"BLOCK_{macAddress.Replace(":", "")}";
             _activeRules.TryRemove(macAddress, out _);
 
             _logger.LogInformation("Appareil débloqué: MAC={Mac}", macAddress);
+
+            // Logger l'événement de sécurité
+            if (_securityLogService != null)
+            {
+                await _securityLogService.LogFirewallRuleRemovedAsync(ruleName, macAddress, ipAddress);
+            }
+
             return FirewallResult.Ok($"Appareil {macAddress} débloqué avec succès");
         }
         finally
@@ -154,6 +172,14 @@ public class LinuxIptablesEngine : IFirewallEngine
         }
 
         _logger.LogInformation("Restauration des règles iptables: {Count} règles appliquées", restoredCount);
+
+        if (_securityLogService != null && restoredCount > 0)
+        {
+            await _securityLogService.LogSystemEventAsync(
+                $"Restauration de {restoredCount} règles de blocage iptables au démarrage",
+                LogSeverity.Info);
+        }
+
         return restoredCount;
     }
 
@@ -181,8 +207,18 @@ public class LinuxIptablesEngine : IFirewallEngine
                 }
             }
 
+            var ruleCount = _activeRules.Count;
             _activeRules.Clear();
+            
             _logger.LogInformation("Toutes les règles WebGuard iptables ont été supprimées");
+
+            if (_securityLogService != null && ruleCount > 0)
+            {
+                await _securityLogService.LogSystemEventAsync(
+                    $"Suppression de {ruleCount} règles de blocage iptables",
+                    LogSeverity.Warning);
+            }
+
             return FirewallResult.Ok("Toutes les règles ont été supprimées");
         }
         finally

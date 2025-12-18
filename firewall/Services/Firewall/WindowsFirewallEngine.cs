@@ -12,6 +12,7 @@ namespace NetworkFirewall.Services.Firewall;
 public class WindowsFirewallEngine : IFirewallEngine
 {
     private readonly ILogger<WindowsFirewallEngine> _logger;
+    private readonly ISecurityLogService? _securityLogService;
     private readonly ConcurrentDictionary<string, FirewallRule> _activeRules = new(StringComparer.OrdinalIgnoreCase);
     private readonly SemaphoreSlim _lock = new(1, 1);
     private const string RULE_PREFIX = "WebGuard_Block_";
@@ -19,9 +20,11 @@ public class WindowsFirewallEngine : IFirewallEngine
     public bool IsSupported => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     public string EngineName => "Windows Firewall (netsh advfirewall)";
 
-    public WindowsFirewallEngine(ILogger<WindowsFirewallEngine> logger)
+    public WindowsFirewallEngine(ILogger<WindowsFirewallEngine> logger, IServiceProvider serviceProvider)
     {
         _logger = logger;
+        // Récupérer le service de log de manière optionnelle pour éviter les dépendances circulaires
+        _securityLogService = serviceProvider.GetService<ISecurityLogService>();
     }
 
     public async Task<FirewallResult> BlockDeviceAsync(string macAddress, string? ipAddress = null)
@@ -83,6 +86,13 @@ public class WindowsFirewallEngine : IFirewallEngine
             });
 
             _logger.LogInformation("Appareil bloqué via Windows Firewall: MAC={Mac}, IP={Ip}", macAddress, ipAddress);
+
+            // Logger l'événement de sécurité
+            if (_securityLogService != null)
+            {
+                await _securityLogService.LogFirewallRuleAddedAsync(ruleName, macAddress, ipAddress);
+            }
+
             return FirewallResult.Ok($"Appareil {macAddress} bloqué avec succès");
         }
         finally
@@ -110,6 +120,13 @@ public class WindowsFirewallEngine : IFirewallEngine
             _activeRules.TryRemove(macAddress, out _);
 
             _logger.LogInformation("Appareil débloqué: MAC={Mac}", macAddress);
+
+            // Logger l'événement de sécurité
+            if (_securityLogService != null)
+            {
+                await _securityLogService.LogFirewallRuleRemovedAsync(ruleName, macAddress, ipAddress);
+            }
+
             return FirewallResult.Ok($"Appareil {macAddress} débloqué avec succès");
         }
         finally
@@ -143,6 +160,15 @@ public class WindowsFirewallEngine : IFirewallEngine
         }
 
         _logger.LogInformation("Restauration des règles firewall: {Count} règles appliquées", restoredCount);
+        
+        // Logger l'événement système
+        if (_securityLogService != null && restoredCount > 0)
+        {
+            await _securityLogService.LogSystemEventAsync(
+                $"Restauration de {restoredCount} règles de blocage au démarrage",
+                LogSeverity.Info);
+        }
+
         return restoredCount;
     }
 
@@ -171,8 +197,19 @@ public class WindowsFirewallEngine : IFirewallEngine
                 }
             }
 
+            var ruleCount = _activeRules.Count;
             _activeRules.Clear();
+            
             _logger.LogInformation("Toutes les règles WebGuard ont été supprimées");
+
+            // Logger l'événement système
+            if (_securityLogService != null && ruleCount > 0)
+            {
+                await _securityLogService.LogSystemEventAsync(
+                    $"Suppression de {ruleCount} règles de blocage",
+                    LogSeverity.Warning);
+            }
+
             return FirewallResult.Ok("Toutes les règles ont été supprimées");
         }
         finally

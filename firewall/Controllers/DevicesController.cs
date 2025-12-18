@@ -18,6 +18,7 @@ public class DevicesController : ControllerBase
     private readonly IDeviceDiscoveryService _discoveryService;
     private readonly INetworkBlockingService _blockingService;
     private readonly IDeviceHubNotifier _hubNotifier;
+    private readonly ISecurityLogService _securityLogService;
     private readonly ILogger<DevicesController> _logger;
 
     public DevicesController(
@@ -25,12 +26,14 @@ public class DevicesController : ControllerBase
         IDeviceDiscoveryService discoveryService,
         INetworkBlockingService blockingService,
         IDeviceHubNotifier hubNotifier,
+        ISecurityLogService securityLogService,
         ILogger<DevicesController> logger)
     {
         _deviceRepository = deviceRepository;
         _discoveryService = discoveryService;
         _blockingService = blockingService;
         _hubNotifier = hubNotifier;
+        _securityLogService = securityLogService;
         _logger = logger;
     }
 
@@ -131,6 +134,14 @@ public class DevicesController : ControllerBase
         // Recharger l'appareil pour avoir les valeurs mises à jour
         device = await _deviceRepository.GetByIdAsync(id);
 
+        // Logger l'événement de sécurité
+        var deviceName = device?.Description ?? device?.Hostname ?? device?.Vendor;
+        await _securityLogService.LogDeviceBlockedAsync(
+            device?.MacAddress ?? "Unknown",
+            device?.IpAddress,
+            deviceName,
+            reason);
+
         // Notifier les clients SignalR
         if (device != null)
             await _hubNotifier.NotifyDeviceBlocked(device);
@@ -169,13 +180,19 @@ public class DevicesController : ControllerBase
         await _deviceRepository.SetBlockedAsync(id, false);
         
         // Recharger l'appareil
+        var macAddress = device.MacAddress;
+        var ipAddress = device.IpAddress;
+        var deviceName = device.Description ?? device.Hostname ?? device.Vendor;
         device = await _deviceRepository.GetByIdAsync(id);
+
+        // Logger l'événement de sécurité
+        await _securityLogService.LogDeviceUnblockedAsync(macAddress, ipAddress, deviceName);
 
         // Notifier les clients SignalR
         if (device != null)
             await _hubNotifier.NotifyDeviceUnblocked(device);
 
-        _logger.LogInformation("Appareil débloqué: {Mac} ({Ip})", device?.MacAddress, device?.IpAddress);
+        _logger.LogInformation("Appareil débloqué: {Mac} ({Ip})", macAddress, ipAddress);
 
         return Ok(new { 
             message = "Appareil débloqué avec succès", 
