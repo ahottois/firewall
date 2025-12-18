@@ -126,27 +126,52 @@ public class PiholeService : IPiholeService
         }
 
         // Check if installed
-        if (File.Exists("/usr/local/bin/pihole"))
+        bool isInstalled = File.Exists("/usr/local/bin/pihole");
+        bool isRunning = false;
+
+        // Check if running by looking for process
+        try
+        {
+            // Check for pihole-FTL process
+            var processOutput = await RunCommandAsync("pgrep", "-x pihole-FTL");
+            if (!string.IsNullOrWhiteSpace(processOutput))
+            {
+                isRunning = true;
+                // If running, we consider it installed even if the binary check failed (unlikely but possible)
+                isInstalled = true;
+            }
+            else
+            {
+                // Fallback to status command if pgrep failed or returned nothing
+                if (isInstalled)
+                {
+                    var output = await RunCommandAsync("pihole", "status");
+                    isRunning = output.Contains("DNS service is active") || output.Contains("listening");
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors, assume not running
+        }
+
+        if (isInstalled)
         {
             status.IsInstalled = true;
+            status.IsRunning = isRunning;
             
-            // Check if running
             try
             {
-                var output = await RunCommandAsync("pihole", "status");
-                status.IsRunning = output.Contains("DNS service is active") || output.Contains("listening");
-                
                 // Get version
                 var versionOutput = await RunCommandAsync("pihole", "-v");
                 status.Version = versionOutput.Split('\n').FirstOrDefault() ?? "Unknown";
                 
                 // Determine Web URL (assume default port 80 or check lighttpd)
-                // We can't easily know the external IP here without context, but we can guess
                 status.WebUrl = "/admin/"; 
             }
             catch
             {
-                status.IsRunning = false;
+                status.Version = "Unknown";
             }
         }
 

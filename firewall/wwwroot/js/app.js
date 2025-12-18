@@ -1236,10 +1236,20 @@ class FirewallApp {
             // Check if stats are available
             if (!stats || stats.status === 'unavailable') {
                 document.getElementById('pihole-stats-container').style.display = 'none';
+                
+                // Even if stats are unavailable, check status to show buttons
+                try {
+                    const status = await this.api('pihole/status');
+                    this.updatePiholeButtons(status);
+                } catch (e) { console.error(e); }
+                
                 return;
             }
 
             document.getElementById('pihole-stats-container').style.display = 'block';
+            
+            // Update buttons based on successful stats load (implies running)
+            this.updatePiholeButtons({ isInstalled: true, isRunning: true });
             
             document.getElementById('ph-queries').textContent = this.formatNumber(stats.dns_queries_today);
             document.getElementById('ph-blocked').textContent = this.formatNumber(stats.ads_blocked_today);
@@ -1272,6 +1282,43 @@ class FirewallApp {
     async installPihole() {
         // Similar to existing install logic, adapted for Pi-hole
         // ...leaving out existing code for brevity...
+    }
+
+    updatePiholeButtons(status) {
+        const btnInstall = document.getElementById('btn-install-pihole');
+        const btnOpen = document.getElementById('btn-open-pihole');
+        const btnReset = document.getElementById('btn-reset-pihole-pwd');
+        const btnUninstall = document.getElementById('btn-uninstall-pihole');
+        const statusText = document.getElementById('pihole-status-text');
+        const statusCard = document.getElementById('pihole-status-card');
+        const versionText = document.getElementById('pihole-version');
+
+        if (status.version) versionText.textContent = status.version;
+
+        if (status.isInstalled) {
+            btnInstall.style.display = 'none';
+            btnUninstall.style.display = 'inline-block';
+            
+            if (status.isRunning) {
+                statusText.textContent = 'Actif';
+                statusCard.style.color = 'var(--success)';
+                btnOpen.style.display = 'inline-block';
+                btnReset.style.display = 'inline-block';
+                if (status.webUrl) btnOpen.href = status.webUrl;
+            } else {
+                statusText.textContent = 'Arrêté';
+                statusCard.style.color = 'var(--danger)';
+                btnOpen.style.display = 'none';
+                btnReset.style.display = 'none'; // Can't change pwd if not running usually
+            }
+        } else {
+            statusText.textContent = 'Non installé';
+            statusCard.style.color = 'var(--text-secondary)';
+            btnInstall.style.display = 'inline-block';
+            btnUninstall.style.display = 'none';
+            btnOpen.style.display = 'none';
+            btnReset.style.display = 'none';
+        }
     }
 
     // Settings
