@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NetworkFirewall.Data;
 using NetworkFirewall.Models;
+using System.Text;
 
 namespace NetworkFirewall.Services;
 
@@ -8,79 +9,47 @@ public interface IAgentService
 {
     Task ProcessHeartbeatAsync(AgentHeartbeat heartbeat);
     Task<IEnumerable<Agent>> GetAllAgentsAsync();
-    Task<Agent?> GetAgentByIdAsync(int id);
     Task DeleteAgentAsync(int id);
     string GenerateLinuxInstallScript(string serverUrl);
     string GenerateWindowsInstallScript(string serverUrl);
 }
 
-public class AgentService(IServiceScopeFactory scopeFactory, ILogger<AgentService> logger) : IAgentService
+public class AgentService(FirewallDbContext context, ILogger<AgentService> logger) : IAgentService
 {
     public async Task ProcessHeartbeatAsync(AgentHeartbeat heartbeat)
     {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
-
-        var agent = await context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname);
-        
+        var agent = await context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname && a.MacAddress == heartbeat.MacAddress);
         if (agent == null)
         {
             agent = new Agent
             {
                 Hostname = heartbeat.Hostname,
+                MacAddress = heartbeat.MacAddress,
+                IpAddress = heartbeat.IpAddress,
+                OS = heartbeat.OS,
                 RegisteredAt = DateTime.UtcNow
             };
             context.Agents.Add(agent);
         }
 
-        agent.OS = heartbeat.OS;
-        agent.IpAddress = heartbeat.IpAddress;
+        agent.LastSeen = DateTime.UtcNow;
+        agent.Status = AgentStatus.Online;
         agent.CpuUsage = heartbeat.CpuUsage;
         agent.MemoryUsage = heartbeat.MemoryUsage;
         agent.DiskUsage = heartbeat.DiskUsage;
         agent.Version = heartbeat.Version;
-        agent.LastSeen = DateTime.UtcNow;
-        agent.Status = AgentStatus.Online;
+        agent.DetailsJson = heartbeat.DetailsJson;
         
-        if (!string.IsNullOrEmpty(heartbeat.DetailsJson))
-        {
-            agent.DetailsJson = heartbeat.DetailsJson;
-        }
-
         await context.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<Agent>> GetAllAgentsAsync()
     {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
-        
-        var agents = await context.Agents.ToListAsync();
-        
-        // Update status for offline agents
-        var now = DateTime.UtcNow;
-        foreach (var agent in agents)
-        {
-            if ((now - agent.LastSeen).TotalMinutes > 5)
-            {
-                agent.Status = AgentStatus.Offline;
-            }
-        }
-        
-        return agents;
-    }
-
-    public async Task<Agent?> GetAgentByIdAsync(int id)
-    {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
-        return await context.Agents.FindAsync(id);
+        return await context.Agents.ToListAsync();
     }
 
     public async Task DeleteAgentAsync(int id)
     {
-        using var scope = scopeFactory.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<FirewallDbContext>();
         var agent = await context.Agents.FindAsync(id);
         if (agent != null)
         {
@@ -91,207 +60,138 @@ public class AgentService(IServiceScopeFactory scopeFactory, ILogger<AgentServic
 
     public string GenerateLinuxInstallScript(string serverUrl)
     {
-        return $@"#!/bin/bash
-# NetGuard Agent Installer for Linux
-
-SERVER_URL=""{serverUrl}""
-INSTALL_DIR=""/opt/netguard-agent""
-SERVICE_NAME=""netguard-agent""
-
-echo ""Installing NetGuard Agent...""
-
-# Create directory
-mkdir -p ""$INSTALL_DIR""
-
-# Create agent script
-cat > ""$INSTALL_DIR/agent.sh"" << 'EOF'
-#!/bin/bash
-SERVER_URL=""__SERVER_URL__""
-HOSTNAME=$(hostname)
-OS=""Linux $(uname -r)""
-
-get_details() {{
-    # Hardware Info
-    CPU_MODEL=$(grep ""model name"" /proc/cpuinfo | head -1 | cut -d: -f2 | xargs)
-    CPU_CORES=$(nproc)
-    TOTAL_MEM=$(free -m | grep Mem | awk '{{print $2}}')
-    
-    # Network Info
-    INTERFACES=$(ip -o link show | awk -F': ' '{{print $2}}' | paste -sd "","" -)
-    MAC_ADDRS=$(ip -o link show | awk '{{print $(NF-2)}}' | paste -sd "","" -)
-    
-    # Disk Info
-    DISKS=$(lsblk -d -o NAME,SIZE,MODEL | grep -v NAME | awk '{{print $1 "" ("" $2 "") "" $3}}' | paste -sd "","" -)
-    
-    # Uptime
-    UPTIME=$(uptime -p)
-
-    # Construct JSON manually
-    cat <<JSON
-{{
-    ""hardware"": {{
-        ""cpuModel"": ""$CPU_MODEL"",
-        ""cpuCores"": $CPU_CORES,
-        ""totalMemoryMb"": $TOTAL_MEM,
-        ""disks"": ""$DISKS""
-    }},
-    ""network"": {{
-        ""interfaces"": ""$INTERFACES"",
-        ""macAddresses"": ""$MAC_ADDRS""
-    }},
-    ""system"": {{
-        ""uptime"": ""$UPTIME"",
-        ""kernel"": ""$(uname -r)"",
-        ""manufacturer"": ""$HOSTNAME"",
-        ""model"": ""$OS""
-    }}
-}}
-JSON
-}}
-
-while true; do
-    # Gather stats
-    CPU=$(top -bn1 | grep ""Cpu(s)"" | sed ""s/.*, *\([0-9.]*\)%* id.*/\1/"" | awk '{{print 100 - $1}}')
-    MEM=$(free | grep Mem | awk '{{print $3/$2 * 100.0}}')
-    DISK=$(df -h / | tail -1 | awk '{{print $5}}' | sed 's/%//')
-    IP=$(hostname -I | awk '{{print $1}}')
-    
-    DETAILS=$(get_details)
-
-    # Send heartbeat
-    # Note: We use jq to safely construct the final JSON if available, otherwise simple string concat
-    # For simplicity/portability here, we assume no jq and do careful string construction
-    
-    # Escape quotes in details for JSON embedding
-    DETAILS_ESCAPED=$(echo ""$DETAILS"" | tr -d '\n' | sed 's/""/\\""/g')
-
-    JSON_PAYLOAD=""{{\""hostname\"":\""$HOSTNAME\"",\""os\"":\""$OS\"",\""ipAddress\"":\""$IP\"",\""cpuUsage\"":$CPU,\""memoryUsage\"":$MEM,\""diskUsage\"":$DISK,\""version\"":\""1.1.0\"",\""detailsJson\"":\""$DETAILS_ESCAPED\""}}""
-
-    curl -s -X POST ""$SERVER_URL/api/agents/heartbeat"" \
-        -H ""Content-Type: application/json"" \
-        -d ""$JSON_PAYLOAD""
-
-    sleep 60
-done
-EOF
-
-# Replace placeholder
-sed -i ""s|__SERVER_URL__|$SERVER_URL|g"" ""$INSTALL_DIR/agent.sh""
-chmod +x ""$INSTALL_DIR/agent.sh""
-
-# Create systemd service
-cat > ""/etc/systemd/system/$SERVICE_NAME.service"" << EOF
-[Unit]
-Description=NetGuard Agent
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=$INSTALL_DIR/agent.sh
-Restart=always
-User=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Start service
-systemctl daemon-reload
-systemctl enable $SERVICE_NAME
-systemctl start $SERVICE_NAME
-
-echo ""NetGuard Agent installed and started!""
-";
+        var sb = new StringBuilder();
+        sb.AppendLine("#!/bin/bash");
+        sb.AppendLine($"SERVER_URL=\"{serverUrl}\"");
+        sb.AppendLine("AGENT_DIR=\"/opt/netguard-agent\"");
+        sb.AppendLine("SERVICE_FILE=\"/etc/systemd/system/netguard-agent.service\"");
+        sb.AppendLine();
+        sb.AppendLine("if [ \"$(id -u)\" -ne 0 ]; then");
+        sb.AppendLine("    echo \"Please run as root\"");
+        sb.AppendLine("    exit 1");
+        sb.AppendLine("fi");
+        sb.AppendLine();
+        sb.AppendLine("echo \"Installing NetGuard Agent...\"");
+        sb.AppendLine("mkdir -p \"$AGENT_DIR\"");
+        sb.AppendLine();
+        sb.AppendLine("# Install dependencies");
+        sb.AppendLine("if command -v apt-get &> /dev/null; then");
+        sb.AppendLine("    apt-get update && apt-get install -y curl jq");
+        sb.AppendLine("elif command -v yum &> /dev/null; then");
+        sb.AppendLine("    yum install -y curl jq");
+        sb.AppendLine("fi");
+        sb.AppendLine();
+        sb.AppendLine("cat > \"$AGENT_DIR/agent.sh\" << 'AGENTSCRIPT'");
+        sb.AppendLine("#!/bin/bash");
+        sb.AppendLine($"SERVER_URL=\"{serverUrl}\"");
+        sb.AppendLine("while true; do");
+        sb.AppendLine("    # Gather metrics");
+        sb.AppendLine("    CPU=$(top -bn1 | grep \"Cpu(s)\" | sed \"s/.*, *\\([0-9.]*\\)%* id.*/\\1/\" | awk '{print 100 - $1}')");
+        sb.AppendLine("    MEM=$(free -m | awk 'NR==2{printf \"%.2f\", $3*100/$2}')");
+        sb.AppendLine("    DISK=$(df -h / | awk 'NR==2{print $5}' | sed 's/%//')");
+        sb.AppendLine("    IP=$(hostname -I | awk '{print $1}')");
+        sb.AppendLine("    MAC=$(cat /sys/class/net/$(ip route show default | awk '{print $5}')/address 2>/dev/null || echo \"unknown\")");
+        sb.AppendLine("    HOSTNAME=$(hostname)");
+        sb.AppendLine("    OS=$(grep -oP '(?<=^PRETTY_NAME=).+' /etc/os-release | tr -d '\"')");
+        sb.AppendLine();
+        sb.AppendLine("    # Send heartbeat");
+        sb.AppendLine("    curl -s -X POST \"${SERVER_URL}/api/agents/heartbeat\" \\");
+        sb.AppendLine("        -H \"Content-Type: application/json\" \\");
+        sb.AppendLine("        -d \"{");
+        sb.AppendLine("            \\\"hostname\\\": \\\"$HOSTNAME\\\",");
+        sb.AppendLine("            \\\"macAddress\\\": \\\"$MAC\\\",");
+        sb.AppendLine("            \\\"ipAddress\\\": \\\"$IP\\\",");
+        sb.AppendLine("            \\\"os\\\": \\\"$OS\\\",");
+        sb.AppendLine("            \\\"cpuUsage\\\": $CPU,");
+        sb.AppendLine("            \\\"memoryUsage\\\": $MEM,");
+        sb.AppendLine("            \\\"diskUsage\\\": $DISK");
+        sb.AppendLine("        }\"");
+        sb.AppendLine();
+        sb.AppendLine("    sleep 60");
+        sb.AppendLine("done");
+        sb.AppendLine("AGENTSCRIPT");
+        sb.AppendLine();
+        sb.AppendLine("chmod +x \"$AGENT_DIR/agent.sh\"");
+        sb.AppendLine();
+        sb.AppendLine("echo \"Creating systemd service...\"");
+        sb.AppendLine("cat > \"$SERVICE_FILE\" << EOF");
+        sb.AppendLine("[Unit]");
+        sb.AppendLine("Description=NetGuard Agent");
+        sb.AppendLine("After=network.target");
+        sb.AppendLine();
+        sb.AppendLine("[Service]");
+        sb.AppendLine("ExecStart=$AGENT_DIR/agent.sh");
+        sb.AppendLine("Restart=always");
+        sb.AppendLine("User=root");
+        sb.AppendLine();
+        sb.AppendLine("[Install]");
+        sb.AppendLine("WantedBy=multi-user.target");
+        sb.AppendLine("EOF");
+        sb.AppendLine();
+        sb.AppendLine("systemctl daemon-reload");
+        sb.AppendLine("systemctl enable netguard-agent");
+        sb.AppendLine("systemctl restart netguard-agent");
+        sb.AppendLine();
+        sb.AppendLine("echo \"NetGuard Agent installed and started!\"");
+        
+        return sb.ToString();
     }
 
     public string GenerateWindowsInstallScript(string serverUrl)
     {
-        return $@"
-# NetGuard Agent Installer for Windows
-$ServerUrl = ""{serverUrl}""
-$InstallDir = ""C:\Program Files\NetGuardAgent""
-$TaskName = ""NetGuardAgent""
-
-Write-Host ""Installing NetGuard Agent...""
-
-# Create directory
-if (!(Test-Path -Path $InstallDir)) {{
-    New-Item -ItemType Directory -Path $InstallDir | Out-Null
-}}
-
-# Create agent script
-$AgentScript = @""
-`$ServerUrl = ""$ServerUrl""
-`$Hostname = $env:COMPUTERNAME
-`$OS = (Get-CimInstance Win32_OperatingSystem).Caption
-
-while (`$true) {{
-    try {{
-        # Gather stats
-        `$Cpu = (Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
-        `$Mem = (Get-WmiObject Win32_OperatingSystem | ForEach-Object {{ (`$_.TotalVisibleMemorySize - `$_.FreePhysicalMemory) / `$_.TotalVisibleMemorySize * 100 }})
-        `$Disk = (Get-WmiObject Win32_LogicalDisk -Filter ""DeviceID='C:'"" | ForEach-Object {{ (`$_.Size - `$_.FreeSpace) / `$_.Size * 100 }})
-        `$Ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {{ `$_.InterfaceAlias -notlike '*Loopback*' -and `$_.AddressState -eq 'Preferred' }} | Select-Object -First 1).IPAddress
-
-        # Gather Detailed Info
-        `$CpuInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
-        `$MemInfo = Get-CimInstance Win32_ComputerSystem
-        `$DiskInfo = Get-PhysicalDisk | Select-Object FriendlyName, Size, MediaType
-        `$NetInfo = Get-NetAdapter | Where-Object Status -eq 'Up'
-        `$OsInfo = Get-CimInstance Win32_OperatingSystem
-
-        `$Details = @{{
-            hardware = @{{
-                cpuModel = `$CpuInfo.Name
-                cpuCores = `$CpuInfo.NumberOfCores
-                totalMemoryMb = [math]::Round(`$MemInfo.TotalPhysicalMemory / 1MB)
-                disks = (`$DiskInfo | ForEach-Object {{ ""$(`$_.FriendlyName) ($([math]::Round(`$_.Size / 1GB)) GB)"" }}) -join "", ""
-            }}
-            network = @{{
-                interfaces = (`$NetInfo.Name) -join "", ""
-                macAddresses = (`$NetInfo.MacAddress) -join "", ""
-            }}
-            system = @{{
-                uptime = (Get-Date) - `$OsInfo.LastBootUpTime
-                kernel = `$OsInfo.Version
-                manufacturer = `$MemInfo.Manufacturer
-                model = `$MemInfo.Model
-            }}
-        }}
-
-        `$DetailsJson = `$Details | ConvertTo-Json -Compress
-
-        `$Body = @{{
-            hostname = `$Hostname
-            os = `$OS
-            ipAddress = `$Ip
-            cpuUsage = `$Cpu
-            memoryUsage = `$Mem
-            diskUsage = `$Disk
-            version = ""1.1.0""
-            detailsJson = `$DetailsJson
-        }}
-
-        Invoke-RestMethod -Uri ""`$ServerUrl/api/agents/heartbeat"" -Method Post -Body (`$Body | ConvertTo-Json) -ContentType ""application/json""
-    }} catch {{
-        Write-Host ""Error sending heartbeat: `$(`$_.Exception.Message)""
-    }}
-    Start-Sleep -Seconds 60
-}}
-""@
-
-$AgentScript | Out-File -FilePath ""$InstallDir\agent.ps1"" -Encoding ASCII
-
-# Create Scheduled Task to run at startup as SYSTEM
-$Action = New-ScheduledTaskAction -Execute ""powershell.exe"" -Argument ""-ExecutionPolicy Bypass -WindowStyle Hidden -File `""$InstallDir\agent.ps1`""""
-$Trigger = New-ScheduledTaskTrigger -AtStartup
-$Principal = New-ScheduledTaskPrincipal -UserId ""SYSTEM"" -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Force | Out-Null
-
-# Start the task now
-Start-ScheduledTask -TaskName $TaskName
-
-Write-Host ""NetGuard Agent installed and started!""
-";
+        var sb = new StringBuilder();
+        sb.AppendLine($"$ServerUrl = \"{serverUrl}\"");
+        sb.AppendLine("$AgentDir = \"C:\\Program Files\\NetGuardAgent\"");
+        sb.AppendLine("$ScriptPath = \"$AgentDir\\agent.ps1\"");
+        sb.AppendLine();
+        sb.AppendLine("if (-not (Test-Path $AgentDir)) {");
+        sb.AppendLine("    New-Item -ItemType Directory -Path $AgentDir -Force");
+        sb.AppendLine("}");
+        sb.AppendLine();
+        sb.AppendLine("$ScriptContent = @'");
+        sb.AppendLine($"$ServerUrl = \"{serverUrl}\"");
+        sb.AppendLine();
+        sb.AppendLine("while ($true) {");
+        sb.AppendLine("    try {");
+        sb.AppendLine("        $os = (Get-CimInstance Win32_OperatingSystem).Caption");
+        sb.AppendLine("        $cpu = (Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average");
+        sb.AppendLine("        $mem = (Get-WmiObject Win32_OperatingSystem)");
+        sb.AppendLine("        $memUsage = (($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / $mem.TotalVisibleMemorySize) * 100");
+        sb.AppendLine("        $disk = (Get-WmiObject Win32_LogicalDisk -Filter \"DeviceID='C:'\")");
+        sb.AppendLine("        $diskUsage = (($disk.Size - $disk.FreeSpace) / $disk.Size) * 100");
+        sb.AppendLine("        $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*Loopback*' -and $_.InterfaceAlias -notlike '*vEthernet*' } | Select-Object -First 1).IPAddress");
+        sb.AppendLine("        $mac = (Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1).MacAddress");
+        sb.AppendLine("        $hostname = $env:COMPUTERNAME");
+        sb.AppendLine();
+        sb.AppendLine("        $body = @{");
+        sb.AppendLine("            hostname = $hostname");
+        sb.AppendLine("            macAddress = $mac");
+        sb.AppendLine("            ipAddress = $ip");
+        sb.AppendLine("            os = $os");
+        sb.AppendLine("            cpuUsage = [math]::Round($cpu, 2)");
+        sb.AppendLine("            memoryUsage = [math]::Round($memUsage, 2)");
+        sb.AppendLine("            diskUsage = [math]::Round($diskUsage, 2)");
+        sb.AppendLine("        } | ConvertTo-Json");
+        sb.AppendLine();
+        sb.AppendLine("        Invoke-RestMethod -Uri \"$ServerUrl/api/agents/heartbeat\" -Method Post -Body $body -ContentType \"application/json\"");
+        sb.AppendLine("    } catch {");
+        sb.AppendLine("        Write-Error \"Failed to send heartbeat: $_\"");
+        sb.AppendLine("    }");
+        sb.AppendLine("    Start-Sleep -Seconds 60");
+        sb.AppendLine("}");
+        sb.AppendLine("'@");
+        sb.AppendLine();
+        sb.AppendLine("Set-Content -Path $ScriptPath -Value $ScriptContent");
+        sb.AppendLine();
+        sb.AppendLine("# Create Scheduled Task");
+        sb.AppendLine("$Action = New-ScheduledTaskAction -Execute 'Powershell.exe' -Argument \"-ExecutionPolicy Bypass -WindowStyle Hidden -File `\"$ScriptPath`\"\"");
+        sb.AppendLine("$Trigger = New-ScheduledTaskTrigger -AtStartup");
+        sb.AppendLine("$Principal = New-ScheduledTaskPrincipal -UserId \"SYSTEM\" -LogonType ServiceAccount");
+        sb.AppendLine("Register-ScheduledTask -Action $Action -Trigger $Trigger -Principal $Principal -TaskName \"NetGuardAgent\" -Description \"NetGuard Monitoring Agent\" -Force");
+        sb.AppendLine();
+        sb.AppendLine("Start-ScheduledTask -TaskName \"NetGuardAgent\"");
+        sb.AppendLine("Write-Host \"NetGuard Agent installed and started!\"");
+        
+        return sb.ToString();
     }
 }

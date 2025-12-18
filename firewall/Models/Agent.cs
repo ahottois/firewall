@@ -14,6 +14,9 @@ public class Agent
     [MaxLength(50)]
     public string OS { get; set; } = string.Empty;
 
+    [MaxLength(17)]
+    public string MacAddress { get; set; } = string.Empty;
+
     [MaxLength(45)]
     public string IpAddress { get; set; } = string.Empty;
 
@@ -44,6 +47,7 @@ public enum AgentStatus
 public class AgentHeartbeat
 {
     public string Hostname { get; set; } = string.Empty;
+    public string MacAddress { get; set; } = string.Empty;
     public string OS { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
     public double CpuUsage { get; set; }
