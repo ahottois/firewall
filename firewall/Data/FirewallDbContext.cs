@@ -16,6 +16,13 @@ public class FirewallDbContext : DbContext
     public DbSet<ScanSession> ScanSessions { get; set; }
     public DbSet<Agent> Agents { get; set; }
     public DbSet<SecurityLog> SecurityLogs { get; set; }
+    
+    // Parental Control
+    public DbSet<ChildProfile> ChildProfiles { get; set; }
+    public DbSet<ProfileDevice> ProfileDevices { get; set; }
+    public DbSet<TimeSchedule> TimeSchedules { get; set; }
+    public DbSet<WebFilterRule> WebFilterRules { get; set; }
+    public DbSet<UsageLog> UsageLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +125,70 @@ public class FirewallDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.DeviceId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Parental Control Configuration
+        modelBuilder.Entity<ChildProfile>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Name);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AvatarUrl).HasMaxLength(500);
+            entity.Property(e => e.Color).HasMaxLength(7);
+            entity.Property(e => e.BlockedMessage).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ProfileDevice>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.MacAddress);
+            entity.HasIndex(e => new { e.ProfileId, e.MacAddress }).IsUnique();
+            entity.Property(e => e.MacAddress).IsRequired().HasMaxLength(17);
+            entity.Property(e => e.DeviceName).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(50);
+            
+            entity.HasOne(e => e.Profile)
+                  .WithMany(p => p.Devices)
+                  .HasForeignKey(e => e.ProfileId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TimeSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ProfileId, e.DayOfWeek });
+            entity.Property(e => e.StartTime).IsRequired().HasMaxLength(5);
+            entity.Property(e => e.EndTime).IsRequired().HasMaxLength(5);
+            
+            entity.HasOne(e => e.Profile)
+                  .WithMany(p => p.Schedules)
+                  .HasForeignKey(e => e.ProfileId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WebFilterRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ProfileId);
+            entity.Property(e => e.Value).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            
+            entity.HasOne(e => e.Profile)
+                  .WithMany(p => p.WebFilters)
+                  .HasForeignKey(e => e.ProfileId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UsageLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ProfileId, e.Date });
+            entity.Property(e => e.LastActiveDevice).HasMaxLength(17);
+            
+            entity.HasOne(e => e.Profile)
+                  .WithMany(p => p.UsageLogs)
+                  .HasForeignKey(e => e.ProfileId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

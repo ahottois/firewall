@@ -1106,7 +1106,7 @@ body {
 
 .btn-warning {
     background: var(--warning);
-    color: var(--bg-primary);
+    color: var,--bg-primary);
 }
 
 .btn-warning:hover {
@@ -1499,16 +1499,16 @@ select.form-control {
 }
 
 .table-container::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
+    background: #161b22;
 }
 
 .table-container::-webkit-scrollbar-thumb {
-    background: var(--border-color);
+    background: #30363d;
     border-radius: 4px;
 }
 
 .table-container::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: #484f58;
 }
 
 /* Dashboard Specifics */
@@ -1793,7 +1793,7 @@ select.form-control {
 /* Blocked status badge */
 .status-badge.blocked {
     background: rgba(255, 71, 87, 0.3);
-    color: var(--danger);
+    color: var,--danger);
     font-weight: bold;
 }
 
@@ -2143,4 +2143,466 @@ input:checked + .slider:before {
 .form-group input[type="password"]:focus {
     outline: none;
     border-color: var(--accent-primary);
+}
+
+/* ==========================================
+   PARENTAL CONTROL STYLES
+   ========================================== */
+
+/* Grille des profils */
+.parental-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+/* Carte de profil enfant */
+.profile-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.profile-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.profile-status-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.profile-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid var(--profile-color, var(--accent-primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.profile-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-avatar-emoji {
+    font-size: 2rem;
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.profile-status {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.btn-pause {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.btn-pause:hover {
+    transform: scale(1.1);
+}
+
+/* Barre de temps */
+.profile-time {
+    margin-bottom: 15px;
+}
+
+.time-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.time-bar {
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.time-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.time-value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-top: 5px;
+    color: var(--text-primary);
+}
+
+/* Info appareils */
+.profile-devices {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+}
+
+.profile-block-reason,
+.profile-next-time {
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-block-reason {
+    background: rgba(255, 71, 87, 0.1);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+
+.profile-next-time {
+    background: rgba(255, 170, 0, 0.1);
+    color: var(--warning);
+}
+
+/* Actions du profil */
+.profile-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Modal profil */
+.profile-section {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.profile-section h4 {
+    font-size: 1rem;
+    margin-bottom: 15px;
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Liste des appareils avec checkbox */
+.devices-checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.device-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.device-checkbox:hover {
+    background: rgba(0, 217, 255, 0.1);
+}
+
+.device-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+}
+
+.device-checkbox .device-info {
+    flex: 1;
+}
+
+.device-checkbox .device-name {
+    display: block;
+    font-weight: 500;
+}
+
+.device-checkbox .device-details {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.device-checkbox .device-status {
+    font-size: 0.6rem;
+}
+
+.device-checkbox .device-status.online {
+    color: var(--success);
+}
+
+.device-checkbox .device-status.offline {
+    color: var(--text-secondary);
+}
+
+/* Grille horaire */
+.schedule-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.schedule-header {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    margin-bottom: 5px;
+}
+
+.schedule-header .hour-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    width: 30px;
+    text-align: center;
+}
+
+.schedule-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.day-label {
+    width: 40px;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.schedule-times {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.schedule-times input[type="time"] {
+    padding: 6px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.schedule-times input[type="time"]:disabled {
+    opacity: 0.5;
+}
+
+.schedule-enabled {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    background: var(--bg-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.schedule-enabled input {
+    display: none;
+}
+
+.schedule-enabled i {
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.schedule-enabled input:checked + i {
+    color: var(--success);
+}
+
+/* Catégories de filtrage */
+.filter-categories-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.filter-category {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.filter-category:hover {
+    border-color: var(--cat-color, var(--accent-primary));
+}
+
+.filter-category input {
+    display: none;
+}
+
+.filter-category input:checked ~ .category-icon {
+    background: var(--cat-color, var(--accent-primary));
+    color: white;
+}
+
+.filter-category input:checked ~ .category-info .category-name {
+    color: var(--cat-color, var(--accent-primary));
+}
+
+.category-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.category-info {
+    flex: 1;
+}
+
+.category-name {
+    display: block;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.category-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* Graphique d'utilisation */
+.usage-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 150px;
+    padding: 10px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.usage-bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    height: 100%;
+    flex: 1;
+}
+
+.usage-bar {
+    width: 30px;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.5s ease;
+}
+
+.usage-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.usage-value {
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.usage-summary {
+    text-align: center;
+}
+
+.usage-stat {
+    background: var(--bg-secondary);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.usage-stat .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-primary);
+    display: block;
+}
+
+.usage-stat .stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Animations */
+@keyframes profilePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.4); }
+    50% { box-shadow: 0 0 20px 5px rgba(0, 217, 255, 0.2); }
+}
+
+.profile-card.updating {
+    animation: profilePulse 1s ease infinite;
 }

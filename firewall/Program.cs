@@ -26,6 +26,7 @@ builder.Services.AddScoped<IAlertRepository, AlertRepository>();
 builder.Services.AddScoped<ITrafficLogRepository, TrafficLogRepository>();
 builder.Services.AddScoped<ICameraRepository, CameraRepository>();
 builder.Services.AddScoped<ISecurityLogRepository, SecurityLogRepository>();
+builder.Services.AddScoped<IParentalControlRepository, ParentalControlRepository>();
 
 // HTTP Client Factory for camera detection and threat intelligence
 builder.Services.AddHttpClient();
@@ -42,6 +43,7 @@ builder.Services.AddSingleton<IOuiLookupService, OuiLookupService>();
 builder.Services.AddSingleton<WindowsFirewallEngine>();
 builder.Services.AddSingleton<LinuxIptablesEngine>();
 builder.Services.AddSingleton<FirewallEngineFactory>();
+builder.Services.AddSingleton<IFirewallEngine>(sp => sp.GetRequiredService<FirewallEngineFactory>().CreateEngine());
 builder.Services.AddSingleton<INetworkBlockingService, FirewallService>();
 
 // Security Log Service (logs de sécurité avec notifications temps réel)
@@ -88,6 +90,11 @@ builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
 builder.Services.AddSingleton<IDhcpService, DhcpService>();
 builder.Services.AddHostedService<DhcpService>(provider => (DhcpService)provider.GetRequiredService<IDhcpService>());
 
+// Parental Control Service (contrôle parental avec vérification périodique)
+builder.Services.AddSingleton<IParentalControlService, ParentalControlService>();
+builder.Services.AddHostedService<ParentalControlService>(provider => 
+    (ParentalControlService)provider.GetRequiredService<IParentalControlService>());
+
 // Device Heartbeat Service (background service pour vérifier statut des appareils)
 builder.Services.AddHostedService<DeviceHeartbeatService>();
 
@@ -126,6 +133,7 @@ app.MapNotificationEndpoints();
 // Map SignalR Hubs
 app.MapHub<DeviceHub>("/hubs/devices");
 app.MapHub<AlertHub>("/hubs/alerts");
+app.MapHub<ParentalControlHub>("/hubs/parental-control");
 
 // Initialize Database
 using (var scope = app.Services.CreateScope())
@@ -141,6 +149,8 @@ using (var scope = app.Services.CreateScope())
         // Vérifier aussi les nouveaux champs du modèle Device et SecurityLogs
         _ = db.Devices.Select(d => d.IsBlocked).FirstOrDefault();
         _ = db.SecurityLogs.FirstOrDefault();
+        // Vérifier les tables de contrôle parental
+        _ = db.ChildProfiles.FirstOrDefault();
     }
     catch (Exception ex)
     {
@@ -159,6 +169,25 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

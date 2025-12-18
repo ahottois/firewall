@@ -22,6 +22,10 @@
                 <span class="nav-icon"><i class="fas fa-th-large"></i></span>
                 <span>Dashboard</span>
             </li>
+            <li class="nav-item" data-page="parental">
+                <span class="nav-icon"><i class="fas fa-child"></i></span>
+                <span>Parental Control</span>
+            </li>
             <li class="nav-item" data-page="router">
                 <span class="nav-icon"><i class="fas fa-gavel"></i></span>
                 <span>Rules & Policies</span>
@@ -952,6 +956,35 @@
                 </div>
             </div>
         </section>
+
+        <!-- Parental Control Page -->
+        <section id="parental-page" class="page">
+            <!-- Header avec bouton ajouter -->
+            <div class="page-header-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h2 style="margin: 0; color: var(--text-primary);">
+                        <i class="fas fa-child" style="color: var(--accent-primary);"></i> Contrôle Parental
+                    </h2>
+                    <p style="color: var(--text-secondary); margin-top: 5px;">Gérez l'accès Internet de vos enfants</p>
+                </div>
+                <button class="btn btn-primary btn-lg" onclick="app.showCreateProfileModal()">
+                    <i class="fas fa-plus"></i> Créer un Profil
+                </button>
+            </div>
+
+            <!-- Grille des profils enfants -->
+            <div id="parental-profiles-grid" class="parental-grid">
+                <!-- Les cartes de profils seront injectées ici -->
+                <div class="empty-state" id="parental-empty">
+                    <i class="fas fa-child empty-state-icon" style="font-size: 4rem; color: var(--text-secondary);"></i>
+                    <h3 style="margin: 20px 0 10px;">Aucun profil enfant</h3>
+                    <p style="color: var(--text-secondary);">Créez un profil pour commencer à gérer l'accès Internet de vos enfants.</p>
+                    <button class="btn btn-primary" onclick="app.showCreateProfileModal()" style="margin-top: 20px;">
+                        <i class="fas fa-plus"></i> Créer le premier profil
+                    </button>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Toast Notifications -->
@@ -1141,8 +1174,83 @@
         </div>
     </div>
 
+    <!-- Parental Control Profile Modal -->
+    <div id="parental-profile-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="parental-modal-title"><i class="fas fa-child"></i> Nouveau Profil</h3>
+                <button class="modal-close" onclick="app.closeParentalModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="profile-id">
+                
+                <!-- Informations de base -->
+                <div class="profile-section">
+                    <h4><i class="fas fa-user"></i> Informations</h4>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>Nom de l'enfant</label>
+                            <input type="text" id="profile-name" class="form-control" placeholder="Ex: Thomas">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Couleur</label>
+                            <input type="color" id="profile-color" class="form-control" value="#00d9ff" style="height: 38px; padding: 2px;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Limite de temps quotidienne (minutes, 0 = illimité)</label>
+                            <input type="number" id="profile-time-limit" class="form-control" placeholder="120" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Avatar (URL ou emoji)</label>
+                            <input type="text" id="profile-avatar" class="form-control" placeholder="🧒 ou URL d'image">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appareils associés -->
+                <div class="profile-section">
+                    <h4><i class="fas fa-laptop"></i> Appareils</h4>
+                    <p class="text-muted">Sélectionnez les appareils appartenant à cet enfant</p>
+                    <div id="profile-devices-list" class="devices-checkbox-list">
+                        <p class="loading"><i class="fas fa-spinner fa-spin"></i> Chargement des appareils...</p>
+                    </div>
+                </div>
+
+                <!-- Planning horaire -->
+                <div class="profile-section">
+                    <h4><i class="fas fa-clock"></i> Planning Horaire</h4>
+                    <p class="text-muted">Définissez les heures où l'accès Internet est autorisé</p>
+                    <div id="schedule-grid" class="schedule-grid">
+                        <!-- Généré par JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Filtrage web -->
+                <div class="profile-section">
+                    <h4><i class="fas fa-filter"></i> Filtrage Web</h4>
+                    <p class="text-muted">Bloquez des catégories de sites ou des domaines spécifiques</p>
+                    <div id="filter-categories" class="filter-categories-grid">
+                        <!-- Généré par JavaScript -->
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Domaines personnalisés à bloquer (un par ligne)</label>
+                        <textarea id="profile-blocked-domains" class="form-control" rows="3" placeholder="facebook.com&#10;tiktok.com"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-sm" onclick="app.closeParentalModal()">Annuler</button>
+                <button class="btn btn-primary" onclick="app.saveProfile()">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/alert-hub.js?v=1"></script>
-    <script src="js/app.js?v=4"></script>
+    <script src="js/app.js?v=5"></script>
 </body>
 </html>
