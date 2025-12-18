@@ -738,6 +738,231 @@ class FirewallApp {
         }
     }
 
+    showAddMappingModal() {
+        document.getElementById('modal-title').textContent = 'Ajouter une regle de port mapping';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" id="mapping-name" class="form-control" placeholder="Ex: Serveur Web">
+            </div>
+            <div class="form-group">
+                <label>Port Local (Entrant)</label>
+                <input type="number" id="mapping-port" class="form-control" placeholder="80">
+            </div>
+            <div class="form-group">
+                <label>IP Cible</label>
+                <input type="text" id="mapping-target-ip" class="form-control" placeholder="192.168.1.x">
+            </div>
+            <div class="form-group">
+                <label>Port Cible</label>
+                <input type="number" id="mapping-target-port" class="form-control" placeholder="80">
+            </div>
+            <div class="form-group">
+                <label>Protocole</label>
+                <select id="mapping-protocol" class="form-control">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                </select>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.saveMapping()">Ajouter</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async saveMapping() {
+        const data = {
+            name: document.getElementById('mapping-name').value,
+            listenPort: parseInt(document.getElementById('mapping-port').value),
+            targetIp: document.getElementById('mapping-target-ip').value,
+            targetPort: parseInt(document.getElementById('mapping-target-port').value),
+            protocol: document.getElementById('mapping-protocol').value
+        };
+
+        try {
+            await this.api('router/mappings', { method: 'POST', body: JSON.stringify(data) });
+            this.closeModal();
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succes', message: 'Regle ajoutee', severity: 0 });
+        } catch (error) {
+            alert('Erreur: ' + error.message);
+        }
+    }
+
+    showAddDeviceModal() {
+        document.getElementById('device-id').value = '';
+        document.getElementById('device-mac').value = '';
+        document.getElementById('device-mac').readOnly = false;
+        document.getElementById('device-mac').style.background = '';
+        document.getElementById('device-ip').value = '';
+        document.getElementById('device-vendor').value = '';
+        document.getElementById('device-hostname').value = '';
+        document.getElementById('device-description').value = '';
+        document.getElementById('device-is-known').checked = true;
+        document.getElementById('device-is-trusted').checked = false;
+        
+        document.getElementById('device-first-seen').textContent = '-';
+        document.getElementById('device-last-seen').textContent = '-';
+        
+        // Override save button to create instead of update
+        const footer = document.querySelector('#device-details-modal .modal-footer');
+        const originalBtn = footer.querySelector('.btn-primary');
+        originalBtn.onclick = () => this.createDevice();
+        
+        document.getElementById('device-details-modal').classList.add('active');
+    }
+
+    async createDevice() {
+        const data = {
+            macAddress: document.getElementById('device-mac').value,
+            ipAddress: document.getElementById('device-ip').value,
+            vendor: document.getElementById('device-vendor').value,
+            description: document.getElementById('device-description').value,
+            isTrusted: document.getElementById('device-is-trusted').checked
+        };
+
+        try {
+            await this.api('devices', { method: 'POST', body: JSON.stringify(data) });
+            document.getElementById('device-details-modal').classList.remove('active');
+            this.showToast({ title: 'Succes', message: 'Appareil ajoute', severity: 0 });
+            this.loadDevices();
+            
+            // Restore save button
+            const footer = document.querySelector('#device-details-modal .modal-footer');
+            const originalBtn = footer.querySelector('.btn-primary');
+            originalBtn.onclick = () => this.saveDeviceDetails();
+        } catch (error) {
+            alert('Erreur: ' + error.message);
+        }
+    }
+
+    showInstallAgentModal() {
+        document.getElementById('install-agent-modal').classList.add('active');
+        document.getElementById('install-script-container').style.display = 'none';
+    }
+
+    async getInstallScript(os) {
+        try {
+            const result = await this.api(`agents/install-script?os=${os}`);
+            document.getElementById('install-command').textContent = result.command;
+            document.getElementById('install-script-container').style.display = 'block';
+        } catch (error) {
+            alert('Erreur: ' + error.message);
+        }
+    }
+
+    async copyInstallCommand() {
+        const text = document.getElementById('install-command').textContent;
+        await this.copyToClipboard(text);
+    }
+
+    clearScanLogs() {
+        document.getElementById('scan-logs').innerHTML = '';
+    }
+
+    async loadScanLogs() {
+        try {
+            const logs = await this.api('cameras/scan/logs');
+            const container = document.getElementById('scan-logs');
+            
+            if (logs && logs.length > 0) {
+                container.innerHTML = logs.map(log => `
+                    <div class="scan-log-entry ${log.level.toLowerCase()}">
+                        <span class="scan-log-time">${new Date(log.timestamp).toLocaleTimeString()}</span>
+                        <span class="scan-log-message">${this.escapeHtml(log.message)}</span>
+                    </div>
+                `).join('');
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Stop if scan is finished (you might need a flag from backend)
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    showPiholePasswordModal() {
+        document.getElementById('modal-title').textContent = 'Changer le mot de passe Pi-hole';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="pihole-pwd" class="form-control">
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-sm" onclick="app.closeModal()">Annuler</button>
+            <button class="btn btn-primary" onclick="app.setPiholePassword()">Enregistrer</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async setPiholePassword() {
+        const pwd = document.getElementById('pihole-pwd').value;
+        if (!pwd) return;
+        
+        try {
+            await this.api('pihole/password', { method: 'POST', body: JSON.stringify({ password: pwd }) });
+            this.closeModal();
+            this.showToast({ title: 'Succes', message: 'Mot de passe modifie', severity: 0 });
+        } catch (error) {
+            alert('Erreur: ' + error.message);
+        }
+    }
+
+    async uninstallPihole() {
+        if (!confirm('Desinstaller Pi-hole ? Cela peut prendre du temps.')) return;
+        try {
+            await this.api('pihole/uninstall', { method: 'POST' });
+            this.showToast({ title: 'Info', message: 'Desinstallation lancee', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 3 });
+        }
+    }
+
+    showAddCameraModal() {
+        // Placeholder for manual camera add
+        alert('Fonctionnalite a venir');
+    }
+
+    closeCameraModal() {
+        document.getElementById('camera-modal').classList.remove('active');
+        this.currentCameraId = null;
+    }
+
+    async viewCamera(id) {
+        this.currentCameraId = id;
+        document.getElementById('camera-modal').classList.add('active');
+        this.refreshCameraSnapshot();
+        
+        // Load details
+        try {
+            const camera = this.currentDevices.find(c => c.id === id) || await this.api(`cameras/${id}`); // Fallback if not in list
+            // Render details in #camera-details
+        } catch (e) {}
+    }
+
+    async refreshCameraSnapshot() {
+        if (!this.currentCameraId) return;
+        
+        const feed = document.getElementById('camera-feed');
+        feed.innerHTML = '<div class="camera-placeholder"><i class="fas fa-spinner fa-spin fa-3x"></i></div>';
+        
+        try {
+            // In real app, this would fetch a snapshot blob
+            // For now, simulate or use a placeholder
+            await new Promise(r => setTimeout(r, 1000));
+            feed.innerHTML = '<div class="camera-placeholder"><i class="fas fa-video-slash fa-3x"></i><p>Flux non disponible (Demo)</p></div>';
+        } catch (error) {
+            feed.innerHTML = '<div class="camera-placeholder"><i class="fas fa-exclamation-triangle fa-3x"></i><p>Erreur</p></div>';
+        }
+    }
+
+    downloadSnapshot() {
+        alert('Fonctionnalite a venir');
+    }
+
     // DHCP
     async loadDhcp() {
         try {
