@@ -1199,7 +1199,7 @@ input:checked + .slider:before {
 .btn-pause:hover { transform: scale(1.1); }
 
 .profile-time { margin-bottom: var(--spacing-md); }
-.time-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; }
+.time-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; display: block; }
 
 .time-bar {
     height: 8px;
@@ -1214,7 +1214,7 @@ input:checked + .slider:before {
     transition: width 0.5s ease;
 }
 
-.time-value { font-size: 0.9rem; font-weight: 500; margin-top: 5px; }
+.time-value { font-size: 0.9rem; font-weight: 500; margin-top: 5px; display: block; }
 
 .profile-devices {
     display: flex;
@@ -1254,6 +1254,32 @@ input:checked + .slider:before {
     margin-top: var(--spacing-md);
     padding-top: var(--spacing-md);
     border-top: 1px solid var(--border-color);
+}
+
+/* Profile Section in Modal */
+.profile-section {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.profile-section h4 {
+    color: var(--accent-primary);
+    margin-bottom: var(--spacing-md);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.profile-section h4 i {
+    font-size: 1.1rem;
 }
 
 /* Schedule Grid */
@@ -1386,6 +1412,34 @@ input:checked + .slider:before {
 
 .usage-label { font-size: 0.75rem; color: var(--text-secondary); }
 .usage-value { font-size: 0.7rem; font-weight: 500; }
+
+/* Avatar Selection */
+.avatar-emojis {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.avatar-emoji-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-emoji-btn:hover,
+.avatar-emoji-btn.selected {
+    border-color: var(--accent-primary);
+    background: rgba(0, 217, 255, 0.1);
+}
 
 /* ==========================================
    8. MODALS & TOASTS
