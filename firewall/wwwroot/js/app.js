@@ -957,19 +957,34 @@ class FirewallApp {
 
     async loadDevices() {
         try {
+            console.log('Chargement des appareils...');
             const devices = await this.api('devices');
-            this.currentDevices = devices;
-            this.renderDevicesTable(devices);
+            console.log('Appareils reçus:', devices);
+            
+            if (!Array.isArray(devices)) {
+                console.error('Réponse API invalide:', devices);
+                this.currentDevices = [];
+            } else {
+                this.currentDevices = devices;
+            }
+            
+            this.renderDevicesTable(this.currentDevices);
         } catch (error) {
             console.error('Error loading devices:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger les appareils', severity: 2 });
         }
     }
 
     renderDevicesTable(devices) {
         const tbody = document.getElementById('devices-table');
-        if (!tbody) return;
+        if (!tbody) {
+            console.error('Element devices-table non trouvé');
+            return;
+        }
 
-        if (!devices.length) {
+        console.log('Rendu du tableau avec', devices.length, 'appareils');
+
+        if (!devices || !devices.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil détecté</td></tr>';
             return;
         }

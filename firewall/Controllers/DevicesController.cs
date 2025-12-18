@@ -41,6 +41,7 @@ public class DevicesController : ControllerBase
     public async Task<ActionResult<IEnumerable<NetworkDevice>>> GetAll()
     {
         var devices = await _deviceRepository.GetAllAsync();
+        _logger.LogInformation("API GetAll: {Count} appareils retournés", devices.Count());
         return Ok(devices);
     }
 
