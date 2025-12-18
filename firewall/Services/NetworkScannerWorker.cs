@@ -229,6 +229,14 @@ public class NetworkScannerWorker : BackgroundService
         var devices = new ConcurrentBag<NetworkDevice>();
         var localAddresses = GetLocalIPAddresses().ToList();
 
+        _logger.LogInformation("?? Scan du réseau - {Count} interface(s) détectée(s)", localAddresses.Count);
+
+        if (!localAddresses.Any())
+        {
+            _logger.LogWarning("?? Aucune interface réseau active trouvée!");
+            return devices.ToList();
+        }
+
         foreach (var localAddress in localAddresses)
         {
             if (ct.IsCancellationRequested) break;
@@ -236,9 +244,14 @@ public class NetworkScannerWorker : BackgroundService
             var subnet = GetSubnet(localAddress);
             var ips = Enumerable.Range(1, 254).Select(i => $"{subnet}.{i}").ToList();
 
+            _logger.LogInformation("?? Scan du sous-réseau {Subnet}.0/24 ({Count} IPs)", subnet, ips.Count);
+
+            // Première passe : ping tous les hôtes pour remplir la table ARP
+            var respondingIps = new ConcurrentBag<string>();
+            
             await Parallel.ForEachAsync(ips, new ParallelOptions 
             { 
-                MaxDegreeOfParallelism = 50,
+                MaxDegreeOfParallelism = 100,
                 CancellationToken = ct 
             }, async (ip, token) =>
             {
@@ -246,18 +259,7 @@ public class NetworkScannerWorker : BackgroundService
                 {
                     if (await PingHostAsync(ip, token))
                     {
-                        var mac = await GetMacAddressAsync(ip);
-                        if (!string.IsNullOrEmpty(mac) && mac != "00:00:00:00:00:00")
-                        {
-                            var hostname = await GetCachedHostnameAsync(ip);
-                            devices.Add(new NetworkDevice
-                            {
-                                MacAddress = mac.ToUpperInvariant(),
-                                IpAddress = ip,
-                                Hostname = hostname,
-                                Vendor = _ouiLookup.GetVendor(mac)
-                            });
-                        }
+                        respondingIps.Add(ip);
                     }
                 }
                 catch
@@ -265,23 +267,52 @@ public class NetworkScannerWorker : BackgroundService
                     // Ignorer les erreurs individuelles
                 }
             });
+
+            _logger.LogInformation("? {Count} hôte(s) répondent au ping sur {Subnet}.0/24", respondingIps.Count, subnet);
+
+            // Attendre un peu pour que la table ARP se mette à jour
+            if (respondingIps.Any())
+            {
+                await Task.Delay(500, ct);
+            }
+
+            // Deuxième passe : récupérer les adresses MAC des hôtes qui ont répondu
+            foreach (var ip in respondingIps)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                try
+                {
+                    var mac = await GetMacAddressAsync(ip);
+                    if (!string.IsNullOrEmpty(mac) && mac != "00:00:00:00:00:00")
+                    {
+                        var hostname = await GetCachedHostnameAsync(ip);
+                        var vendor = _ouiLookup.GetVendor(mac);
+                        
+                        devices.Add(new NetworkDevice
+                        {
+                            MacAddress = mac.ToUpperInvariant(),
+                            IpAddress = ip,
+                            Hostname = hostname,
+                            Vendor = vendor
+                        });
+
+                        _logger.LogDebug("?? Appareil trouvé: {Ip} - MAC: {Mac} - Vendor: {Vendor}", ip, mac, vendor ?? "Inconnu");
+                    }
+                    else
+                    {
+                        _logger.LogDebug("?? Pas de MAC pour {Ip} (peut-être cet hôte)", ip);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Erreur pour {Ip}", ip);
+                }
+            }
         }
 
+        _logger.LogInformation("?? Scan terminé: {Count} appareil(s) découvert(s)", devices.Count);
         return devices.ToList();
-    }
-
-    private async Task<string?> GetCachedHostnameAsync(string ip)
-    {
-        // Vérifier le cache
-        if (_hostnameCache.TryGetValue(ip, out var cached) && 
-            DateTime.UtcNow - cached.CachedAt < HostnameCacheDuration)
-        {
-            return cached.Hostname;
-        }
-
-        var hostname = await ResolveHostnameAsync(ip);
-        _hostnameCache[ip] = (hostname, DateTime.UtcNow);
-        return hostname;
     }
 
     private static async Task<bool> PingHostAsync(string ip, CancellationToken ct)
@@ -289,7 +320,7 @@ public class NetworkScannerWorker : BackgroundService
         try
         {
             using var ping = new Ping();
-            var reply = await ping.SendPingAsync(ip, 500);
+            var reply = await ping.SendPingAsync(ip, 1000); // Augmenter le timeout à 1 seconde
             return reply.Status == IPStatus.Success;
         }
         catch
@@ -320,10 +351,11 @@ public class NetworkScannerWorker : BackgroundService
 
     private static async Task<string?> GetMacFromArpWindows(string ip)
     {
+        // D'abord essayer avec arp -a pour l'IP spécifique
         var psi = new System.Diagnostics.ProcessStartInfo
         {
             FileName = "arp",
-            Arguments = $"-a {ip}",
+            Arguments = "-a",
             RedirectStandardOutput = true,
             UseShellExecute = false,
             CreateNoWindow = true
@@ -335,11 +367,19 @@ public class NetworkScannerWorker : BackgroundService
             var output = await process.StandardOutput.ReadToEndAsync();
             await process.WaitForExitAsync();
 
-            var match = System.Text.RegularExpressions.Regex.Match(
-                output, @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
+            // Chercher la ligne contenant l'IP
+            var lines = output.Split('\n');
+            foreach (var line in lines)
+            {
+                if (line.Contains(ip))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        line, @"([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})");
 
-            if (match.Success)
-                return match.Value.Replace("-", ":").ToUpperInvariant();
+                    if (match.Success)
+                        return match.Value.Replace("-", ":").ToUpperInvariant();
+                }
+            }
         }
         return null;
     }
@@ -399,5 +439,19 @@ public class NetworkScannerWorker : BackgroundService
     {
         var parts = ip.Split('.');
         return $"{parts[0]}.{parts[1]}.{parts[2]}";
+    }
+
+    private async Task<string?> GetCachedHostnameAsync(string ip)
+    {
+        // Vérifier le cache
+        if (_hostnameCache.TryGetValue(ip, out var cached) && 
+            DateTime.UtcNow - cached.CachedAt < HostnameCacheDuration)
+        {
+            return cached.Hostname;
+        }
+
+        var hostname = await ResolveHostnameAsync(ip);
+        _hostnameCache[ip] = (hostname, DateTime.UtcNow);
+        return hostname;
     }
 }
