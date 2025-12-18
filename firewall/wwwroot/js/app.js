@@ -1,4 +1,4 @@
-// Network Firewall Monitor - Frontend Application
+ï»¿// Network Firewall Monitor - Frontend Application
 
 // Icon mapping - Font Awesome classes
 const Icons = {
@@ -87,7 +87,7 @@ class FirewallApp {
         const now = new Date();
         const diff = now - date;
         
-        if (diff < 60000) return 'À l\'instant';
+        if (diff < 60000) return 'Ã€ l\'instant';
         if (diff < 3600000) return `Il y a ${Math.floor(diff / 60000)} min`;
         if (diff < 86400000) return `Il y a ${Math.floor(diff / 3600000)} h`;
         
@@ -114,7 +114,7 @@ class FirewallApp {
             0: 'Inconnu', 'Unknown': 'Inconnu',
             1: 'En ligne', 'Online': 'En ligne',
             2: 'Hors ligne', 'Offline': 'Hors ligne',
-            3: 'Bloqué', 'Blocked': 'Bloqué'
+            3: 'BloquÃ©', 'Blocked': 'BloquÃ©'
         };
         return statusMap[status] || 'Inconnu';
     }
@@ -205,7 +205,7 @@ class FirewallApp {
         if (!container) return;
 
         if (!threats.length) {
-            container.innerHTML = '<p class="empty-state">Aucune menace détectée</p>';
+            container.innerHTML = '<p class="empty-state">Aucune menace dÃ©tectÃ©e</p>';
             return;
         }
 
@@ -247,7 +247,7 @@ class FirewallApp {
         const score = security.securityScore || {};
         const cpuText = document.getElementById('cpu-status-text');
         if (cpuText) {
-            cpuText.textContent = `Score de sécurité: ${score.overallScore || 0}/100`;
+            cpuText.textContent = `Score de sÃ©curitÃ©: ${score.overallScore || 0}/100`;
         }
     }
 
@@ -336,7 +336,7 @@ class FirewallApp {
             if (!tbody) return;
 
             if (!logs.length) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun log de sécurité</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Aucun log de sÃ©curitÃ©</td></tr>';
                 return;
             }
 
@@ -399,7 +399,7 @@ class FirewallApp {
         const statusClass = isOnline ? 'online' : 'offline';
         const statusText = isOnline ? 'En ligne' : 'Hors ligne';
         
-        // Icône OS
+        // IcÃ´ne OS
         let osIcon = 'fa-server';
         const osLower = (agent.os || '').toLowerCase();
         if (osLower.includes('linux') || osLower.includes('ubuntu') || osLower.includes('debian')) {
@@ -410,12 +410,12 @@ class FirewallApp {
             osIcon = 'fab fa-apple';
         }
         
-        // Barres de progression pour les métriques
+        // Barres de progression pour les mÃ©triques
         const cpuPercent = agent.cpuUsage || 0;
         const memPercent = agent.memoryUsage || 0;
         const diskPercent = agent.diskUsage || 0;
         
-        // Couleurs des métriques selon le niveau
+        // Couleurs des mÃ©triques selon le niveau
         const getCpuColor = (val) => val > 80 ? 'var(--danger)' : val > 50 ? 'var(--warning)' : 'var(--accent-secondary)';
         const getMemColor = (val) => val > 85 ? 'var(--danger)' : val > 70 ? 'var(--warning)' : 'var(--success)';
         
@@ -463,7 +463,7 @@ class FirewallApp {
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-sm btn-primary" onclick="app.showAgentDetails(${agent.id})">
-                        <i class="fas fa-info-circle"></i> Détails
+                        <i class="fas fa-info-circle"></i> DÃ©tails
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="app.deleteAgent(${agent.id})">
                         <i class="fas fa-trash"></i> Supprimer
@@ -477,7 +477,7 @@ class FirewallApp {
         try {
             const agent = this.currentAgents.find(a => a.id === agentId);
             if (!agent) {
-                this.showToast({ title: 'Erreur', message: 'Agent non trouvé', severity: 2 });
+                this.showToast({ title: 'Erreur', message: 'Agent non trouvÃ©', severity: 2 });
                 return;
             }
 
@@ -487,27 +487,27 @@ class FirewallApp {
             document.getElementById('agent-detail-ip').textContent = agent.ipAddress || 'Inconnue';
             document.getElementById('agent-detail-seen').textContent = this.formatDate(agent.lastSeen);
 
-            // Informations matériel
+            // Informations matÃ©riel
             document.getElementById('agent-hardware-info').innerHTML = `
                 <p><strong>CPU:</strong> ${agent.cpuUsage?.toFixed(1) || 0}%</p>
-                <p><strong>Mémoire:</strong> ${agent.memoryUsage?.toFixed(1) || 0}%</p>
+                <p><strong>MÃ©moire:</strong> ${agent.memoryUsage?.toFixed(1) || 0}%</p>
                 <p><strong>Disque:</strong> ${agent.diskUsage?.toFixed(1) || 0}%</p>
             `;
 
-            // Informations réseau
+            // Informations rÃ©seau
             document.getElementById('agent-network-info').innerHTML = `
                 <p><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress || '-')}</p>
                 <p><strong>MAC:</strong> ${this.escapeHtml(agent.macAddress || '-')}</p>
             `;
 
-            // Informations système
+            // Informations systÃ¨me
             document.getElementById('agent-system-info').innerHTML = `
                 <p><strong>OS:</strong> ${this.escapeHtml(agent.os || '-')}</p>
                 <p><strong>Version Agent:</strong> ${this.escapeHtml(agent.version || '1.0.0')}</p>
-                <p><strong>Enregistré le:</strong> ${this.formatDate(agent.registeredAt)}</p>
+                <p><strong>EnregistrÃ© le:</strong> ${this.formatDate(agent.registeredAt)}</p>
             `;
 
-            // Détails JSON supplémentaires si disponibles
+            // DÃ©tails JSON supplÃ©mentaires si disponibles
             if (agent.detailsJson) {
                 try {
                     const details = JSON.parse(agent.detailsJson);
@@ -524,7 +524,7 @@ class FirewallApp {
                         let networkHtml = document.getElementById('agent-network-info').innerHTML;
                         networkHtml += '<p style="margin-top: 10px;"><strong>Interfaces:</strong></p>';
                         details.network.interfaces.forEach(iface => {
-                            networkHtml += `<p style="font-size: 0.85rem; margin-left: 10px;">• ${this.escapeHtml(iface.name)}: ${this.escapeHtml(iface.ip || '-')}</p>`;
+                            networkHtml += `<p style="font-size: 0.85rem; margin-left: 10px;">â€¢ ${this.escapeHtml(iface.name)}: ${this.escapeHtml(iface.ip || '-')}</p>`;
                         });
                         document.getElementById('agent-network-info').innerHTML = networkHtml;
                     }
@@ -545,7 +545,7 @@ class FirewallApp {
             document.getElementById('agent-details-modal').classList.add('active');
         } catch (error) {
             console.error('Error showing agent details:', error);
-            this.showToast({ title: 'Erreur', message: 'Impossible d\'afficher les détails', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'afficher les dÃ©tails', severity: 2 });
         }
     }
 
@@ -562,14 +562,14 @@ class FirewallApp {
             command.textContent = result.script;
             container.style.display = 'block';
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de générer le script', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible de gÃ©nÃ©rer le script', severity: 2 });
         }
     }
 
     copyInstallCommand() {
         const command = document.getElementById('install-command').textContent;
         navigator.clipboard.writeText(command).then(() => {
-            this.showToast({ title: 'Copié', message: 'Commande copiée dans le presse-papiers', severity: 0 });
+            this.showToast({ title: 'CopiÃ©', message: 'Commande copiÃ©e dans le presse-papiers', severity: 0 });
         });
     }
 
@@ -579,7 +579,7 @@ class FirewallApp {
         try {
             await this.api(`agents/${id}`, { method: 'DELETE' });
             this.loadAgents();
-            this.showToast({ title: 'Succès', message: 'Agent supprimé', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Agent supprimÃ©', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible de supprimer l\'agent', severity: 2 });
         }
@@ -606,7 +606,7 @@ class FirewallApp {
 
             document.getElementById('device-details-modal').classList.add('active');
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger les détails', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger les dÃ©tails', severity: 2 });
         }
     }
 
@@ -629,7 +629,7 @@ class FirewallApp {
 
             document.getElementById('device-details-modal').classList.remove('active');
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil mis à jour', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Appareil mis Ã  jour', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible de sauvegarder', severity: 2 });
         }
@@ -639,7 +639,7 @@ class FirewallApp {
         try {
             await this.api(`devices/${id}/approve`, { method: 'POST' });
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil approuvé', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Appareil approuvÃ©', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible d\'approuver', severity: 2 });
         }
@@ -651,7 +651,7 @@ class FirewallApp {
         try {
             await this.api(`devices/${id}`, { method: 'DELETE' });
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil supprimé', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Appareil supprimÃ©', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible de supprimer', severity: 2 });
         }
@@ -687,33 +687,33 @@ class FirewallApp {
                 .configureLogging(signalR.LogLevel.Warning)
                 .build();
 
-            // Nouveaux appareils découverts
+            // Nouveaux appareils dÃ©couverts
             this.deviceHub.on('DeviceDiscovered', (device) => {
-                console.log('Nouvel appareil découvert:', device);
+                console.log('Nouvel appareil dÃ©couvert:', device);
                 this.handleDeviceDiscovered(device);
             });
 
-            // Appareil mis à jour
+            // Appareil mis Ã  jour
             this.deviceHub.on('DeviceUpdated', (device) => {
-                console.log('Appareil mis à jour:', device);
+                console.log('Appareil mis Ã  jour:', device);
                 this.handleDeviceUpdated(device);
             });
 
             // Changement de statut (online/offline)
             this.deviceHub.on('DeviceStatusChanged', (device) => {
-                console.log('Statut appareil changé:', device);
+                console.log('Statut appareil changÃ©:', device);
                 this.handleDeviceStatusChanged(device);
             });
 
-            // Appareil bloqué
+            // Appareil bloquÃ©
             this.deviceHub.on('DeviceBlocked', (device) => {
-                console.log('Appareil bloqué:', device);
+                console.log('Appareil bloquÃ©:', device);
                 this.handleDeviceBlocked(device);
             });
 
-            // Appareil débloqué
+            // Appareil dÃ©bloquÃ©
             this.deviceHub.on('DeviceUnblocked', (device) => {
-                console.log('Appareil débloqué:', device);
+                console.log('Appareil dÃ©bloquÃ©:', device);
                 this.handleDeviceUnblocked(device);
             });
 
@@ -722,13 +722,13 @@ class FirewallApp {
                 this.handleScanProgress(data);
             });
 
-            // Scan terminé
+            // Scan terminÃ©
             this.deviceHub.on('ScanComplete', (data) => {
                 this.handleScanComplete(data);
             });
 
             this.deviceHub.onclose(() => {
-                console.log('DeviceHub déconnecté');
+                console.log('DeviceHub dÃ©connectÃ©');
             });
 
             this.deviceHub.onreconnecting(() => {
@@ -736,11 +736,11 @@ class FirewallApp {
             });
 
             this.deviceHub.onreconnected(() => {
-                console.log('DeviceHub reconnecté');
+                console.log('DeviceHub reconnectÃ©');
             });
 
             await this.deviceHub.start();
-            console.log('Connecté au DeviceHub');
+            console.log('ConnectÃ© au DeviceHub');
         } catch (error) {
             console.error('Erreur connexion DeviceHub:', error);
             setTimeout(() => this.connectDeviceHub(), 5000);
@@ -749,7 +749,7 @@ class FirewallApp {
 
     // Handlers SignalR
     handleDeviceDiscovered(device) {
-        // Ajouter à la liste si on est sur la page devices
+        // Ajouter Ã  la liste si on est sur la page devices
         const existingIndex = this.currentDevices.findIndex(d => d.macAddress === device.macAddress);
         if (existingIndex === -1) {
             this.currentDevices.push(device);
@@ -801,8 +801,8 @@ class FirewallApp {
         }
         
         this.showToast({
-            title: 'Appareil bloqué',
-            message: `${device.macAddress} a été bloqué`,
+            title: 'Appareil bloquÃ©',
+            message: `${device.macAddress} a Ã©tÃ© bloquÃ©`,
             severity: 2
         });
     }
@@ -818,8 +818,8 @@ class FirewallApp {
         }
         
         this.showToast({
-            title: 'Appareil débloqué',
-            message: `${device.macAddress} a été débloqué`,
+            title: 'Appareil dÃ©bloquÃ©',
+            message: `${device.macAddress} a Ã©tÃ© dÃ©bloquÃ©`,
             severity: 0
         });
     }
@@ -827,19 +827,19 @@ class FirewallApp {
     handleScanProgress(data) {
         const scanStatus = document.getElementById('scan-status');
         if (scanStatus) {
-            scanStatus.textContent = `Scan: ${data.scanned}/${data.total} (${data.found} trouvés)`;
+            scanStatus.textContent = `Scan: ${data.scanned}/${data.total} (${data.found} trouvÃ©s)`;
         }
     }
 
     handleScanComplete(data) {
         const scanStatus = document.getElementById('scan-status');
         if (scanStatus) {
-            scanStatus.textContent = `Scan terminé: ${data.totalDevices} appareils actifs`;
+            scanStatus.textContent = `Scan terminÃ©: ${data.totalDevices} appareils actifs`;
             setTimeout(() => { scanStatus.textContent = ''; }, 5000);
         }
     }
 
-    // Ajouter ou mettre à jour une ligne dans le tableau
+    // Ajouter ou mettre Ã  jour une ligne dans le tableau
     addOrUpdateDeviceRow(device) {
         const tbody = document.getElementById('devices-table');
         if (!tbody) return;
@@ -849,7 +849,7 @@ class FirewallApp {
 
         if (existingRow) {
             existingRow.outerHTML = rowHtml;
-            // Animation de mise à jour
+            // Animation de mise Ã  jour
             const newRow = tbody.querySelector(`tr[data-mac="${device.macAddress}"]`);
             if (newRow) {
                 newRow.classList.add('row-updated');
@@ -879,9 +879,9 @@ class FirewallApp {
                 <td>
                     <div class="action-buttons" style="display: flex; gap: 5px;">
                         ${!device.isTrusted ? `<button class="btn btn-sm btn-success" onclick="app.approveDevice(${device.id})" title="Approuver">${Icons.check}</button>` : ''}
-                        <button class="btn btn-sm btn-primary" onclick="app.viewDevice(${device.id})" title="Détails">${Icons.eye}</button>
+                        <button class="btn btn-sm btn-primary" onclick="app.viewDevice(${device.id})" title="DÃ©tails">${Icons.eye}</button>
                         ${isBlocked 
-                            ? `<button class="btn btn-sm btn-warning" onclick="app.unblockDevice(${device.id})" title="Débloquer">${Icons.unlockAlt}</button>`
+                            ? `<button class="btn btn-sm btn-warning" onclick="app.unblockDevice(${device.id})" title="DÃ©bloquer">${Icons.unlockAlt}</button>`
                             : `<button class="btn btn-sm btn-danger" onclick="app.blockDevice(${device.id})" title="Bloquer">${Icons.ban}</button>`
                         }
                         <button class="btn btn-sm btn-secondary" onclick="app.deleteDevice(${device.id})" title="Supprimer">${Icons.trash}</button>
@@ -938,7 +938,7 @@ class FirewallApp {
         this.clearScanLogs();
         this.addScanLog('Demarrage du scan reseau...', 'info');
         
-        // Désactiver le bouton et montrer l'animation
+        // DÃ©sactiver le bouton et montrer l'animation
         btn.disabled = true;
         btn.classList.add('scanning');
         if (icon) {
@@ -984,7 +984,7 @@ class FirewallApp {
                 scanStatus.style.color = 'var(--danger)';
             }
         } finally {
-            // Réactiver le bouton
+            // RÃ©activer le bouton
             btn.disabled = false;
             btn.classList.remove('scanning');
             if (icon) {
@@ -1026,14 +1026,14 @@ class FirewallApp {
     renderDevicesTable(devices) {
         const tbody = document.getElementById('devices-table');
         if (!tbody) {
-            console.error('Element devices-table non trouvé');
+            console.error('Element devices-table non trouvÃ©');
             return;
         }
 
         console.log('Rendu du tableau avec', devices.length, 'appareils');
 
         if (!devices || !devices.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil détecté</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil dÃ©tectÃ©</td></tr>';
             return;
         }
 
@@ -1046,7 +1046,7 @@ class FirewallApp {
         try {
             await this.api(`devices/${id}/block`, { method: 'POST' });
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil bloqué', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Appareil bloquÃ©', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message || 'Impossible de bloquer', severity: 2 });
         }
@@ -1056,9 +1056,9 @@ class FirewallApp {
         try {
             await this.api(`devices/${id}/unblock`, { method: 'POST' });
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil débloqué', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Appareil dÃ©bloquÃ©', severity: 0 });
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de débloquer', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible de dÃ©bloquer', severity: 2 });
         }
     }
 
@@ -1114,17 +1114,17 @@ class FirewallApp {
             dashboard: 'Dashboard',
             devices: 'Appareils',
             agents: 'Agents',
-            cameras: 'Caméras',
+            cameras: 'CamÃ©ras',
             alerts: 'Alertes & Logs',
             traffic: 'Trafic',
             pihole: 'Pi-hole',
             dhcp: 'DHCP',
             setup: 'Installation',
             sniffer: 'Sniffer',
-            router: 'Règles & Policies',
-            settings: 'Paramètres',
+            router: 'RÃ¨gles & Policies',
+            settings: 'ParamÃ¨tres',
             admin: 'Administration',
-            parental: 'Contrôle Parental',
+            parental: 'ContrÃ´le Parental',
             reports: 'Rapports'
         };
         document.getElementById('page-title').textContent = titles[page] || page;
@@ -1260,7 +1260,7 @@ class FirewallApp {
             
             // Update stats
             document.getElementById('pihole-status-text').textContent = status.isRunning ? 'Actif' : 'Inactif';
-            document.getElementById('pihole-blocking-text').textContent = status.blockingEnabled ? 'Activé' : 'Désactivé';
+            document.getElementById('pihole-blocking-text').textContent = status.blockingEnabled ? 'ActivÃ©' : 'DÃ©sactivÃ©';
             document.getElementById('pihole-version').textContent = status.version || '-' ;
 
             if (status.stats) {
@@ -1277,17 +1277,17 @@ class FirewallApp {
     }
 
     async installPihole() {
-        if (!confirm('Installer Pi-hole ? Cette opération peut prendre plusieurs minutes.')) return;
+        if (!confirm('Installer Pi-hole ? Cette opÃ©ration peut prendre plusieurs minutes.')) return;
         
         document.getElementById('pihole-install-modal').classList.add('active');
-        document.getElementById('pihole-install-logs').textContent = 'Démarrage de l\'installation...\n';
+        document.getElementById('pihole-install-logs').textContent = 'DÃ©marrage de l\'installation...\n';
 
         try {
             await this.api('pihole/install', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Pi-hole installé avec succès', severity: 0 });
+            this.showToast({ title: 'SuccÃ¨s', message: 'Pi-hole installÃ© avec succÃ¨s', severity: 0 });
             this.loadPihole();
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Échec de l\'installation', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Ã‰chec de l\'installation', severity: 2 });
         }
     }
 
@@ -1305,7 +1305,7 @@ class FirewallApp {
 
     async loadParental() {
         try {
-            // Charger les profils et les catégories de filtrage
+            // Charger les profils et les catÃ©gories de filtrage
             const [profiles, categories] = await Promise.all([
                 this.api('parentalcontrol/profiles'),
                 this.api('parentalcontrol/filter-categories')
@@ -1317,7 +1317,7 @@ class FirewallApp {
             this.renderParentalProfiles(profiles);
             this.connectParentalHub();
         } catch (error) {
-            console.error('Erreur chargement contrôle parental:', error);
+            console.error('Erreur chargement contrÃ´le parental:', error);
             this.showToast({ title: 'Erreur', message: 'Impossible de charger les profils', severity: 2 });
         }
     }
@@ -1348,11 +1348,11 @@ class FirewallApp {
         };
 
         const statusTexts = {
-            0: 'Accès autorisé',
+            0: 'AccÃ¨s autorisÃ©',
             1: 'Hors plage horaire',
-            2: 'Temps dépassé',
+            2: 'Temps dÃ©passÃ©',
             3: 'En pause',
-            4: 'Désactivé'
+            4: 'DÃ©sactivÃ©'
         };
 
         const statusColor = statusColors[profile.status] || statusColors[0];
@@ -1365,7 +1365,7 @@ class FirewallApp {
         if (profile.avatarUrl && profile.avatarUrl.startsWith('http')) {
             avatarContent = `<img src="${this.escapeHtml(profile.avatarUrl)}" class="profile-avatar-img" alt="${this.escapeHtml(profile.profileName)}">`;
         } else {
-            avatarContent = `<span class="profile-avatar-emoji">${this.escapeHtml(profile.avatarUrl || '??')}</span>`;
+            avatarContent = `<span class="profile-avatar-emoji">${this.escapeHtml(profile.avatarUrl || 'ðŸ‘¤')}</span>`;
         }
 
         // Barre de temps
@@ -1380,7 +1380,7 @@ class FirewallApp {
             
             timeBar = `
                 <div class="profile-time">
-                    <div class="time-label">Temps d'écran aujourd'hui</div>
+                    <div class="time-label">Temps d'Ã©cran aujourd'hui</div>
                     <div class="time-bar">
                         <div class="time-bar-fill" style="width: ${percentage}%; background: ${barColor};"></div>
                     </div>
@@ -1395,7 +1395,7 @@ class FirewallApp {
 
         // Bouton pause/play
         const pauseBtn = profile.status === 3 
-            ? `<button class="btn btn-success btn-pause" onclick="app.unpauseProfile(${profile.profileId})" title="Rétablir"><i class="fas fa-play"></i></button>`
+            ? `<button class="btn btn-success btn-pause" onclick="app.unpauseProfile(${profile.profileId})" title="RÃ©tablir"><i class="fas fa-play"></i></button>`
             : `<button class="btn btn-warning btn-pause" onclick="app.pauseProfile(${profile.profileId})" title="Pause"><i class="fas fa-pause"></i></button>`;
 
         return `
@@ -1430,13 +1430,13 @@ class FirewallApp {
 
                 ${profile.nextAllowedTime ? `
                     <div class="profile-next-time">
-                        <i class="fas fa-clock"></i> Prochain accès: ${this.escapeHtml(profile.nextAllowedTime)}
+                        <i class="fas fa-clock"></i> Prochain accÃ¨s: ${this.escapeHtml(profile.nextAllowedTime)}
                     </div>
                 ` : ''}
 
                 ${profile.currentSlotEnds ? `
                     <div class="profile-next-time" style="background: rgba(63, 185, 80, 0.1); color: var(--success);">
-                        <i class="fas fa-hourglass-half"></i> Fin du créneau: ${this.escapeHtml(profile.currentSlotEnds)}
+                        <i class="fas fa-hourglass-half"></i> Fin du crÃ©neau: ${this.escapeHtml(profile.currentSlotEnds)}
                     </div>
                 ` : ''}
 
@@ -1460,20 +1460,20 @@ class FirewallApp {
         document.getElementById('parental-modal-title').innerHTML = '<i class="fas fa-child"></i> Nouveau Profil';
         document.getElementById('profile-id').value = '';
         
-        // Réinitialiser les champs
+        // RÃ©initialiser les champs
         document.getElementById('profile-name').value = '';
         document.getElementById('profile-color').value = '#00d9ff';
         document.getElementById('profile-time-limit').value = '0';
-        document.getElementById('profile-avatar').value = '??';
+        document.getElementById('profile-avatar').value = 'ðŸ§’';
         document.getElementById('profile-blocked-domains').value = '';
 
         // Charger les appareils disponibles
         await this.loadAvailableDevices();
         
-        // Générer le planning horaire
+        // GÃ©nÃ©rer le planning horaire
         this.generateScheduleGrid();
         
-        // Générer les catégories de filtrage
+        // GÃ©nÃ©rer les catÃ©gories de filtrage
         this.generateFilterCategories();
     }
 
@@ -1488,15 +1488,15 @@ class FirewallApp {
             document.getElementById('profile-name').value = profile.name || '';
             document.getElementById('profile-color').value = profile.color || '#00d9ff';
             document.getElementById('profile-time-limit').value = profile.dailyTimeLimitMinutes || 0;
-            document.getElementById('profile-avatar').value = profile.avatarUrl || '??';
+            document.getElementById('profile-avatar').value = profile.avatarUrl || 'ðŸ§’';
 
             // Charger les appareils et cocher ceux du profil
             await this.loadAvailableDevices(profile.devices?.map(d => d.macAddress) || []);
             
-            // Générer le planning avec les valeurs existantes
+            // GÃ©nÃ©rer le planning avec les valeurs existantes
             this.generateScheduleGrid(profile.schedules);
             
-            // Générer les filtres avec les valeurs existantes
+            // GÃ©nÃ©rer les filtres avec les valeurs existantes
             const blockedCategories = profile.webFilters?.filter(f => f.filterType === 0).map(f => f.value) || [];
             const blockedDomains = profile.webFilters?.filter(f => f.filterType === 1).map(f => f.value) || [];
             
@@ -1518,7 +1518,7 @@ class FirewallApp {
             const devices = await this.api('devices');
             
             if (!devices.length) {
-                container.innerHTML = '<p class="text-muted">Aucun appareil disponible. Scannez d\'abord le réseau.</p>';
+                container.innerHTML = '<p class="text-muted">Aucun appareil disponible. Scannez d\'abord le rÃ©seau.</p>';
                 return;
             }
 
@@ -1559,7 +1559,7 @@ class FirewallApp {
                     <span class="day-label">${day}</span>
                     <div class="schedule-times">
                         <input type="time" class="schedule-start" data-day="${index}" value="${schedule.startTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
-                        <span>à</span>
+                        <span>Ã </span>
                         <input type="time" class="schedule-end" data-day="${index}" value="${schedule.endTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
                     </div>
                     <label class="schedule-enabled">
@@ -1585,8 +1585,8 @@ class FirewallApp {
 
         const categories = this.filterCategories.length ? this.filterCategories : [
             { key: 'adult', name: 'Contenu Adulte', description: 'Sites pour adultes', icon: 'fa-ban', color: '#ff4757' },
-            { key: 'social-media', name: 'Réseaux Sociaux', description: 'Facebook, TikTok, etc.', icon: 'fa-users', color: '#3b5998' },
-            { key: 'gaming', name: 'Jeux Vidéo', description: 'Sites de gaming', icon: 'fa-gamepad', color: '#9b59b6' },
+            { key: 'social-media', name: 'RÃ©seaux Sociaux', description: 'Facebook, TikTok, etc.', icon: 'fa-users', color: '#3b5998' },
+            { key: 'gaming', name: 'Jeux VidÃ©o', description: 'Sites de gaming', icon: 'fa-gamepad', color: '#9b59b6' },
             { key: 'streaming', name: 'Streaming', description: 'YouTube, Netflix, etc.', icon: 'fa-film', color: '#e74c3c' },
             { key: 'gambling', name: 'Jeux d\'Argent', description: 'Paris et casinos', icon: 'fa-dice', color: '#f39c12' },
             { key: 'malware', name: 'Malware', description: 'Sites malveillants', icon: 'fa-virus', color: '#c0392b' }
@@ -1605,7 +1605,7 @@ class FirewallApp {
             </label>
         `).join('');
 
-        // Ajouter les événements de changement
+        // Ajouter les Ã©vÃ©nements de changement
         container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', (e) => {
                 const icon = e.target.closest('.filter-category').querySelector('.category-icon');
@@ -1634,21 +1634,21 @@ class FirewallApp {
             return;
         }
 
-        // Collecter les données
+        // Collecter les donnÃ©es
         const dto = {
             name: name,
-            avatarUrl: document.getElementById('profile-avatar').value || '??',
+            avatarUrl: document.getElementById('profile-avatar').value || 'ðŸ§’',
             color: document.getElementById('profile-color').value || '#00d9ff',
             dailyTimeLimitMinutes: parseInt(document.getElementById('profile-time-limit').value) || 0,
             isActive: true,
-            blockedMessage: "L'accès Internet est temporairement désactivé.",
+            blockedMessage: "L'accÃ¨s Internet est temporairement dÃ©sactivÃ©.",
             deviceMacs: [],
             schedules: [],
             blockedCategories: [],
             blockedDomains: []
         };
 
-        // Appareils sélectionnés
+        // Appareils sÃ©lectionnÃ©s
         document.querySelectorAll('#profile-devices-list input[type="checkbox"]:checked').forEach(cb => {
             dto.deviceMacs.push(cb.value);
         });
@@ -1669,12 +1669,12 @@ class FirewallApp {
             }
         }
 
-        // Catégories de filtrage
+        // CatÃ©gories de filtrage
         document.querySelectorAll('#filter-categories input[type="checkbox"]:checked').forEach(cb => {
             dto.blockedCategories.push(cb.value);
         });
 
-        // Domaines personnalisés
+        // Domaines personnalisÃ©s
         const domainsText = document.getElementById('profile-blocked-domains').value;
         if (domainsText) {
             dto.blockedDomains = domainsText.split('\n').map(d => d.trim()).filter(d => d);
@@ -1686,13 +1686,13 @@ class FirewallApp {
                     method: 'PUT',
                     body: JSON.stringify(dto)
                 });
-                this.showToast({ title: 'Succès', message: 'Profil mis à jour', severity: 0 });
+                this.showToast({ title: 'SuccÃ¨s', message: 'Profil mis Ã  jour', severity: 0 });
             } else {
                 await this.api('parentalcontrol/profiles', {
                     method: 'POST',
                     body: JSON.stringify(dto)
                 });
-                this.showToast({ title: 'Succès', message: 'Profil créé', severity: 0 });
+                this.showToast({ title: 'SuccÃ¨s', message: 'Profil crÃ©Ã©', severity: 0 });
             }
 
             this.closeParentalModal();
@@ -1707,7 +1707,7 @@ class FirewallApp {
         try {
             await this.api(`parentalcontrol/profiles/${profileId}/pause`, { method: 'POST' });
             this.loadParental();
-            this.showToast({ title: 'Pause activée', message: 'Internet coupé pour ce profil', severity: 1 });
+            this.showToast({ title: 'Pause activÃ©e', message: 'Internet coupÃ© pour ce profil', severity: 1 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible d\'activer la pause', severity: 2 });
         }
@@ -1717,19 +1717,19 @@ class FirewallApp {
         try {
             await this.api(`parentalcontrol/profiles/${profileId}/unpause`, { method: 'POST' });
             this.loadParental();
-            this.showToast({ title: 'Pause désactivée', message: 'Accès Internet rétabli', severity: 0 });
+            this.showToast({ title: 'Pause dÃ©sactivÃ©e', message: 'AccÃ¨s Internet rÃ©tabli', severity: 0 });
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de désactiver la pause', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible de dÃ©sactiver la pause', severity: 2 });
         }
     }
 
     async deleteProfile(profileId) {
-        if (!confirm('Supprimer ce profil ? Les appareils associés seront débloqués.')) return;
+        if (!confirm('Supprimer ce profil ? Les appareils associÃ©s seront dÃ©bloquÃ©s.')) return;
 
         try {
             await this.api(`parentalcontrol/profiles/${profileId}`, { method: 'DELETE' });
             this.loadParental();
-            this.showToast({ title: 'Supprimé', message: 'Profil supprimé', severity: 0 });
+            this.showToast({ title: 'SupprimÃ©', message: 'Profil supprimÃ©', severity: 0 });
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible de supprimer', severity: 2 });
         }
@@ -1740,12 +1740,12 @@ class FirewallApp {
             const history = await this.api(`parentalcontrol/profiles/${profileId}/usage/history?days=7`);
             const profile = this.parentalProfiles.find(p => p.profileId === profileId);
             
-            // Créer un modal ou afficher les données
+            // CrÃ©er un modal ou afficher les donnÃ©es
             const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
             let html = `<h4 style="margin-bottom: 15px;">Historique d'utilisation - ${this.escapeHtml(profile?.profileName || 'Profil')}</h4>`;
             
             if (!history.length) {
-                html += '<p>Aucune donnée d\'utilisation disponible.</p>';
+                html += '<p>Aucune donnÃ©e d\'utilisation disponible.</p>';
             } else {
                 html += '<div class="usage-chart">';
                 history.reverse().forEach(day => {
@@ -1767,7 +1767,7 @@ class FirewallApp {
                 html += '</div>';
             }
 
-            // Afficher dans le modal générique
+            // Afficher dans le modal gÃ©nÃ©rique
             document.getElementById('modal-title').innerHTML = '<i class="fas fa-chart-bar"></i> Historique';
             document.getElementById('modal-body').innerHTML = html;
             document.getElementById('modal-footer').innerHTML = '<button class="btn btn-sm" onclick="document.getElementById(\'modal\').classList.remove(\'active\')">Fermer</button>';
@@ -1789,7 +1789,7 @@ class FirewallApp {
                 .build();
 
             this.parentalHub.on('ProfileStatusChanged', (status) => {
-                console.log('Profil mis à jour:', status);
+                console.log('Profil mis Ã  jour:', status);
                 const index = this.parentalProfiles.findIndex(p => p.profileId === status.profileId);
                 if (index !== -1) {
                     this.parentalProfiles[index] = status;
@@ -1815,7 +1815,7 @@ class FirewallApp {
 
             this.parentalHub.on('AutoBlockTriggered', (data) => {
                 this.showToast({
-                    title: `${data.profileName} bloqué`,
+                    title: `${data.profileName} bloquÃ©`,
                     message: data.reason,
                     severity: 1
                 });
@@ -1824,13 +1824,13 @@ class FirewallApp {
             this.parentalHub.on('TimeWarning', (data) => {
                 this.showToast({
                     title: `${data.profileName}`,
-                    message: `Plus que ${data.remainingMinutes} minutes d'écran`,
+                    message: `Plus que ${data.remainingMinutes} minutes d'Ã©cran`,
                     severity: 1
                 });
             });
 
             await this.parentalHub.start();
-            console.log('Connecté au ParentalControlHub');
+            console.log('ConnectÃ© au ParentalControlHub');
         } catch (error) {
             console.error('Erreur connexion ParentalHub:', error);
         }
