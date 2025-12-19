@@ -38,7 +38,9 @@ public class ThreatIntelligenceService : IThreatIntelligenceService
     // Stats
     private long _totalChecks;
     private long _threatsDetected;
+#pragma warning disable CS0649 // Field is never assigned - it's incremented via IncrementBlockedConnections()
     private long _blockedConnections;
+#pragma warning restore CS0649
     private DateTime _lastFeedUpdate = DateTime.MinValue;
 
     // Known bad ports (commonly used by malware)
@@ -451,6 +453,14 @@ public class ThreatIntelligenceService : IThreatIntelligenceService
     public IEnumerable<ThreatEvent> GetRecentThreats(int count = 50)
     {
         return _recentThreats.Reverse().Take(count);
+    }
+
+    /// <summary>
+    /// Increments the blocked connections counter (call when a connection is blocked due to threat)
+    /// </summary>
+    public void IncrementBlockedConnections()
+    {
+        Interlocked.Increment(ref _blockedConnections);
     }
 }
 

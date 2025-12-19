@@ -143,9 +143,17 @@ public class NetworkProtocolService : INetworkProtocolService
                     // DHCP
                     try
                     {
-                        var ipv4Props = props.GetIPv4Properties();
-                        if (ipv4Props != null)
-                            config.IPv4DHCP = ipv4Props.IsDhcpEnabled;
+                        // IsDhcpEnabled only works on Windows
+                        if (OperatingSystem.IsWindows())
+                        {
+                            var ipv4Props = props.GetIPv4Properties();
+                            if (ipv4Props != null)
+                                config.IPv4DHCP = ipv4Props.IsDhcpEnabled;
+                        }
+                        else
+                        {
+                            config.IPv4DHCP = false;
+                        }
                     }
                     catch
                     {
