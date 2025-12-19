@@ -27,21 +27,58 @@ public class AgentService : IAgentService
 
     public async Task ProcessHeartbeatAsync(AgentHeartbeat heartbeat)
     {
-        var agent = await _context.Agents.FirstOrDefaultAsync(a => a.Hostname == heartbeat.Hostname && a.MacAddress == heartbeat.MacAddress);
+        // Rechercher l'agent existant par plusieurs critères (ordre de priorité)
+        // 1. Hostname + IP (le plus fiable)
+        // 2. Hostname + MAC (si MAC est valide)
+        // 3. Hostname seul (dernier recours)
+        var normalizedHostname = heartbeat.Hostname?.ToLowerInvariant() ?? string.Empty;
+        var normalizedMac = NormalizeMacAddress(heartbeat.MacAddress);
+        var hasValidMac = !string.IsNullOrEmpty(normalizedMac) && normalizedMac != "unknown" && normalizedMac != "00:00:00:00:00:00";
+        
+        Agent? agent = null;
+        
+        // Essayer de trouver par hostname + IP d'abord
+        if (!string.IsNullOrEmpty(heartbeat.IpAddress))
+        {
+            agent = await _context.Agents.FirstOrDefaultAsync(a => 
+                a.Hostname.ToLower() == normalizedHostname && 
+                a.IpAddress == heartbeat.IpAddress);
+        }
+        
+        // Si pas trouvé, essayer par hostname + MAC (si MAC valide)
+        if (agent == null && hasValidMac)
+        {
+            agent = await _context.Agents.FirstOrDefaultAsync(a => 
+                a.Hostname.ToLower() == normalizedHostname && 
+                a.MacAddress.ToLower() == normalizedMac);
+        }
+        
+        // Dernier recours: hostname seul (pour éviter les doublons du même serveur)
+        if (agent == null)
+        {
+            agent = await _context.Agents.FirstOrDefaultAsync(a => 
+                a.Hostname.ToLower() == normalizedHostname);
+        }
+        
         if (agent == null)
         {
             agent = new Agent
             {
                 Hostname = heartbeat.Hostname,
-                MacAddress = heartbeat.MacAddress,
+                MacAddress = hasValidMac ? normalizedMac : string.Empty,
                 IpAddress = heartbeat.IpAddress,
                 OS = heartbeat.OS,
                 RegisteredAt = DateTime.UtcNow
             };
             _context.Agents.Add(agent);
-            _logger.LogInformation("Nouvel agent enregistré: {Hostname} ({Mac})", heartbeat.Hostname, heartbeat.MacAddress);
+            _logger.LogInformation("Nouvel agent enregistré: {Hostname} ({IP})", heartbeat.Hostname, heartbeat.IpAddress);
+        }
+        else
+        {
+            _logger.LogDebug("Agent existant mis à jour: {Hostname} ({IP})", heartbeat.Hostname, heartbeat.IpAddress);
         }
 
+        // Mettre à jour toutes les informations
         agent.LastSeen = DateTime.UtcNow;
         agent.Status = AgentStatus.Online;
         agent.CpuUsage = heartbeat.CpuUsage;
@@ -50,7 +87,31 @@ public class AgentService : IAgentService
         agent.Version = heartbeat.Version;
         agent.DetailsJson = heartbeat.DetailsJson;
         
+        // Mettre à jour IP et MAC si disponibles
+        if (!string.IsNullOrEmpty(heartbeat.IpAddress))
+            agent.IpAddress = heartbeat.IpAddress;
+        if (hasValidMac)
+            agent.MacAddress = normalizedMac;
+        // Mettre à jour l'OS seulement s'il est plus descriptif
+        if (!string.IsNullOrEmpty(heartbeat.OS) && 
+            (string.IsNullOrEmpty(agent.OS) || heartbeat.OS.Length > agent.OS.Length))
+            agent.OS = heartbeat.OS;
+        
         await _context.SaveChangesAsync();
+    }
+
+    private static string NormalizeMacAddress(string? mac)
+    {
+        if (string.IsNullOrWhiteSpace(mac))
+            return string.Empty;
+        
+        // Retirer les espaces et convertir en minuscules
+        mac = mac.Trim().ToLowerInvariant();
+        
+        // Convertir les différents formats en format unifié (aa:bb:cc:dd:ee:ff)
+        mac = mac.Replace("-", ":").Replace(".", ":");
+        
+        return mac;
     }
 
     public async Task<IEnumerable<Agent>> GetAllAgentsAsync()
