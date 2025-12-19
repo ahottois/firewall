@@ -93,6 +93,9 @@ builder.Services.AddSingleton<IPacketSnifferService, PacketSnifferService>();
 builder.Services.AddSingleton<IDhcpService, DhcpService>();
 builder.Services.AddHostedService<DhcpService>(provider => (DhcpService)provider.GetRequiredService<IDhcpService>());
 
+// WiFi Service (gestion multi-bandes et Mesh)
+builder.Services.AddSingleton<IWiFiService, WiFiService>();
+
 // Parental Control Service (contrôle parental avec vérification périodique)
 builder.Services.AddSingleton<IParentalControlService, ParentalControlService>();
 builder.Services.AddHostedService<ParentalControlService>(provider => 
@@ -172,6 +175,119 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

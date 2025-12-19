@@ -51,6 +51,10 @@
                 <span class="nav-icon"><i class="fas fa-network-wired"></i></span>
                 <span>Serveur DHCP</span>
             </li>
+            <li class="nav-item" data-page="wifi">
+                <span class="nav-icon"><i class="fas fa-wifi"></i></span>
+                <span>WiFi Multi-Bandes</span>
+            </li>
             <li class="nav-item" data-page="setup">
                 <span class="nav-icon"><i class="fas fa-book"></i></span>
                 <span>Installation</span>
@@ -1009,6 +1013,331 @@
                     <button class="btn btn-primary" onclick="app.showCreateProfileModal()" style="margin-top: 20px;">
                         <i class="fas fa-plus"></i> Creer le premier profil
                     </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- WiFi Multi-Bands Page -->
+        <section id="wifi-page" class="page">
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card" id="wifi-status-card">
+                    <div class="stat-icon"><i class="fas fa-wifi"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="wifi-status-text">Actif</span>
+                        <span class="stat-label">Statut WiFi</span>
+                    </div>
+                </div>
+                <div class="stat-card info">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="wifi-clients-total">0</span>
+                        <span class="stat-label">Clients connectés</span>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon"><i class="fas fa-project-diagram"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="wifi-mesh-nodes">0</span>
+                        <span class="stat-label">Nœuds Mesh</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="wifi-max-speed">0 Mbps</span>
+                        <span class="stat-label">Débit max</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration globale -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-cog"></i> Configuration globale</h3>
+                    <div class="header-actions">
+                        <label class="switch">
+                            <input type="checkbox" id="wifi-enabled" onchange="app.toggleWiFi()">
+                            <span class="slider round"></span>
+                        </label>
+                        <span style="margin-left: 10px;">WiFi</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>SSID (Nom du réseau)</label>
+                            <input type="text" id="wifi-ssid" class="form-control" placeholder="MonReseau-WiFi">
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label>Mot de passe</label>
+                            <input type="password" id="wifi-password" class="form-control" placeholder="••••••••">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Sécurité</label>
+                            <select id="wifi-security" class="form-control">
+                                <option value="4">WPA3-Personal</option>
+                                <option value="7">WPA2/WPA3 Mixte</option>
+                                <option value="3">WPA2-Personal</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="wifi-smart-connect" checked>
+                                Smart Connect (SSID unifié)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="wifi-fast-roaming" checked>
+                                Fast Roaming (802.11r)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="wifi-hide-ssid">
+                                Masquer le SSID
+                            </label>
+                        </div>
+                    </div>
+                    <div style="text-align: right; margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="app.saveWiFiConfig()">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bandes de fréquence -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-broadcast-tower"></i> Bandes de fréquence</h3>
+                </div>
+                <div class="card-body">
+                    <div class="wifi-bands-grid" id="wifi-bands-grid">
+                        <!-- Bande 2.4 GHz -->
+                        <div class="wifi-band-card" data-band="24">
+                            <div class="band-header">
+                                <div class="band-title">
+                                    <span class="band-freq">2.4 GHz</span>
+                                    <span class="band-standard" id="band-24-standard">WiFi 6</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="band-24-enabled" onchange="app.toggleBand('24')">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="band-info">
+                                <div class="band-stat">
+                                    <i class="fas fa-users"></i>
+                                    <span id="band-24-clients">0</span> clients
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span id="band-24-speed">574</span> Mbps
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-broadcast-tower"></i>
+                                    Canal <span id="band-24-channel">Auto</span>
+                                </div>
+                            </div>
+                            <div class="band-features">
+                                <span class="feature-tag" title="Portée étendue"><i class="fas fa-signal"></i> Longue portée</span>
+                                <span class="feature-tag" title="Compatible IoT"><i class="fas fa-cube"></i> IoT</span>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" onclick="app.showBandConfig('24')">
+                                <i class="fas fa-cog"></i> Configurer
+                            </button>
+                        </div>
+
+                        <!-- Bande 5 GHz -->
+                        <div class="wifi-band-card" data-band="50">
+                            <div class="band-header">
+                                <div class="band-title">
+                                    <span class="band-freq">5 GHz</span>
+                                    <span class="band-standard" id="band-50-standard">WiFi 6</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="band-50-enabled" onchange="app.toggleBand('50')">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="band-info">
+                                <div class="band-stat">
+                                    <i class="fas fa-users"></i>
+                                    <span id="band-50-clients">0</span> clients
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span id="band-50-speed">2402</span> Mbps
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-broadcast-tower"></i>
+                                    Canal <span id="band-50-channel">Auto</span>
+                                </div>
+                            </div>
+                            <div class="band-features">
+                                <span class="feature-tag success" title="Haut débit"><i class="fas fa-bolt"></i> Rapide</span>
+                                <span class="feature-tag" title="Moins d'interférences"><i class="fas fa-shield-alt"></i> Stable</span>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" onclick="app.showBandConfig('50')">
+                                <i class="fas fa-cog"></i> Configurer
+                            </button>
+                        </div>
+
+                        <!-- Bande 6 GHz -->
+                        <div class="wifi-band-card wifi-6e" data-band="60">
+                            <div class="band-header">
+                                <div class="band-title">
+                                    <span class="band-freq">6 GHz</span>
+                                    <span class="band-standard wifi-6e-badge" id="band-60-standard">WiFi 6E</span>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="band-60-enabled" onchange="app.toggleBand('60')">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="band-info">
+                                <div class="band-stat">
+                                    <i class="fas fa-users"></i>
+                                    <span id="band-60-clients">0</span> clients
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span id="band-60-speed">4804</span> Mbps
+                                </div>
+                                <div class="band-stat">
+                                    <i class="fas fa-broadcast-tower"></i>
+                                    Canal <span id="band-60-channel">Auto</span>
+                                </div>
+                            </div>
+                            <div class="band-features">
+                                <span class="feature-tag premium" title="Très haut débit"><i class="fas fa-rocket"></i> Ultra-rapide</span>
+                                <span class="feature-tag premium" title="Aucune interférence"><i class="fas fa-gem"></i> Premium</span>
+                            </div>
+                            <button class="btn btn-sm btn-secondary" onclick="app.showBandConfig('60')">
+                                <i class="fas fa-cog"></i> Configurer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Réseau Mesh -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-project-diagram"></i> Réseau Mesh</h3>
+                    <div class="header-actions">
+                        <label class="switch">
+                            <input type="checkbox" id="mesh-enabled" onchange="app.toggleMesh()">
+                            <span class="slider round"></span>
+                        </label>
+                        <span style="margin-left: 10px;">Mesh</span>
+                        <button class="btn btn-sm btn-secondary" style="margin-left: 15px;" onclick="app.optimizeMesh()">
+                            <i class="fas fa-magic"></i> Optimiser
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="app.showAddMeshNodeModal()">
+                            <i class="fas fa-plus"></i> Ajouter un nœud
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="mesh-topology" class="mesh-topology">
+                        <!-- Topologie Mesh générée dynamiquement -->
+                        <div class="mesh-empty" id="mesh-empty">
+                            <i class="fas fa-project-diagram" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 15px;"></i>
+                            <p>Activez le mode Mesh pour étendre la couverture WiFi</p>
+                            <p class="text-muted" style="font-size: 0.9rem;">Ajoutez des nœuds satellites pour une couverture sans zone morte</p>
+                        </div>
+                    </div>
+                    <div id="mesh-nodes-list" class="mesh-nodes-grid" style="display: none;">
+                        <!-- Nœuds Mesh -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Réseau Invité -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-user-friends"></i> Réseau Invité</h3>
+                    <label class="switch">
+                        <input type="checkbox" id="guest-enabled" onchange="app.toggleGuestNetwork()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="card-body" id="guest-config">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>SSID Invité</label>
+                            <input type="text" id="guest-ssid" class="form-control" placeholder="MonReseau-Guest">
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label>Mot de passe</label>
+                            <input type="password" id="guest-password" class="form-control" placeholder="••••••••">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Limite (Mbps)</label>
+                            <input type="number" id="guest-bandwidth" class="form-control" value="50" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="guest-isolation" checked>
+                            Isoler les invités (ne peuvent pas voir votre réseau)
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients WiFi -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-laptop"></i> Clients connectés</h3>
+                    <button class="btn btn-sm btn-secondary" onclick="app.refreshWiFiClients()">
+                        <i class="fas fa-sync"></i> Actualiser
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Appareil</th>
+                                <th>Bande</th>
+                                <th>Signal</th>
+                                <th>Débit</th>
+                                <th>Standard</th>
+                                <th>Nœud</th>
+                                <th>Connecté depuis</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wifi-clients-table">
+                            <tr><td colspan="7" class="empty-state">Aucun client connecté</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Analyse des canaux -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-bar"></i> Analyse des canaux</h3>
+                    <div class="header-actions">
+                        <select id="channel-scan-band" class="form-control" style="width: auto;">
+                            <option value="24">2.4 GHz</option>
+                            <option value="50">5 GHz</option>
+                            <option value="60">6 GHz</option>
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="app.scanWiFiChannels()">
+                            <i class="fas fa-radar"></i> Scanner
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="channel-analysis" class="channel-analysis-grid">
+                        <p class="text-muted">Cliquez sur Scanner pour analyser les canaux disponibles</p>
+                    </div>
                 </div>
             </div>
         </section>
