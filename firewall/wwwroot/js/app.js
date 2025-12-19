@@ -746,500 +746,639 @@ class FirewallApp {
     }
 
     // ==========================================
-    // OTHER PAGE LOADERS (stubs)
+    // OTHER PAGE LOADERS
     // ==========================================
 
-    async loadCameras() { /* Implement as needed */ }
-    async loadTraffic() { /* Implement as needed */ }
-    async loadDhcp() { /* Implement as needed */ }
-    async loadSniffer() { /* Implement as needed */ }
-    async loadRouter() { /* Implement as needed */ }
-    async loadSettings() { /* Implement as needed */ }
-    async loadAdmin() { /* Implement as needed */ }
-    
-    showAddMappingModal() { /* Implement as needed */ }
-    showAddDeviceModal() { /* Implement as needed */ }
-    saveDhcpConfig() { /* Implement as needed */ }
-
-    // SignalR Device Hub Connection
-    async connectDeviceHub() {
-        if (typeof signalR === 'undefined') {
-            console.warn('SignalR not loaded, real-time updates disabled');
-            return;
+    async loadCameras() {
+        // Les caméras ne sont pas implémentées côté backend pour le moment
+        const grid = document.getElementById('cameras-grid');
+        if (grid) {
+            grid.innerHTML = '<div class="empty-state"><i class="fas fa-video empty-state-icon"></i><p>Fonctionnalité en développement</p></div>';
         }
+    }
 
+    async loadTraffic() {
         try {
-            this.deviceHub = new signalR.HubConnectionBuilder()
-                .withUrl('/hubs/devices')
-                .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-                .configureLogging(signalR.LogLevel.Warning)
-                .build();
-
-            // Nouveaux appareils découverts
-            this.deviceHub.on('DeviceDiscovered', (device) => {
-                console.log('Nouvel appareil découvert:', device);
-                this.handleDeviceDiscovered(device);
-            });
-
-            // Appareil mis à jour
-            this.deviceHub.on('DeviceUpdated', (device) => {
-                console.log('Appareil mis à jour:', device);
-                this.handleDeviceUpdated(device);
-            });
-
-            // Changement de statut (online/offline)
-            this.deviceHub.on('DeviceStatusChanged', (device) => {
-                console.log('Statut appareil changé:', device);
-                this.handleDeviceStatusChanged(device);
-            });
-
-            // Appareil bloqué
-            this.deviceHub.on('DeviceBlocked', (device) => {
-                console.log('Appareil bloqué:', device);
-                this.handleDeviceBlocked(device);
-            });
-
-            // Appareil débloqué
-            this.deviceHub.on('DeviceUnblocked', (device) => {
-                console.log('Appareil débloqué:', device);
-                this.handleDeviceUnblocked(device);
-            });
-
-            // Progression du scan
-            this.deviceHub.on('ScanProgress', (data) => {
-                this.handleScanProgress(data);
-            });
-
-            // Scan terminé
-            this.deviceHub.on('ScanComplete', (data) => {
-                this.handleScanComplete(data);
-            });
-
-            this.deviceHub.onclose(() => {
-                console.log('DeviceHub déconnecté');
-            });
-
-            this.deviceHub.onreconnecting(() => {
-                console.log('DeviceHub reconnexion en cours...');
-            });
-
-            this.deviceHub.onreconnected(() => {
-                console.log('DeviceHub reconnecté');
-            });
-
-            await this.deviceHub.start();
-            console.log('Connecté au DeviceHub');
-        } catch (error) {
-            console.error('Erreur connexion DeviceHub:', error);
-            setTimeout(() => this.connectDeviceHub(), 5000);
-        }
-    }
-
-    // Handlers SignalR
-    handleDeviceDiscovered(device) {
-        // Ajouter à la liste si on est sur la page devices
-        const existingIndex = this.currentDevices.findIndex(d => d.macAddress === device.macAddress);
-        if (existingIndex === -1) {
-            this.currentDevices.push(device);
-        } else {
-            this.currentDevices[existingIndex] = device;
-        }
-        
-        if (this.currentPage === 'devices') {
-            this.addOrUpdateDeviceRow(device);
-        }
-        
-        this.showToast({
-            title: 'Nouvel appareil',
-            message: `${device.macAddress} (${device.ipAddress || 'IP inconnue'})`,
-            severity: 0
-        });
-    }
-
-    handleDeviceUpdated(device) {
-        const index = this.currentDevices.findIndex(d => d.id === device.id || d.macAddress === device.macAddress);
-        if (index !== -1) {
-            this.currentDevices[index] = device;
-        }
-        
-        if (this.currentPage === 'devices') {
-            this.addOrUpdateDeviceRow(device);
-        }
-    }
-
-    handleDeviceStatusChanged(device) {
-        const index = this.currentDevices.findIndex(d => d.id === device.id || d.macAddress === device.macAddress);
-        if (index !== -1) {
-            this.currentDevices[index] = device;
-        }
-        
-        if (this.currentPage === 'devices') {
-            this.addOrUpdateDeviceRow(device);
-        }
-    }
-
-    handleDeviceBlocked(device) {
-        const index = this.currentDevices.findIndex(d => d.id === device.id);
-        if (index !== -1) {
-            this.currentDevices[index] = device;
-        }
-        
-        if (this.currentPage === 'devices') {
-            this.addOrUpdateDeviceRow(device);
-        }
-        
-        this.showToast({
-            title: 'Appareil bloqué',
-            message: `${device.macAddress} a été bloqué`,
-            severity: 2
-        });
-    }
-
-    handleDeviceUnblocked(device) {
-        const index = this.currentDevices.findIndex(d => d.id === device.id);
-        if (index !== -1) {
-            this.currentDevices[index] = device;
-        }
-        
-        if (this.currentPage === 'devices') {
-            this.addOrUpdateDeviceRow(device);
-        }
-        
-        this.showToast({
-            title: 'Appareil débloqué',
-            message: `${device.macAddress} a été débloqué`,
-            severity: 0
-        });
-    }
-
-    handleScanProgress(data) {
-        const scanStatus = document.getElementById('scan-status');
-        if (scanStatus) {
-            scanStatus.textContent = `Scan: ${data.scanned}/${data.total} (${data.found} trouvés)`;
-        }
-    }
-
-    handleScanComplete(data) {
-        const scanStatus = document.getElementById('scan-status');
-        if (scanStatus) {
-            scanStatus.textContent = `Scan terminé: ${data.totalDevices} appareils actifs`;
-            setTimeout(() => { scanStatus.textContent = ''; }, 5000);
-        }
-    }
-
-    // Ajouter ou mettre à jour une ligne dans le tableau
-    addOrUpdateDeviceRow(device) {
-        const tbody = document.getElementById('devices-table');
-        if (!tbody) return;
-
-        const existingRow = tbody.querySelector(`tr[data-mac="${device.macAddress}"]`);
-        const rowHtml = this.createDeviceRowHtml(device);
-
-        if (existingRow) {
-            existingRow.outerHTML = rowHtml;
-            // Animation de mise à jour
-            const newRow = tbody.querySelector(`tr[data-mac="${device.macAddress}"]`);
-            if (newRow) {
-                newRow.classList.add('row-updated');
-                setTimeout(() => newRow.classList.remove('row-updated'), 1000);
-            }
-        } else {
-            tbody.insertAdjacentHTML('afterbegin', rowHtml);
-            // Animation d'ajout
-            const newRow = tbody.querySelector(`tr[data-mac="${device.macAddress}"]`);
-            if (newRow) {
-                newRow.classList.add('row-new');
-                setTimeout(() => newRow.classList.remove('row-new'), 2000);
-            }
-        }
-    }
-
-    createDeviceRowHtml(device) {
-        const isBlocked = device.status === 3 || device.status === 'Blocked';
-        return `
-            <tr data-mac="${this.escapeHtml(device.macAddress)}" data-id="${device.id}">
-                <td><span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span></td>
-                <td class="device-mac">${this.escapeHtml(device.macAddress)}</td>
-                <td>${this.escapeHtml(device.ipAddress || '-')}</td>
-                <td>${this.escapeHtml(device.vendor || 'Inconnu')}</td>
-                <td>${this.escapeHtml(device.description || device.hostname || '-')}</td>
-                <td>${this.formatDate(device.lastSeen)}</td>
-                <td>
-                    <div class="action-buttons" style="display: flex; gap: 5px;">
-                        ${!device.isTrusted ? `<button class="btn btn-sm btn-success" onclick="app.approveDevice(${device.id})" title="Approuver">${Icons.check}</button>` : ''}
-                        <button class="btn btn-sm btn-primary" onclick="app.viewDevice(${device.id})" title="Détails">${Icons.eye}</button>
-                        ${isBlocked 
-                            ? `<button class="btn btn-sm btn-warning" onclick="app.unblockDevice(${device.id})" title="Débloquer">${Icons.unlockAlt}</button>`
-                            : `<button class="btn btn-sm btn-danger" onclick="app.blockDevice(${device.id})" title="Bloquer">${Icons.ban}</button>`
-                        }
-                        <button class="btn btn-sm btn-secondary" onclick="app.deleteDevice(${device.id})" title="Supprimer">${Icons.trash}</button>
+            const stats = await this.api('traffic/stats').catch(() => ({}));
+            
+            document.getElementById('total-packets').textContent = stats.totalPackets || 0;
+            document.getElementById('inbound-packets').textContent = stats.inboundPackets || 0;
+            document.getElementById('outbound-packets').textContent = stats.outboundPackets || 0;
+            document.getElementById('suspicious-packets').textContent = stats.suspiciousPackets || 0;
+            
+            // Afficher les protocoles
+            const protocolsChart = document.getElementById('protocols-chart');
+            if (protocolsChart && stats.protocols) {
+                protocolsChart.innerHTML = Object.entries(stats.protocols).map(([proto, count]) => `
+                    <div class="protocol-item">
+                        <span class="protocol-name">${this.escapeHtml(proto)}</span>
+                        <span class="protocol-count">${count}</span>
                     </div>
-                </td>
-            </tr>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading traffic:', error);
+        }
+    }
+
+    async loadDhcp() {
+        try {
+            const config = await this.api('dhcp/config').catch(() => ({}));
+            const leases = await this.api('dhcp/leases').catch(() => []);
+            
+            // Remplir la configuration
+            document.getElementById('dhcp-enabled').checked = config.enabled || false;
+            document.getElementById('dhcp-start').value = config.rangeStart || '';
+            document.getElementById('dhcp-end').value = config.rangeEnd || '';
+            document.getElementById('dhcp-mask').value = config.subnetMask || '255.255.255.0';
+            document.getElementById('dhcp-gateway').value = config.gateway || '';
+            document.getElementById('dhcp-dns1').value = config.dns1 || '';
+            document.getElementById('dhcp-dns2').value = config.dns2 || '';
+            document.getElementById('dhcp-lease').value = config.leaseTime || 1440;
+            
+            // Afficher les baux
+            const tbody = document.getElementById('dhcp-leases-table');
+            if (tbody) {
+                if (!leases.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aucun bail actif</td></tr>';
+                } else {
+                    tbody.innerHTML = leases.map(lease => `
+                        <tr>
+                            <td>${this.escapeHtml(lease.ipAddress)}</td>
+                            <td>${this.escapeHtml(lease.macAddress)}</td>
+                            <td>${this.escapeHtml(lease.hostname || '-')}</td>
+                            <td>${this.formatDate(lease.expiration)}</td>
+                        </tr>
+                    `).join('');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading DHCP:', error);
+        }
+    }
+
+    async loadSniffer() {
+        // Vérifier si le sniffer est actif
+        try {
+            const status = await this.api('sniffer/status').catch(() => ({ isRunning: false }));
+            
+            const startBtn = document.getElementById('btn-start-sniffer');
+            const stopBtn = document.getElementById('btn-stop-sniffer');
+            
+            if (startBtn && stopBtn) {
+                startBtn.style.display = status.isRunning ? 'none' : 'inline-flex';
+                stopBtn.style.display = status.isRunning ? 'inline-flex' : 'none';
+            }
+        } catch (error) {
+            console.error('Error loading sniffer status:', error);
+        }
+    }
+
+    async startSniffer() {
+        try {
+            await this.api('sniffer/start', { method: 'POST' });
+            document.getElementById('btn-start-sniffer').style.display = 'none';
+            document.getElementById('btn-stop-sniffer').style.display = 'inline-flex';
+            this.showToast({ title: 'Sniffer', message: 'Capture démarrée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async stopSniffer() {
+        try {
+            await this.api('sniffer/stop', { method: 'POST' });
+            document.getElementById('btn-start-sniffer').style.display = 'inline-flex';
+            document.getElementById('btn-stop-sniffer').style.display = 'none';
+            this.showToast({ title: 'Sniffer', message: 'Capture arrêtée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    clearSnifferPackets() {
+        const tbody = document.getElementById('sniffer-packets-table');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">En attente de paquets...</td></tr>';
+        }
+    }
+
+    async loadRouter() {
+        await this.loadRouterInterfaces();
+        await this.loadRouterMappings();
+    }
+
+    async loadRouterInterfaces() {
+        try {
+            const interfaces = await this.api('settings/interfaces').catch(() => [];
+            const container = document.getElementById('router-interfaces-list');
+            
+            if (!container) return;
+            
+            if (!interfaces.length) {
+                container.innerHTML = '<p class="empty-state">Aucune interface détectée</p>';
+                return;
+            }
+            
+            container.innerHTML = interfaces.map(iface => `
+                <div class="interface-item">
+                    <div class="interface-icon">
+                        <i class="fas ${iface.isUp ? 'fa-network-wired' : 'fa-times-circle'}"></i>
+                    </div>
+                    <div class="interface-info">
+                        <strong>${this.escapeHtml(iface.name)}</strong>
+                        <br>
+                        <small>
+                            IP: ${this.escapeHtml(iface.ipAddress || 'Non configurée')} |
+                            MAC: ${this.escapeHtml(iface.macAddress || '-')} |
+                            ${iface.isUp ? '<span class="text-success">Actif</span>' : '<span class="text-danger">Inactif</span>'}
+                        </small>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading router interfaces:', error);
+        }
+    }
+
+    async loadRouterMappings() {
+        try {
+            const mappings = await this.api('router/mappings').catch(() => [];
+            const tbody = document.getElementById('router-mappings-table');
+            
+            if (!tbody) return;
+            
+            if (!mappings.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucune règle de transfert</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = mappings.map(mapping => `
+                <tr>
+                    <td>${this.escapeHtml(mapping.name || '-')}</td>
+                    <td>${mapping.localPort}</td>
+                    <td>${this.escapeHtml(mapping.targetIp)}:${mapping.targetPort}</td>
+                    <td>${this.escapeHtml(mapping.protocol)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteMapping(${mapping.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading router mappings:', error);
+        }
+    }
+
+    async loadSettings() {
+        try {
+            // Charger les informations système
+            const sysInfo = await this.api('settings/system-info').catch(() => ({}));
+            const interfaces = await this.api('settings/interfaces').catch(() => [];
+            
+            // Afficher les informations système
+            const sysInfoDiv = document.getElementById('system-info');
+            if (sysInfoDiv) {
+                sysInfoDiv.innerHTML = `
+                    <div class="detail-row"><strong>OS:</strong> ${this.escapeHtml(sysInfo.osDescription || '-')}</div>
+                    <div class="detail-row"><strong>Machine:</strong> ${this.escapeHtml(sysInfo.machineName || '-')}</div>
+                    <div class="detail-row"><strong>Processeurs:</strong> ${sysInfo.processorCount || '-'}</div>
+                    <div class="detail-row"><strong>.NET:</strong> ${this.escapeHtml(sysInfo.dotnetVersion || '-')}</div>
+                    <div class="detail-row"><strong>Mémoire:</strong> ${sysInfo.totalMemoryMb ? Math.round(sysInfo.totalMemoryMb / 1024) + ' GB' : '-'}</div>
+                `;
+            }
+            
+            // Afficher les interfaces
+            const interfacesDiv = document.getElementById('interfaces-list');
+            if (interfacesDiv) {
+                interfacesDiv.innerHTML = interfaces.map(iface => `
+                    <div class="interface-item">
+                        <div class="interface-icon">
+                            <i class="fas ${iface.isUp ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'}"></i>
+                        </div>
+                        <div class="interface-info">
+                            <strong>${this.escapeHtml(iface.name)}</strong>
+                            ${iface.description ? `<br><small>${this.escapeHtml(iface.description)}</small>` : ''}
+                            <br>
+                            <small>
+                                IP: ${this.escapeHtml(iface.ipAddress || '-')} |
+                                MAC: ${this.escapeHtml(iface.macAddress || '-')}
+                            </small>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    async loadAdmin() {
+        try {
+            // Charger le statut du service
+            const status = await this.api('admin/service/status').catch(() => ({ status: 'unknown' }));
+            const version = await this.api('admin/version').catch(() => ({ version: '-' }));
+            
+            // Mettre à jour l'affichage
+            const statusText = document.getElementById('service-status-text');
+            const statusCard = document.getElementById('service-status-card');
+            const versionText = document.getElementById('app-version');
+            
+            if (statusText) {
+                statusText.textContent = status.status === 'running' ? 'En cours' : 'Arrêté';
+            }
+            if (statusCard) {
+                statusCard.classList.remove('success', 'danger');
+                statusCard.classList.add(status.status === 'running' ? 'success' : 'danger');
+            }
+            if (versionText) {
+                versionText.textContent = version.version || '1.0.0';
+            }
+        } catch (error) {
+            console.error('Error loading admin:', error);
+        }
+    }
+
+    async startService() {
+        try {
+            await this.api('admin/service/start', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service démarré', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async stopService() {
+        try {
+            await this.api('admin/service/stop', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service arrêté', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async restartService() {
+        try {
+            await this.api('admin/service/restart', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service redémarré', severity: 0 });
+            setTimeout(() => this.loadAdmin(), 2000);
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async installService() {
+        try {
+            const result = await this.api('admin/service/install', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: result.message || 'Service installé', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async uninstallService() {
+        if (!confirm('Désinstaller le service ?')) return;
+        try {
+            const result = await this.api('admin/service/uninstall', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: result.message || 'Service désinstallé', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async loadServiceLogs() {
+        try {
+            const logs = await this.api('admin/logs?lines=100');
+            const logsDiv = document.getElementById('service-logs');
+            if (logsDiv) {
+                logsDiv.innerHTML = logs.map(log => {
+                    const levelClass = log.level?.toLowerCase() || '';
+                    return `<div class="log-entry ${levelClass}">
+                        <span class="log-time">${this.formatDate(log.timestamp)}</span>
+                        <span class="log-message">${this.escapeHtml(log.message)}</span>
+                    </div>`;
+                }).join('');
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+        } catch (error) {
+            console.error('Error loading service logs:', error);
+        }
+    }
+
+    async checkForUpdates() {
+        const statusDiv = document.getElementById('update-status');
+        if (statusDiv) {
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
+        }
+        
+        try {
+            const result = await this.api('admin/updates/check');
+            if (statusDiv) {
+                if (result.updateAvailable) {
+                    statusDiv.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-circle"></i> Mise à jour disponible: v${result.latestVersion}</span>`;
+                } else {
+                    statusDiv.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Vous êtes à jour</span>';
+                }
+            }
+        } catch (error) {
+            if (statusDiv) {
+                statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle"></i> Erreur de vérification</span>';
+            }
+        }
+    }
+
+    async updateFromGithub() {
+        if (!confirm('Mettre à jour depuis GitHub ? L\'application va redémarrer.')) return;
+        
+        try {
+            await this.api('admin/updates/apply', { method: 'POST' });
+            this.showToast({ title: 'Mise à jour', message: 'Mise à jour en cours, l\'application va redémarrer...', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+    
+    showAddMappingModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Nouvelle règle de transfert';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" id="mapping-name" class="form-control" placeholder="Ex: Serveur Web">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Port local</label>
+                    <input type="number" id="mapping-local-port" class="form-control" placeholder="80">
+                </div>
+                <div class="form-group">
+                    <label>Protocole</label>
+                    <select id="mapping-protocol" class="form-control">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                        <option value="BOTH">TCP + UDP</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>IP cible</label>
+                    <input type="text" id="mapping-target-ip" class="form-control" placeholder="192.168.1.100">
+                </div>
+                <div class="form-group">
+                    <label>Port cible</label>
+                    <input type="number" id="mapping-target-port" class="form-control" placeholder="80">
+                </div>
+            </div>
         `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-primary" onclick="app.saveMapping()">
+                <i class="fas fa-save"></i> Enregistrer
+            </button>
+        `;
+        document.getElementById('modal').classList.add('active');
     }
 
-    // ==========================================
-    // NETWORK SCAN METHODS
-    // ==========================================
-
-    scanLogs = [];
-    
-    addScanLog(message, type = 'info') {
-        const timestamp = new Date().toLocaleTimeString('fr-FR');
-        const colors = {
-            'info': '#00d9ff',
-            'success': '#00ff88',
-            'warning': '#ffaa00',
-            'error': '#ff4757'
-        };
-        const color = colors[type] || colors.info;
-        const logLine = `<span style="color: ${color}">[${timestamp}] ${message}</span>`;
-        this.scanLogs.push(logLine);
-        
-        const logsPanel = document.getElementById('scan-logs-panel');
-        const logsContainer = document.getElementById('device-scan-logs');
-        
-        if (logsPanel && logsContainer) {
-            logsPanel.style.display = 'block';
-            logsContainer.innerHTML = this.scanLogs.join('\n');
-            logsContainer.scrollTop = logsContainer.scrollHeight;
-        }
-    }
-    
-    clearScanLogs() {
-        this.scanLogs = [];
-        const logsContainer = document.getElementById('device-scan-logs');
-        if (logsContainer) {
-            logsContainer.innerHTML = '';
-        }
-    }
-
-    async cleanupDevices() {
-        if (!confirm('Supprimer tous les appareils fantomes (Docker, MAC aleatoires sur reseaux virtuels) ?')) {
-            return;
-        }
-
-        try {
-            this.showToast({ title: 'Nettoyage', message: 'Suppression des appareils fantomes...', severity: 0 });
-            
-            const result = await this.api('devices/cleanup', { method: 'POST' });
-            
-            this.showToast({ 
-                title: 'Nettoyage termine', 
-                message: result.message || `${result.deletedCount} appareils supprimes`, 
-                severity: 0 
-            });
-
-            // Recharger la liste
-            await this.loadDevices();
-        } catch (error) {
-            console.error('Erreur cleanup:', error);
-            this.showToast({ title: 'Erreur', message: 'Erreur lors du nettoyage: ' + error.message, severity: 2 });
-        }
-    }
-
-    async purgeDevices() {
-        // Double confirmation pour eviter les erreurs
-        if (!confirm('⚠️ ATTENTION: Voulez-vous vraiment supprimer TOUS les appareils de la base de donnees?\n\nCette action est irreversible!')) {
-            return;
-        }
-        
-        if (!confirm('Derniere confirmation: Etes-vous sur de vouloir purger la base de donnees?')) {
-            return;
-        }
-
-        try {
-            this.showToast({ title: 'Purge', message: 'Suppression de tous les appareils...', severity: 1 });
-            
-            const result = await this.api('devices/purge', { method: 'DELETE' });
-            
-            this.showToast({ 
-                title: 'Purge terminee', 
-                message: result.message || `${result.deletedCount} appareils supprimes`, 
-                severity: 0 
-            });
-
-            // Recharger la liste (qui sera vide)
-            await this.loadDevices();
-            
-            // Mettre a jour les stats du dashboard
-            this.loadDashboardStats();
-        } catch (error) {
-            console.error('Erreur purge:', error);
-            this.showToast({ title: 'Erreur', message: 'Erreur lors de la purge: ' + error.message, severity: 2 });
-        }
-    }
-
-    async scanNetwork() {
-        const btn = document.getElementById('scan-network-btn');
-        const icon = document.getElementById('scan-icon');
-        const scanStatus = document.getElementById('scan-status');
-        
-        if (!btn) return;
-        
-        // Afficher le panneau de logs
-        this.clearScanLogs();
-        this.addScanLog('Demarrage du scan reseau...', 'info');
-        
-        // Désactiver le bouton et montrer l'animation
-        btn.disabled = true;
-        btn.classList.add('scanning');
-        if (icon) {
-            icon.className = 'fas fa-spinner fa-spin';
-        }
-        if (scanStatus) {
-            scanStatus.textContent = 'Scan en cours...';
-            scanStatus.style.color = 'var(--accent-primary)';
-        }
-
-        try {
-            this.addScanLog('Appel API /api/devices/scan...', 'info');
-            
-            const result = await this.api('devices/scan', { method: 'POST' });
-            
-            this.addScanLog(`Reponse API: ${JSON.stringify(result)}`, 'success');
-            this.addScanLog(`Scan termine: ${result.devicesFound || 0} appareil(s) decouvert(s)`, 'success');
-            
-            this.showToast({ 
-                title: 'Scan termine', 
-                message: result.message || `${result.devicesFound || 0} appareil(s) decouvert(s)`, 
-                severity: 0 
-            });
-
-            // Recharger la liste des appareils
-            this.addScanLog('Rechargement de la liste des appareils...', 'info');
-            await this.loadDevices();
-            this.addScanLog(`Liste rechargee: ${this.currentDevices.length} appareil(s) en base`, 'success');
-            
-            if (scanStatus) {
-                scanStatus.textContent = `Scan termine: ${result.devicesFound || 0} appareil(s)`;
-                scanStatus.style.color = 'var(--success)';
-                setTimeout(() => { scanStatus.textContent = ''; }, 5000);
-            }
-
-        } catch (error) {
-            console.error('Erreur scan reseau:', error);
-            this.addScanLog(`ERREUR: ${error.message}`, 'error');
-            this.showToast({ title: 'Erreur', message: 'Impossible de scanner le reseau: ' + error.message, severity: 3 });
-            
-            if (scanStatus) {
-                scanStatus.textContent = 'Erreur de scan';
-                scanStatus.style.color = 'var(--danger)';
-            }
-        } finally {
-            // Réactiver le bouton
-            btn.disabled = false;
-            btn.classList.remove('scanning');
-            if (icon) {
-                icon.className = 'fas fa-search';
-            }
-        }
-    }
-
-    // ==========================================
-    // DEVICES LIST
-    // ==========================================
-
-    async loadDevices() {
-        try {
-            console.log('Chargement des appareils...');
-            this.addScanLog('Appel API /api/devices...', 'info');
-            
-            const devices = await this.api('devices');
-            
-            console.log('Appareils recus:', devices);
-            this.addScanLog(`API devices: ${devices.length} appareil(s) recu(s)`, devices.length > 0 ? 'success' : 'warning');
-            
-            if (!Array.isArray(devices)) {
-                console.error('Reponse API invalide:', devices);
-                this.addScanLog('ERREUR: Reponse API invalide', 'error');
-                this.currentDevices = [];
-            } else {
-                this.currentDevices = devices;
-            }
-            
-            this.renderDevicesTable(this.currentDevices);
-        } catch (error) {
-            console.error('Error loading devices:', error);
-            this.addScanLog(`ERREUR chargement: ${error.message}`, 'error');
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger les appareils', severity: 2 });
-        }
-    }
-
-    renderDevicesTable(devices) {
-        const tbody = document.getElementById('devices-table');
-        if (!tbody) {
-            console.error('Element devices-table non trouvé');
-            return;
-        }
-
-        console.log('Rendu du tableau avec', devices.length, 'appareils');
-
-        if (!devices || !devices.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil détecté</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = devices.map(device => this.createDeviceRowHtml(device)).join('');
-    }
-
-    async blockDevice(id) {
-        if (!confirm('Bloquer cet appareil ?')) return;
-
-        try {
-            await this.api(`devices/${id}/block`, { method: 'POST' });
-            this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil bloqué', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de bloquer', severity: 2 });
-        }
-    }
-
-    async unblockDevice(id) {
-        try {
-            await this.api(`devices/${id}/unblock`, { method: 'POST' });
-            this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil débloqué', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de débloquer', severity: 2 });
-        }
-    }
-
-    // ==========================================
-    // API HELPER
-    // ==========================================
-
-    async api(endpoint, options = {}) {
-        const url = `/api/${endpoint}`;
-        const defaultOptions = {
-            headers: {
-                'Content-Type': 'application/json'
-            }
+    async saveMapping() {
+        const data = {
+            name: document.getElementById('mapping-name').value,
+            localPort: parseInt(document.getElementById('mapping-local-port').value),
+            targetIp: document.getElementById('mapping-target-ip').value,
+            targetPort: parseInt(document.getElementById('mapping-target-port').value),
+            protocol: document.getElementById('mapping-protocol').value
         };
 
-        const response = await fetch(url, { ...defaultOptions, ...options });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP ${response.status}`);
+        if (!data.localPort || !data.targetIp || !data.targetPort) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez remplir tous les champs obligatoires', severity: 2 });
+            return;
         }
 
-        const text = await response.text();
-        return text ? JSON.parse(text) : {};
+        try {
+            await this.api('router/mappings', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            document.getElementById('modal').classList.remove('active');
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succès', message: 'Règle ajoutée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async deleteMapping(id) {
+        if (!confirm('Supprimer cette règle ?')) return;
+        
+        try {
+            await this.api(`router/mappings/${id}`, { method: 'DELETE' });
+            this.loadRouterMappings();
+            this.showToast({ title: 'Succès', message: 'Règle supprimée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    showAddDeviceModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Ajouter un appareil';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Adresse MAC *</label>
+                <input type="text" id="new-device-mac" class="form-control" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div class="form-group">
+                <label>Adresse IP</label>
+                <input type="text" id="new-device-ip" class="form-control" placeholder="192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="new-device-description" class="form-control" placeholder="Ex: PC Bureau">
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="new-device-trusted"> Appareil de confiance
+                </label>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-primary" onclick="app.saveNewDevice()">
+                <i class="fas fa-save"></i> Ajouter
+            </button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async saveNewDevice() {
+        const mac = document.getElementById('new-device-mac').value.trim().toUpperCase();
+        
+        if (!mac) {
+            this.showToast({ title: 'Erreur', message: 'L\'adresse MAC est requise', severity: 2 });
+            return;
+        }
+        
+        // Valider le format MAC
+        const macRegex = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+        if (!macRegex.test(mac)) {
+            this.showToast({ title: 'Erreur', message: 'Format MAC invalide (ex: AA:BB:CC:DD:EE:FF)', severity: 2 });
+            return;
+        }
+
+        const data = {
+            macAddress: mac,
+            ipAddress: document.getElementById('new-device-ip').value.trim() || null,
+            description: document.getElementById('new-device-description').value.trim() || null,
+            isTrusted: document.getElementById('new-device-trusted').checked
+        };
+
+        try {
+            await this.api('devices', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            document.getElementById('modal').classList.remove('active');
+            this.loadDevices();
+            this.showToast({ title: 'Succès', message: 'Appareil ajouté', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async saveDhcpConfig() {
+        const config = {
+            enabled: document.getElementById('dhcp-enabled').checked,
+            rangeStart: document.getElementById('dhcp-start').value,
+            rangeEnd: document.getElementById('dhcp-end').value,
+            subnetMask: document.getElementById('dhcp-mask').value,
+            gateway: document.getElementById('dhcp-gateway').value,
+            dns1: document.getElementById('dhcp-dns1').value,
+            dns2: document.getElementById('dhcp-dns2').value,
+            leaseTime: parseInt(document.getElementById('dhcp-lease').value) || 1440
+        };
+
+        try {
+            await this.api('dhcp/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            this.showToast({ title: 'Succès', message: 'Configuration DHCP enregistrée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    loadDashboardStats() {
+        // Alias pour loadDashboard
+        this.loadDashboard();
     }
 
     // ==========================================
-    // NAVIGATION
+    // PI-HOLE ADDITIONAL METHODS
     // ==========================================
 
-    setupNavigation() {
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const page = item.dataset.page;
-                this.navigateTo(page);
+    async enablePihole() {
+        try {
+            await this.api('pihole/enable', { method: 'POST' });
+            this.showToast({ title: 'Pi-hole', message: 'Blocage activé', severity: 0 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    showDisablePiholeModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-pause"></i> Désactiver Pi-hole';
+        document.getElementById('modal-body').innerHTML = `
+            <p>Choisissez la durée de désactivation :</p>
+            <div class="form-group">
+                <select id="pihole-disable-duration" class="form-control">
+                    <option value="60">1 minute</option>
+                    <option value="300">5 minutes</option>
+                    <option value="600">10 minutes</option>
+                    <option value="1800">30 minutes</option>
+                    <option value="3600">1 heure</option>
+                    <option value="0">Indéfiniment</option>
+                </select>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-warning" onclick="app.disablePihole()">
+                <i class="fas fa-pause"></i> Désactiver
+            </button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async disablePihole() {
+        const duration = document.getElementById('pihole-disable-duration').value;
+        
+        try {
+            await this.api(`pihole/disable?seconds=${duration}`, { method: 'POST' });
+            document.getElementById('modal').classList.remove('active');
+            this.showToast({ title: 'Pi-hole', message: 'Blocage désactivé', severity: 1 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    showPiholePasswordModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-key"></i> Changer le mot de passe Pi-hole';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nouveau mot de passe</label>
+                <input type="password" id="pihole-new-password" class="form-control" placeholder="Nouveau mot de passe">
+            </div>
+            <div class="form-group">
+                <label>Confirmer</label>
+                <input type="password" id="pihole-confirm-password" class="form-control" placeholder="Confirmer le mot de passe">
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-primary" onclick="app.changePiholePassword()">
+                <i class="fas fa-save"></i> Changer
+            </button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async changePiholePassword() {
+        const password = document.getElementById('pihole-new-password').value;
+        const confirm = document.getElementById('pihole-confirm-password').value;
+        
+        if (password !== confirm) {
+            this.showToast({ title: 'Erreur', message: 'Les mots de passe ne correspondent pas', severity: 2 });
+            return;
+        }
+        
+        try {
+            await this.api('pihole/password', {
+                method: 'POST',
+                body: JSON.stringify({ password })
             });
-        });
+            document.getElementById('modal').classList.remove('active');
+            this.showToast({ title: 'Succès', message: 'Mot de passe changé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async uninstallPihole() {
+        if (!confirm('Désinstaller Pi-hole ? Cette action est irréversible.')) return;
+        
+        try {
+            await this.api('pihole/uninstall', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Pi-hole désinstallé', severity: 0 });
+            this.loadPihole();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
     }
 
     navigateTo(page) {
@@ -1283,703 +1422,13 @@ class FirewallApp {
             case 'alerts': this.loadAlerts(); break;
             case 'pihole': this.loadPihole(); break;
             case 'parental': this.loadParental(); break;
-        }
-    }
-
-    // ==========================================
-    // EVENT LISTENERS
-    // ==========================================
-
-    setupEventListeners() {
-        // Modal close buttons
-        document.querySelectorAll('.modal-close').forEach(btn => {
-            btn.addEventListener('click', () => {
-                btn.closest('.modal').classList.remove('active');
-            });
-        });
-
-        // Click outside modal to close
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
-
-        // Device filter buttons
-        document.querySelectorAll('.filter-buttons .btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-buttons .btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.filterDevices(btn.dataset.filter);
-            });
-        });
-    }
-
-    filterDevices(filter) {
-        let devices = this.currentDevices;
-        
-        switch (filter) {
-            case 'online':
-                devices = devices.filter(d => d.status === 1 || d.status === 'Online');
-                break;
-            case 'unknown':
-                devices = devices.filter(d => !d.isKnown && !d.isTrusted);
-                break;
-            case 'blocked':
-                devices = devices.filter(d => d.status === 3 || d.status === 'Blocked' || d.isBlocked);
-                break;
-        }
-        
-        this.renderDevicesTable(devices);
-    }
-
-    // ==========================================
-    // SORTING
-    // ==========================================
-
-    setupSorting() {
-        document.querySelectorAll('.sortable').forEach(th => {
-            th.addEventListener('click', () => {
-                const column = th.dataset.sort;
-                this.sortDevices(column);
-            });
-        });
-    }
-
-    sortDevices(column) {
-        const direction = this.sortDirection[column] === 'asc' ? 'desc' : 'asc';
-        this.sortDirection[column] = direction;
-
-        this.currentDevices.sort((a, b) => {
-            let valA = a[column] || '';
-            let valB = b[column] || '';
-
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
-
-            if (valA < valB) return direction === 'asc' ? -1 : 1;
-            if (valA > valB) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        this.renderDevicesTable(this.currentDevices);
-    }
-
-    // ==========================================
-    // NOTIFICATIONS (SSE)
-    // ==========================================
-
-    connectNotifications() {
-        // Initialize AlertHub if available
-        if (typeof AlertHub !== 'undefined') {
-            this.alertHub = new AlertHub();
-        }
-    }
-
-    // ==========================================
-    // PI-HOLE
-    // ==========================================
-
-    async loadPihole() {
-        try {
-            const status = await this.api('pihole/status');
-            
-            document.getElementById('pihole-not-linux').style.display = 'none';
-            document.getElementById('pihole-not-installed').style.display = 'none';
-            document.getElementById('pihole-installed').style.display = 'none';
-
-            if (!status.isLinux) {
-                document.getElementById('pihole-not-linux').style.display = 'block';
-                return;
-            }
-
-            if (!status.isInstalled) {
-                document.getElementById('pihole-not-installed').style.display = 'block';
-                return;
-            }
-
-            document.getElementById('pihole-installed').style.display = 'block';
-            
-            // Update stats
-            document.getElementById('pihole-status-text').textContent = status.isRunning ? 'Actif' : 'Inactif';
-            document.getElementById('pihole-blocking-text').textContent = status.blockingEnabled ? 'Activé' : 'Désactivé';
-            document.getElementById('pihole-version').textContent = status.version || '-' ;
-
-            if (status.stats) {
-                document.getElementById('ph-queries').textContent = status.stats.dnsQueriesToday || 0;
-                document.getElementById('ph-blocked').textContent = status.stats.adsBlockedToday || 0;
-                document.getElementById('ph-percent').textContent = (status.stats.adsPercentageToday || 0).toFixed(1) + '%';
-                document.getElementById('ph-domains').textContent = status.stats.domainsBeingBlocked || 0;
-                document.getElementById('ph-clients').textContent = status.stats.uniqueClients || 0;
-            }
-
-        } catch (error) {
-            console.error('Error loading Pi-hole status:', error);
-        }
-    }
-
-    async installPihole() {
-        if (!confirm('Installer Pi-hole ? Cette opération peut prendre plusieurs minutes.')) return;
-        
-        document.getElementById('pihole-install-modal').classList.add('active');
-        document.getElementById('pihole-install-logs').textContent = 'Démarrage de l\'installation...\n';
-
-        try {
-            await this.api('pihole/install', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Pi-hole installé avec succès', severity: 0 });
-            this.loadPihole();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Échec de l\'installation', severity: 2 });
-        }
-    }
-
-    closePiholeInstallModal() {
-        document.getElementById('pihole-install-modal').classList.remove('active');
-    }
-
-    // ==========================================
-    // PARENTAL CONTROL
-    // ==========================================
-
-    parentalProfiles = [];
-    parentalHub = null;
-    filterCategories = [];
-
-    async loadParental() {
-        try {
-            // Charger les profils et les catégories de filtrage
-            const [profiles, categories] = await Promise.all([
-                this.api('parentalcontrol/profiles'),
-                this.api('parentalcontrol/filter-categories')
-            ]);
-
-            this.parentalProfiles = profiles;
-            this.filterCategories = categories;
-
-            this.renderParentalProfiles(profiles);
-            this.connectParentalHub();
-        } catch (error) {
-            console.error('Erreur chargement contrôle parental:', error);
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger les profils', severity: 2 });
-        }
-    }
-
-    renderParentalProfiles(profiles) {
-        const grid = document.getElementById('parental-profiles-grid');
-        const empty = document.getElementById('parental-empty');
-
-        if (!grid) return;
-
-        if (!profiles || !profiles.length) {
-            grid.innerHTML = '';
-            if (empty) empty.style.display = 'block';
-            return;
-        }
-
-        if (empty) empty.style.display = 'none';
-        grid.innerHTML = profiles.map(profile => this.createProfileCard(profile)).join('');
-    }
-
-    createProfileCard(profile) {
-        const statusColors = {
-            0: 'var(--success)',      // Allowed
-            1: 'var(--warning)',      // BlockedBySchedule
-            2: 'var(--danger)',       // BlockedByTimeLimit
-            3: 'var(--accent-secondary)', // Paused
-            4: 'var(--text-muted)'    // Disabled
-        };
-
-        const statusTexts = {
-            0: 'Accès autorisé',
-            1: 'Hors plage horaire',
-            2: 'Temps dépassé',
-            3: 'En pause',
-            4: 'Désactivé'
-        };
-
-        const statusColor = statusColors[profile.status] || statusColors[0];
-        const statusText = statusTexts[profile.status] || 'Inconnu';
-        const isBlocked = profile.status !== 0;
-        const profileColor = profile.color || '#00d9ff';
-
-        // Avatar
-        let avatarContent = '';
-        if (profile.avatarUrl && profile.avatarUrl.startsWith('http')) {
-            avatarContent = `<img src="${this.escapeHtml(profile.avatarUrl)}" class="profile-avatar-img" alt="${this.escapeHtml(profile.profileName)}">`;
-        } else {
-            avatarContent = `<span class="profile-avatar-emoji">${this.escapeHtml(profile.avatarUrl || '👤')}</span>`;
-        }
-
-        // Barre de temps
-        let timeBar = '';
-        if (profile.remainingMinutes >= 0) {
-            const percentage = profile.usagePercentage || 0;
-            const barColor = percentage > 90 ? 'var(--danger)' : percentage > 70 ? 'var(--warning)' : profileColor;
-            const remaining = profile.remainingMinutes;
-            const hours = Math.floor(remaining / 60);
-            const mins = remaining % 60;
-            const timeText = hours > 0 ? `${hours}h ${mins}min restantes` : `${mins} min restantes`;
-            
-            timeBar = `
-                <div class="profile-time">
-                    <div class="time-label">Temps d'écran aujourd'hui</div>
-                    <div class="time-bar">
-                        <div class="time-bar-fill" style="width: ${percentage}%; background: ${barColor};"></div>
-                    </div>
-                    <div class="time-value">${timeText}</div>
-                </div>
-            `;
-        }
-
-        // Appareils
-        const onlineDevices = profile.devices?.filter(d => d.isOnline).length || 0;
-        const totalDevices = profile.devices?.length || 0;
-
-        // Bouton pause/play
-        const pauseBtn = profile.status === 3 
-            ? `<button class="btn btn-success btn-pause" onclick="app.unpauseProfile(${profile.profileId})" title="Rétablir"><i class="fas fa-play"></i></button>`
-            : `<button class="btn btn-warning btn-pause" onclick="app.pauseProfile(${profile.profileId})" title="Pause"><i class="fas fa-pause"></i></button>`;
-
-        return `
-            <div class="profile-card" style="--profile-color: ${profileColor};">
-                <div class="profile-status-indicator" style="background: ${statusColor};"></div>
-                
-                <div class="profile-header">
-                    <div class="profile-avatar" style="border-color: ${profileColor};">
-                        ${avatarContent}
-                    </div>
-                    <div class="profile-info">
-                        <div class="profile-name">${this.escapeHtml(profile.profileName)}</div>
-                        <div class="profile-status" style="color: ${statusColor};">
-                            <i class="fas fa-circle" style="font-size: 0.6rem;"></i> ${statusText}
-                        </div>
-                    </div>
-                    ${pauseBtn}
-                </div>
-
-                ${timeBar}
-
-                <div class="profile-devices">
-                    <i class="fas fa-laptop"></i>
-                    <span>${onlineDevices}/${totalDevices} appareil(s) en ligne</span>
-                </div>
-
-                ${profile.blockReason ? `
-                    <div class="profile-block-reason">
-                        <i class="fas fa-ban"></i> ${this.escapeHtml(profile.blockReason)}
-                    </div>
-                ` : ''}
-
-                ${profile.nextAllowedTime ? `
-                    <div class="profile-next-time">
-                        <i class="fas fa-clock"></i> Prochain accès: ${this.escapeHtml(profile.nextAllowedTime)}
-                    </div>
-                ` : ''}
-
-                ${profile.currentSlotEnds ? `
-                    <div class="profile-next-time" style="background: rgba(63, 185, 80, 0.1); color: var(--success);">
-                        <i class="fas fa-hourglass-half"></i> Fin du créneau: ${this.escapeHtml(profile.currentSlotEnds)}
-                    </div>
-                ` : ''}
-
-                <div class="profile-actions">
-                    <button class="btn btn-sm btn-primary" onclick="app.editProfile(${profile.profileId})">
-                        <i class="fas fa-edit"></i> Modifier
-                    </button>
-                    <button class="btn btn-sm btn-secondary" onclick="app.viewProfileUsage(${profile.profileId})">
-                        <i class="fas fa-chart-bar"></i> Historique
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteProfile(${profile.profileId})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
-    async showCreateProfileModal() {
-        document.getElementById('parental-profile-modal').classList.add('active');
-        document.getElementById('parental-modal-title').innerHTML = '<i class="fas fa-child"></i> Nouveau Profil';
-        document.getElementById('profile-id').value = '';
-        
-        // Réinitialiser les champs
-        document.getElementById('profile-name').value = '';
-        document.getElementById('profile-color').value = '#00d9ff';
-        document.getElementById('profile-time-limit').value = '0';
-        document.getElementById('profile-avatar').value = '🧒';
-        document.getElementById('profile-blocked-domains').value = '';
-
-        // Charger les appareils disponibles
-        await this.loadAvailableDevices();
-        
-        // Générer le planning horaire
-        this.generateScheduleGrid();
-        
-        // Générer les catégories de filtrage
-        this.generateFilterCategories();
-    }
-
-    async editProfile(profileId) {
-        try {
-            const profile = await this.api(`parentalcontrol/profiles/${profileId}/details`);
-            
-            document.getElementById('parental-profile-modal').classList.add('active');
-            document.getElementById('parental-modal-title').innerHTML = `<i class="fas fa-child"></i> Modifier: ${this.escapeHtml(profile.name)}`;
-            document.getElementById('profile-id').value = profile.id;
-            
-            document.getElementById('profile-name').value = profile.name || '';
-            document.getElementById('profile-color').value = profile.color || '#00d9ff';
-            document.getElementById('profile-time-limit').value = profile.dailyTimeLimitMinutes || 0;
-            document.getElementById('profile-avatar').value = profile.avatarUrl || '🧒';
-
-            // Charger les appareils et cocher ceux du profil
-            await this.loadAvailableDevices(profile.devices?.map(d => d.macAddress) || []);
-            
-            // Générer le planning avec les valeurs existantes
-            this.generateScheduleGrid(profile.schedules);
-            
-            // Générer les filtres avec les valeurs existantes
-            const blockedCategories = profile.webFilters?.filter(f => f.filterType === 0).map(f => f.value) || [];
-            const blockedDomains = profile.webFilters?.filter(f => f.filterType === 1).map(f => f.value) || [];
-            
-            this.generateFilterCategories(blockedCategories);
-            document.getElementById('profile-blocked-domains').value = blockedDomains.join('\n');
-
-        } catch (error) {
-            console.error('Erreur chargement profil:', error);
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger le profil', severity: 2 });
-        }
-    }
-
-    async loadAvailableDevices(selectedMacs = []) {
-        const container = document.getElementById('profile-devices-list');
-        if (!container) return;
-
-        try {
-            // Charger tous les appareils
-            const devices = await this.api('devices');
-            
-            if (!devices.length) {
-                container.innerHTML = '<p class="text-muted">Aucun appareil disponible. Scannez d\'abord le réseau.</p>';
-                return;
-            }
-
-            container.innerHTML = devices.map(device => `
-                <label class="device-checkbox">
-                    <input type="checkbox" value="${this.escapeHtml(device.macAddress)}" 
-                           ${selectedMacs.includes(device.macAddress.toUpperCase()) ? 'checked' : ''}>
-                    <div style="flex: 1;">
-                        <strong>${this.escapeHtml(device.hostname || device.description || device.macAddress)}</strong>
-                        <br>
-                        <small style="color: var(--text-secondary);">
-                            ${this.escapeHtml(device.ipAddress || '')} - ${this.escapeHtml(device.vendor || 'Inconnu')}
-                        </small>
-                    </div>
-                    <span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span>
-                </label>
-            `).join('');
-        } catch (error) {
-            container.innerHTML = '<p class="text-muted text-danger">Erreur lors du chargement des appareils</p>';
-        }
-    }
-
-    generateScheduleGrid(existingSchedules = []) {
-        const container = document.getElementById('schedule-grid');
-        if (!container) return;
-
-        const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-        
-        container.innerHTML = days.map((day, index) => {
-            const schedule = existingSchedules.find(s => s.dayOfWeek === index) || {
-                startTime: '08:00',
-                endTime: '21:00',
-                isEnabled: true
-            };
-            
-            return `
-                <div class="schedule-row">
-                    <span class="day-label">${day}</span>
-                    <div class="schedule-times">
-                        <input type="time" class="schedule-start" data-day="${index}" value="${schedule.startTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
-                        <span>à</span>
-                        <input type="time" class="schedule-end" data-day="${index}" value="${schedule.endTime}" ${!schedule.isEnabled ? 'disabled' : ''}>
-                    </div>
-                    <label class="schedule-enabled">
-                        <input type="checkbox" class="schedule-enabled-check" data-day="${index}" ${schedule.isEnabled ? 'checked' : ''} 
-                               onchange="app.toggleScheduleDay(this)">
-                        <i class="fas fa-check"></i>
-                    </label>
-                </div>
-            `;
-        }).join('');
-    }
-
-    toggleScheduleDay(checkbox) {
-        const day = checkbox.dataset.day;
-        const row = checkbox.closest('.schedule-row');
-        const inputs = row.querySelectorAll('input[type="time"]');
-        inputs.forEach(input => input.disabled = !checkbox.checked);
-    }
-
-    generateFilterCategories(selectedCategories = []) {
-        const container = document.getElementById('filter-categories');
-        if (!container) return;
-
-        const categories = this.filterCategories.length ? this.filterCategories : [
-            { key: 'adult', name: 'Contenu Adulte', description: 'Sites pour adultes', icon: 'fa-ban', color: '#ff4757' },
-            { key: 'social-media', name: 'Réseaux Sociaux', description: 'Facebook, TikTok, etc.', icon: 'fa-users', color: '#3b5998' },
-            { key: 'gaming', name: 'Jeux Vidéo', description: 'Sites de gaming', icon: 'fa-gamepad', color: '#9b59b6' },
-            { key: 'streaming', name: 'Streaming', description: 'YouTube, Netflix, etc.', icon: 'fa-film', color: '#e74c3c' },
-            { key: 'gambling', name: 'Jeux d\'Argent', description: 'Paris et casinos', icon: 'fa-dice', color: '#f39c12' },
-            { key: 'malware', name: 'Malware', description: 'Sites malveillants', icon: 'fa-virus', color: '#c0392b' }
-        ];
-
-        container.innerHTML = categories.map(cat => `
-            <label class="filter-category" style="--cat-color: ${cat.color};">
-                <input type="checkbox" value="${cat.key}" ${selectedCategories.includes(cat.key) ? 'checked' : ''}>
-                <div class="category-icon" style="${selectedCategories.includes(cat.key) ? `background: ${cat.color}; color: white;` : ''}">
-                    <i class="fas ${cat.icon}"></i>
-                </div>
-                <div class="category-info">
-                    <span class="category-name">${this.escapeHtml(cat.name)}</span>
-                    <span class="category-desc">${this.escapeHtml(cat.description)}</span>
-                </div>
-            </label>
-        `).join('');
-
-        // Ajouter les événements de changement
-        container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.addEventListener('change', (e) => {
-                const icon = e.target.closest('.filter-category').querySelector('.category-icon');
-                const color = getComputedStyle(e.target.closest('.filter-category')).getPropertyValue('--cat-color');
-                if (e.target.checked) {
-                    icon.style.background = color;
-                    icon.style.color = 'white';
-                } else {
-                    icon.style.background = '';
-                    icon.style.color = '';
-                }
-            });
-        });
-    }
-
-    closeParentalModal() {
-        document.getElementById('parental-profile-modal').classList.remove('active');
-    }
-
-    async saveProfile() {
-        const profileId = document.getElementById('profile-id').value;
-        const name = document.getElementById('profile-name').value.trim();
-        
-        if (!name) {
-            this.showToast({ title: 'Erreur', message: 'Le nom est requis', severity: 2 });
-            return;
-        }
-
-        // Collecter les données
-        const dto = {
-            name: name,
-            avatarUrl: document.getElementById('profile-avatar').value || '🧒',
-            color: document.getElementById('profile-color').value || '#00d9ff',
-            dailyTimeLimitMinutes: parseInt(document.getElementById('profile-time-limit').value) || 0,
-            isActive: true,
-            blockedMessage: "L'accès Internet est temporairement désactivé.",
-            deviceMacs: [],
-            schedules: [],
-            blockedCategories: [],
-            blockedDomains: []
-        };
-
-        // Appareils sélectionnés
-        document.querySelectorAll('#profile-devices-list input[type="checkbox"]:checked').forEach(cb => {
-            dto.deviceMacs.push(cb.value);
-        });
-
-        // Planning horaire
-        for (let day = 0; day < 7; day++) {
-            const enabledCb = document.querySelector(`.schedule-enabled-check[data-day="${day}"]`);
-            const startInput = document.querySelector(`.schedule-start[data-day="${day}"]`);
-            const endInput = document.querySelector(`.schedule-end[data-day="${day}"]`);
-            
-            if (enabledCb && startInput && endInput) {
-                dto.schedules.push({
-                    dayOfWeek: day,
-                    startTime: startInput.value,
-                    endTime: endInput.value,
-                    isEnabled: enabledCb.checked
-                });
-            }
-        }
-
-        // Catégories de filtrage
-        document.querySelectorAll('#filter-categories input[type="checkbox"]:checked').forEach(cb => {
-            dto.blockedCategories.push(cb.value);
-        });
-
-        // Domaines personnalisés
-        const domainsText = document.getElementById('profile-blocked-domains').value;
-        if (domainsText) {
-            dto.blockedDomains = domainsText.split('\n').map(d => d.trim()).filter(d => d);
-        }
-
-        try {
-            if (profileId) {
-                await this.api(`parentalcontrol/profiles/${profileId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(dto)
-                });
-                this.showToast({ title: 'Succès', message: 'Profil mis à jour', severity: 0 });
-            } else {
-                await this.api('parentalcontrol/profiles', {
-                    method: 'POST',
-                    body: JSON.stringify(dto)
-                });
-                this.showToast({ title: 'Succès', message: 'Profil créé', severity: 0 });
-            }
-
-            this.closeParentalModal();
-            this.loadParental();
-        } catch (error) {
-            console.error('Erreur sauvegarde profil:', error);
-            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de sauvegarder', severity: 2 });
-        }
-    }
-
-    async pauseProfile(profileId) {
-        try {
-            await this.api(`parentalcontrol/profiles/${profileId}/pause`, { method: 'POST' });
-            this.loadParental();
-            this.showToast({ title: 'Pause activée', message: 'Internet coupé pour ce profil', severity: 1 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible d\'activer la pause', severity: 2 });
-        }
-    }
-
-    async unpauseProfile(profileId) {
-        try {
-            await this.api(`parentalcontrol/profiles/${profileId}/unpause`, { method: 'POST' });
-            this.loadParental();
-            this.showToast({ title: 'Pause désactivée', message: 'Accès Internet rétabli', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de désactiver la pause', severity: 2 });
-        }
-    }
-
-    async deleteProfile(profileId) {
-        if (!confirm('Supprimer ce profil ? Les appareils associés seront débloqués.')) return;
-
-        try {
-            await this.api(`parentalcontrol/profiles/${profileId}`, { method: 'DELETE' });
-            this.loadParental();
-            this.showToast({ title: 'Supprimé', message: 'Profil supprimé', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de supprimer', severity: 2 });
-        }
-    }
-
-    async viewProfileUsage(profileId) {
-        try {
-            const history = await this.api(`parentalcontrol/profiles/${profileId}/usage/history?days=7`);
-            const profile = this.parentalProfiles.find(p => p.profileId === profileId);
-            
-            // Créer un modal ou afficher les données
-            const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-            let html = `<h4 style="margin-bottom: 15px;">Historique d'utilisation - ${this.escapeHtml(profile?.profileName || 'Profil')}</h4>`;
-            
-            if (!history.length) {
-                html += '<p>Aucune donnée d\'utilisation disponible.</p>';
-            } else {
-                html += '<div class="usage-chart">';
-                history.reverse().forEach(day => {
-                    const date = new Date(day.date);
-                    const dayName = days[date.getDay()];
-                    const maxMinutes = profile?.remainingMinutes > 0 ? (profile.remainingMinutes + day.minutesUsed) : 180;
-                    const heightPercent = Math.min(100, (day.minutesUsed / maxMinutes) * 100);
-                    const hours = Math.floor(day.minutesUsed / 60);
-                    const mins = day.minutesUsed % 60;
-                    
-                    html += `
-                        <div class="usage-bar-container">
-                            <div class="usage-bar" style="height: ${heightPercent}%; background: var(--accent-primary);"></div>
-                            <span class="usage-value">${hours}h${mins}</span>
-                            <span class="usage-label">${dayName}</span>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            }
-
-            // Afficher dans le modal générique
-            document.getElementById('modal-title').innerHTML = '<i class="fas fa-chart-bar"></i> Historique';
-            document.getElementById('modal-body').innerHTML = html;
-            document.getElementById('modal-footer').innerHTML = '<button class="btn btn-sm" onclick="document.getElementById(\'modal\').classList.remove(\'active\')">Fermer</button>';
-            document.getElementById('modal').classList.add('active');
-
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger l\'historique', severity: 2 });
-        }
-    }
-
-    async connectParentalHub() {
-        if (typeof signalR === 'undefined' || this.parentalHub) return;
-
-        try {
-            this.parentalHub = new signalR.HubConnectionBuilder()
-                .withUrl('/hubs/parental-control')
-                .withAutomaticReconnect()
-                .configureLogging(signalR.LogLevel.Warning)
-                .build();
-
-            this.parentalHub.on('ProfileStatusChanged', (status) => {
-                console.log('Profil mis à jour:', status);
-                const index = this.parentalProfiles.findIndex(p => p.profileId === status.profileId);
-                if (index !== -1) {
-                    this.parentalProfiles[index] = status;
-                    if (this.currentPage === 'parental') {
-                        this.renderParentalProfiles(this.parentalProfiles);
-                    }
-                }
-            });
-
-            this.parentalHub.on('ProfileCreated', (status) => {
-                this.parentalProfiles.push(status);
-                if (this.currentPage === 'parental') {
-                    this.renderParentalProfiles(this.parentalProfiles);
-                }
-            });
-
-            this.parentalHub.on('ProfileDeleted', (profileId) => {
-                this.parentalProfiles = this.parentalProfiles.filter(p => p.profileId !== profileId);
-                if (this.currentPage === 'parental') {
-                    this.renderParentalProfiles(this.parentalProfiles);
-                }
-            });
-
-            this.parentalHub.on('AutoBlockTriggered', (data) => {
-                this.showToast({
-                    title: `${data.profileName} bloqué`,
-                    message: data.reason,
-                    severity: 1
-                });
-            });
-
-            this.parentalHub.on('TimeWarning', (data) => {
-                this.showToast({
-                    title: `${data.profileName}`,
-                    message: `Plus que ${data.remainingMinutes} minutes d'écran`,
-                    severity: 1
-                });
-            });
-
-            await this.parentalHub.start();
-            console.log('Connecté au ParentalControlHub');
-        } catch (error) {
-            console.error('Erreur connexion ParentalHub:', error);
+            case 'cameras': this.loadCameras(); break;
+            case 'traffic': this.loadTraffic(); break;
+            case 'dhcp': this.loadDhcp(); break;
+            case 'sniffer': this.loadSniffer(); break;
+            case 'router': this.loadRouter(); break;
+            case 'settings': this.loadSettings(); break;
+            case 'admin': this.loadAdmin(); break;
         }
     }
 }
-
-// Initialize application
-const app = new FirewallApp();
