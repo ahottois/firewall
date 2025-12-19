@@ -1171,7 +1171,7 @@ class FirewallApp {
         let endpoint = 'dhcp/config/easy';
         let config = {
             enabled: getValue('enabled'),
-            rangeStart: getValue('rangeStart',
+            rangeStart: getValue('rangeStart'),
             rangeEnd: getValue('rangeEnd'),
             gateway: getValue('gateway'),
             dns1: getValue('dns1'),

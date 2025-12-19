@@ -212,7 +212,7 @@ public class DhcpService : BackgroundService, IDhcpService
         _logger.LogInformation("DHCP Service arrêté");
     }
 
-    private async Task StartServerAsync()
+    private Task StartServerAsync()
     {
         try
         {
@@ -222,7 +222,7 @@ public class DhcpService : BackgroundService, IDhcpService
             {
                 _lastError = "Impossible de déterminer l'IP du serveur";
                 _logger.LogError("DHCP: {Error}", _lastError);
-                return;
+                return Task.CompletedTask;
             }
             
             _config.ServerIdentifier = DhcpPacket.IpToString(_serverIp);
@@ -245,6 +245,8 @@ public class DhcpService : BackgroundService, IDhcpService
             _logger.LogError(ex, "DHCP: Erreur démarrage serveur");
             _isRunning = false;
         }
+        
+        return Task.CompletedTask;
     }
 
     private void StopServer()
