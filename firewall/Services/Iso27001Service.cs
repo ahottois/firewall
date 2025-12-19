@@ -5,7 +5,7 @@ namespace NetworkFirewall.Services;
 
 public interface IIso27001Service
 {
-    // Contrôles
+    // Controles
     IEnumerable<Iso27001Control> GetAllControls();
     Iso27001Control? GetControl(string controlId);
     Task UpdateControlStatusAsync(string controlId, Iso27001ControlStatus status, string? evidence = null);
@@ -32,7 +32,7 @@ public interface IIso27001Service
     Task<SecurityPolicy> AddPolicyAsync(SecurityPolicy policy);
     Task UpdatePolicyAsync(SecurityPolicy policy);
     
-    // Résumé
+    // Resume
     Iso27001Summary GetSummary();
     Task<double> CalculateComplianceScoreAsync();
 }
@@ -61,113 +61,113 @@ public class Iso27001Service : IIso27001Service
         LoadData();
     }
 
-    #region Contrôles ISO 27001:2022
+    #region Controles ISO 27001:2022
 
     private List<Iso27001Control> InitializeControls()
     {
-        // Contrôles ISO 27001:2022 Annexe A
+        // Controles ISO 27001:2022 Annexe A
         return new List<Iso27001Control>
         {
-            // A.5 - Contrôles organisationnels
-            new() { Id = "A.5.1", Category = "A.5", Title = "Politiques de sécurité de l'information", Description = "Des politiques de sécurité de l'information doivent être définies, approuvées par la direction, publiées et communiquées." },
-            new() { Id = "A.5.2", Category = "A.5", Title = "Rôles et responsabilités", Description = "Les rôles et responsabilités en matière de sécurité de l'information doivent être définis et attribués." },
-            new() { Id = "A.5.3", Category = "A.5", Title = "Séparation des tâches", Description = "Les tâches et domaines de responsabilité contradictoires doivent être séparés." },
-            new() { Id = "A.5.4", Category = "A.5", Title = "Responsabilités de la direction", Description = "La direction doit exiger que tous les employés appliquent la sécurité conformément aux politiques." },
-            new() { Id = "A.5.5", Category = "A.5", Title = "Contact avec les autorités", Description = "Des contacts appropriés avec les autorités compétentes doivent être maintenus." },
-            new() { Id = "A.5.6", Category = "A.5", Title = "Contact avec des groupes spécialisés", Description = "Des contacts avec des groupes ou forums spécialisés en sécurité doivent être maintenus." },
-            new() { Id = "A.5.7", Category = "A.5", Title = "Renseignements sur les menaces", Description = "Les informations relatives aux menaces de sécurité doivent être collectées et analysées." },
-            new() { Id = "A.5.8", Category = "A.5", Title = "Sécurité dans la gestion de projet", Description = "La sécurité de l'information doit être intégrée dans la gestion de projet." },
-            new() { Id = "A.5.9", Category = "A.5", Title = "Inventaire des informations et actifs", Description = "Un inventaire des actifs informationnels doit être développé et maintenu." },
-            new() { Id = "A.5.10", Category = "A.5", Title = "Utilisation acceptable des actifs", Description = "Des règles pour l'utilisation acceptable des informations et actifs doivent être identifiées et documentées." },
-            new() { Id = "A.5.11", Category = "A.5", Title = "Restitution des actifs", Description = "Les employés et tiers doivent restituer tous les actifs à la fin de leur emploi ou contrat." },
-            new() { Id = "A.5.12", Category = "A.5", Title = "Classification des informations", Description = "L'information doit être classifiée selon les exigences légales et la valeur pour l'organisation." },
-            new() { Id = "A.5.13", Category = "A.5", Title = "Marquage des informations", Description = "Un ensemble approprié de procédures pour le marquage des informations doit être développé." },
-            new() { Id = "A.5.14", Category = "A.5", Title = "Transfert d'informations", Description = "Des règles, procédures ou accords de transfert d'informations doivent être en place." },
-            new() { Id = "A.5.15", Category = "A.5", Title = "Contrôle d'accès", Description = "Des règles de contrôle d'accès physique et logique doivent être établies." },
-            new() { Id = "A.5.16", Category = "A.5", Title = "Gestion des identités", Description = "Le cycle de vie complet des identités doit être géré." },
-            new() { Id = "A.5.17", Category = "A.5", Title = "Informations d'authentification", Description = "L'attribution et la gestion des informations d'authentification doivent être contrôlées." },
-            new() { Id = "A.5.18", Category = "A.5", Title = "Droits d'accès", Description = "Les droits d'accès doivent être provisionnés, revus, modifiés et supprimés." },
-            new() { Id = "A.5.19", Category = "A.5", Title = "Sécurité dans les relations fournisseurs", Description = "Les exigences de sécurité doivent être établies avec les fournisseurs." },
-            new() { Id = "A.5.20", Category = "A.5", Title = "Sécurité dans les accords fournisseurs", Description = "Les exigences de sécurité pertinentes doivent être établies avec chaque fournisseur." },
-            new() { Id = "A.5.21", Category = "A.5", Title = "Gestion de la chaîne d'approvisionnement TIC", Description = "Des processus doivent être définis pour gérer les risques de la chaîne d'approvisionnement." },
+            // A.5 - Controles organisationnels
+            new() { Id = "A.5.1", Category = "A.5", Title = "Politiques de securite de l'information", Description = "Des politiques de securite de l'information doivent etre definies, approuvees par la direction, publiees et communiquees." },
+            new() { Id = "A.5.2", Category = "A.5", Title = "Roles et responsabilites", Description = "Les roles et responsabilites en matiere de securite de l'information doivent etre definis et attribues." },
+            new() { Id = "A.5.3", Category = "A.5", Title = "Separation des taches", Description = "Les taches et domaines de responsabilite contradictoires doivent etre separes." },
+            new() { Id = "A.5.4", Category = "A.5", Title = "Responsabilites de la direction", Description = "La direction doit exiger que tous les employes appliquent la securite conformement aux politiques." },
+            new() { Id = "A.5.5", Category = "A.5", Title = "Contact avec les autorites", Description = "Des contacts appropries avec les autorites competentes doivent etre maintenus." },
+            new() { Id = "A.5.6", Category = "A.5", Title = "Contact avec des groupes specialises", Description = "Des contacts avec des groupes ou forums specialises en securite doivent etre maintenus." },
+            new() { Id = "A.5.7", Category = "A.5", Title = "Renseignements sur les menaces", Description = "Les informations relatives aux menaces de securite doivent etre collectees et analysees." },
+            new() { Id = "A.5.8", Category = "A.5", Title = "Securite dans la gestion de projet", Description = "La securite de l'information doit etre integree dans la gestion de projet." },
+            new() { Id = "A.5.9", Category = "A.5", Title = "Inventaire des informations et actifs", Description = "Un inventaire des actifs informationnels doit etre developpe et maintenu." },
+            new() { Id = "A.5.10", Category = "A.5", Title = "Utilisation acceptable des actifs", Description = "Des regles pour l'utilisation acceptable des informations et actifs doivent etre identifiees et documentees." },
+            new() { Id = "A.5.11", Category = "A.5", Title = "Restitution des actifs", Description = "Les employes et tiers doivent restituer tous les actifs a la fin de leur emploi ou contrat." },
+            new() { Id = "A.5.12", Category = "A.5", Title = "Classification des informations", Description = "L'information doit etre classifiee selon les exigences legales et la valeur pour l'organisation." },
+            new() { Id = "A.5.13", Category = "A.5", Title = "Marquage des informations", Description = "Un ensemble approprie de procedures pour le marquage des informations doit etre developpe." },
+            new() { Id = "A.5.14", Category = "A.5", Title = "Transfert d'informations", Description = "Des regles, procedures ou accords de transfert d'informations doivent etre en place." },
+            new() { Id = "A.5.15", Category = "A.5", Title = "Controle d'acces", Description = "Des regles de controle d'acces physique et logique doivent etre etablies." },
+            new() { Id = "A.5.16", Category = "A.5", Title = "Gestion des identites", Description = "Le cycle de vie complet des identites doit etre gere." },
+            new() { Id = "A.5.17", Category = "A.5", Title = "Informations d'authentification", Description = "L'attribution et la gestion des informations d'authentification doivent etre controlees." },
+            new() { Id = "A.5.18", Category = "A.5", Title = "Droits d'acces", Description = "Les droits d'acces doivent etre provisionnes, revus, modifies et supprimes." },
+            new() { Id = "A.5.19", Category = "A.5", Title = "Securite dans les relations fournisseurs", Description = "Les exigences de securite doivent etre etablies avec les fournisseurs." },
+            new() { Id = "A.5.20", Category = "A.5", Title = "Securite dans les accords fournisseurs", Description = "Les exigences de securite pertinentes doivent etre etablies avec chaque fournisseur." },
+            new() { Id = "A.5.21", Category = "A.5", Title = "Gestion de la chaine d'approvisionnement TIC", Description = "Des processus doivent etre definis pour gerer les risques de la chaine d'approvisionnement." },
             new() { Id = "A.5.22", Category = "A.5", Title = "Surveillance et revue des fournisseurs", Description = "L'organisation doit surveiller et revoir les services des fournisseurs." },
-            new() { Id = "A.5.23", Category = "A.5", Title = "Sécurité des services cloud", Description = "Les processus d'acquisition et de gestion des services cloud doivent être établis." },
-            new() { Id = "A.5.24", Category = "A.5", Title = "Planification de la gestion des incidents", Description = "La gestion des incidents de sécurité doit être planifiée et préparée." },
-            new() { Id = "A.5.25", Category = "A.5", Title = "Évaluation des événements de sécurité", Description = "Les événements de sécurité doivent être évalués pour décider s'ils constituent des incidents." },
-            new() { Id = "A.5.26", Category = "A.5", Title = "Réponse aux incidents de sécurité", Description = "Les incidents de sécurité doivent être traités selon les procédures documentées." },
-            new() { Id = "A.5.27", Category = "A.5", Title = "Apprentissage des incidents", Description = "Les connaissances acquises des incidents doivent être utilisées pour renforcer les contrôles." },
-            new() { Id = "A.5.28", Category = "A.5", Title = "Collecte de preuves", Description = "Des procédures pour la collecte, l'acquisition et la préservation des preuves doivent être définies." },
-            new() { Id = "A.5.29", Category = "A.5", Title = "Sécurité pendant les perturbations", Description = "Des plans pour maintenir la sécurité pendant les perturbations doivent être établis." },
-            new() { Id = "A.5.30", Category = "A.5", Title = "Préparation TIC pour la continuité", Description = "La disponibilité TIC doit être planifiée, mise en œuvre et testée." },
-            new() { Id = "A.5.31", Category = "A.5", Title = "Exigences légales et contractuelles", Description = "Les exigences légales, réglementaires et contractuelles doivent être identifiées." },
-            new() { Id = "A.5.32", Category = "A.5", Title = "Droits de propriété intellectuelle", Description = "Des procédures appropriées pour les droits de propriété intellectuelle doivent être mises en œuvre." },
-            new() { Id = "A.5.33", Category = "A.5", Title = "Protection des enregistrements", Description = "Les enregistrements doivent être protégés contre la perte, destruction et falsification." },
-            new() { Id = "A.5.34", Category = "A.5", Title = "Vie privée et protection des DCP", Description = "La vie privée et la protection des données personnelles doivent être assurées." },
-            new() { Id = "A.5.35", Category = "A.5", Title = "Revue indépendante de la sécurité", Description = "L'approche de l'organisation pour la sécurité doit être revue indépendamment." },
-            new() { Id = "A.5.36", Category = "A.5", Title = "Conformité aux politiques et normes", Description = "La conformité aux politiques et normes de sécurité doit être régulièrement revue." },
-            new() { Id = "A.5.37", Category = "A.5", Title = "Procédures d'exploitation documentées", Description = "Les procédures d'exploitation doivent être documentées et mises à disposition." },
+            new() { Id = "A.5.23", Category = "A.5", Title = "Securite des services cloud", Description = "Les processus d'acquisition et de gestion des services cloud doivent etre etablis." },
+            new() { Id = "A.5.24", Category = "A.5", Title = "Planification de la gestion des incidents", Description = "La gestion des incidents de securite doit etre planifiee et preparee." },
+            new() { Id = "A.5.25", Category = "A.5", Title = "Evaluation des evenements de securite", Description = "Les evenements de securite doivent etre evalues pour decider s'ils constituent des incidents." },
+            new() { Id = "A.5.26", Category = "A.5", Title = "Reponse aux incidents de securite", Description = "Les incidents de securite doivent etre traites selon les procedures documentees." },
+            new() { Id = "A.5.27", Category = "A.5", Title = "Apprentissage des incidents", Description = "Les connaissances acquises des incidents doivent etre utilisees pour renforcer les controles." },
+            new() { Id = "A.5.28", Category = "A.5", Title = "Collecte de preuves", Description = "Des procedures pour la collecte, l'acquisition et la preservation des preuves doivent etre definies." },
+            new() { Id = "A.5.29", Category = "A.5", Title = "Securite pendant les perturbations", Description = "Des plans pour maintenir la securite pendant les perturbations doivent etre etablis." },
+            new() { Id = "A.5.30", Category = "A.5", Title = "Preparation TIC pour la continuite", Description = "La disponibilite TIC doit etre planifiee, mise en oeuvre et testee." },
+            new() { Id = "A.5.31", Category = "A.5", Title = "Exigences legales et contractuelles", Description = "Les exigences legales, reglementaires et contractuelles doivent etre identifiees." },
+            new() { Id = "A.5.32", Category = "A.5", Title = "Droits de propriete intellectuelle", Description = "Des procedures appropriees pour les droits de propriete intellectuelle doivent etre mises en oeuvre." },
+            new() { Id = "A.5.33", Category = "A.5", Title = "Protection des enregistrements", Description = "Les enregistrements doivent etre proteges contre la perte, destruction et falsification." },
+            new() { Id = "A.5.34", Category = "A.5", Title = "Vie privee et protection des DCP", Description = "La vie privee et la protection des donnees personnelles doivent etre assurees." },
+            new() { Id = "A.5.35", Category = "A.5", Title = "Revue independante de la securite", Description = "L'approche de l'organisation pour la securite doit etre revue independamment." },
+            new() { Id = "A.5.36", Category = "A.5", Title = "Conformite aux politiques et normes", Description = "La conformite aux politiques et normes de securite doit etre regulierement revue." },
+            new() { Id = "A.5.37", Category = "A.5", Title = "Procedures d'exploitation documentees", Description = "Les procedures d'exploitation doivent etre documentees et mises a disposition." },
 
-            // A.6 - Contrôles du personnel
-            new() { Id = "A.6.1", Category = "A.6", Title = "Sélection du personnel", Description = "Des vérifications des antécédents doivent être effectuées pour tous les candidats." },
-            new() { Id = "A.6.2", Category = "A.6", Title = "Conditions d'emploi", Description = "Les accords contractuels doivent établir les responsabilités de sécurité." },
-            new() { Id = "A.6.3", Category = "A.6", Title = "Sensibilisation et formation", Description = "Le personnel doit recevoir une sensibilisation et formation appropriées." },
-            new() { Id = "A.6.4", Category = "A.6", Title = "Processus disciplinaire", Description = "Un processus disciplinaire pour les violations de sécurité doit être mis en place." },
-            new() { Id = "A.6.5", Category = "A.6", Title = "Responsabilités après fin de contrat", Description = "Les responsabilités de sécurité restant valides après la fin du contrat doivent être définies." },
-            new() { Id = "A.6.6", Category = "A.6", Title = "Accords de confidentialité", Description = "Des accords de confidentialité doivent être identifiés et régulièrement revus." },
-            new() { Id = "A.6.7", Category = "A.6", Title = "Travail à distance", Description = "Des mesures de sécurité pour le travail à distance doivent être mises en œuvre." },
-            new() { Id = "A.6.8", Category = "A.6", Title = "Signalement des événements de sécurité", Description = "Un mécanisme pour signaler les événements de sécurité doit être fourni." },
+            // A.6 - Controles du personnel
+            new() { Id = "A.6.1", Category = "A.6", Title = "Selection du personnel", Description = "Des verifications des antecedents doivent etre effectuees pour tous les candidats." },
+            new() { Id = "A.6.2", Category = "A.6", Title = "Conditions d'emploi", Description = "Les accords contractuels doivent etablir les responsabilites de securite." },
+            new() { Id = "A.6.3", Category = "A.6", Title = "Sensibilisation et formation", Description = "Le personnel doit recevoir une sensibilisation et formation appropriees." },
+            new() { Id = "A.6.4", Category = "A.6", Title = "Processus disciplinaire", Description = "Un processus disciplinaire pour les violations de securite doit etre mis en place." },
+            new() { Id = "A.6.5", Category = "A.6", Title = "Responsabilites apres fin de contrat", Description = "Les responsabilites de securite restant valides apres la fin du contrat doivent etre definies." },
+            new() { Id = "A.6.6", Category = "A.6", Title = "Accords de confidentialite", Description = "Des accords de confidentialite doivent etre identifies et regulierement revus." },
+            new() { Id = "A.6.7", Category = "A.6", Title = "Travail a distance", Description = "Des mesures de securite pour le travail a distance doivent etre mises en oeuvre." },
+            new() { Id = "A.6.8", Category = "A.6", Title = "Signalement des evenements de securite", Description = "Un mecanisme pour signaler les evenements de securite doit etre fourni." },
 
-            // A.7 - Contrôles physiques
-            new() { Id = "A.7.1", Category = "A.7", Title = "Périmètre de sécurité physique", Description = "Des périmètres de sécurité doivent être définis pour protéger les zones sensibles." },
-            new() { Id = "A.7.2", Category = "A.7", Title = "Contrôles d'entrée physique", Description = "Les zones sécurisées doivent être protégées par des contrôles d'entrée appropriés." },
-            new() { Id = "A.7.3", Category = "A.7", Title = "Sécurisation des bureaux et locaux", Description = "Une sécurité physique pour les bureaux, salles et installations doit être mise en œuvre." },
-            new() { Id = "A.7.4", Category = "A.7", Title = "Surveillance physique de sécurité", Description = "Les locaux doivent être surveillés en continu pour détecter les accès non autorisés." },
-            new() { Id = "A.7.5", Category = "A.7", Title = "Protection contre les menaces environnementales", Description = "Une protection contre les menaces physiques et environnementales doit être mise en œuvre." },
-            new() { Id = "A.7.6", Category = "A.7", Title = "Travail dans les zones sécurisées", Description = "Des mesures de sécurité pour le travail dans les zones sécurisées doivent être conçues." },
-            new() { Id = "A.7.7", Category = "A.7", Title = "Bureau propre et écran vide", Description = "Des règles de bureau propre et d'écran vide doivent être définies." },
-            new() { Id = "A.7.8", Category = "A.7", Title = "Emplacement et protection des équipements", Description = "Les équipements doivent être situés et protégés contre les risques environnementaux." },
-            new() { Id = "A.7.9", Category = "A.7", Title = "Sécurité des assets hors site", Description = "Des mesures de sécurité pour les actifs hors site doivent être appliquées." },
-            new() { Id = "A.7.10", Category = "A.7", Title = "Supports de stockage", Description = "Les supports de stockage doivent être gérés tout au long de leur cycle de vie." },
-            new() { Id = "A.7.11", Category = "A.7", Title = "Services généraux de soutien", Description = "Les installations de traitement doivent être protégées contre les pannes de services." },
-            new() { Id = "A.7.12", Category = "A.7", Title = "Sécurité du câblage", Description = "Les câbles transportant des données ou de l'énergie doivent être protégés." },
-            new() { Id = "A.7.13", Category = "A.7", Title = "Maintenance des équipements", Description = "Les équipements doivent être correctement maintenus pour assurer leur disponibilité." },
-            new() { Id = "A.7.14", Category = "A.7", Title = "Mise au rebut sécurisée des équipements", Description = "Les équipements contenant des supports de stockage doivent être vérifiés avant mise au rebut." },
+            // A.7 - Controles physiques
+            new() { Id = "A.7.1", Category = "A.7", Title = "Perimetre de securite physique", Description = "Des perimetres de securite doivent etre definis pour proteger les zones sensibles." },
+            new() { Id = "A.7.2", Category = "A.7", Title = "Controles d'entree physique", Description = "Les zones securisees doivent etre protegees par des controles d'entree appropries." },
+            new() { Id = "A.7.3", Category = "A.7", Title = "Securisation des bureaux et locaux", Description = "Une securite physique pour les bureaux, salles et installations doit etre mise en oeuvre." },
+            new() { Id = "A.7.4", Category = "A.7", Title = "Surveillance physique de securite", Description = "Les locaux doivent etre surveilles en continu pour detecter les acces non autorises." },
+            new() { Id = "A.7.5", Category = "A.7", Title = "Protection contre les menaces environnementales", Description = "Une protection contre les menaces physiques et environnementales doit etre mise en oeuvre." },
+            new() { Id = "A.7.6", Category = "A.7", Title = "Travail dans les zones securisees", Description = "Des mesures de securite pour le travail dans les zones securisees doivent etre concues." },
+            new() { Id = "A.7.7", Category = "A.7", Title = "Bureau propre et ecran vide", Description = "Des regles de bureau propre et d'ecran vide doivent etre definies." },
+            new() { Id = "A.7.8", Category = "A.7", Title = "Emplacement et protection des equipements", Description = "Les equipements doivent etre situes et proteges contre les risques environnementaux." },
+            new() { Id = "A.7.9", Category = "A.7", Title = "Securite des assets hors site", Description = "Des mesures de securite pour les actifs hors site doivent etre appliquees." },
+            new() { Id = "A.7.10", Category = "A.7", Title = "Supports de stockage", Description = "Les supports de stockage doivent etre geres tout au long de leur cycle de vie." },
+            new() { Id = "A.7.11", Category = "A.7", Title = "Services generaux de soutien", Description = "Les installations de traitement doivent etre protegees contre les pannes de services." },
+            new() { Id = "A.7.12", Category = "A.7", Title = "Securite du cablage", Description = "Les cables transportant des donnees ou de l'energie doivent etre proteges." },
+            new() { Id = "A.7.13", Category = "A.7", Title = "Maintenance des equipements", Description = "Les equipements doivent etre correctement maintenus pour assurer leur disponibilite." },
+            new() { Id = "A.7.14", Category = "A.7", Title = "Mise au rebut securisee des equipements", Description = "Les equipements contenant des supports de stockage doivent etre verifies avant mise au rebut." },
 
-            // A.8 - Contrôles technologiques
-            new() { Id = "A.8.1", Category = "A.8", Title = "Terminaux utilisateur", Description = "L'information stockée, traitée ou accessible via les terminaux doit être protégée." },
-            new() { Id = "A.8.2", Category = "A.8", Title = "Droits d'accès privilégiés", Description = "L'attribution et l'utilisation des droits d'accès privilégiés doivent être restreintes." },
-            new() { Id = "A.8.3", Category = "A.8", Title = "Restriction d'accès à l'information", Description = "L'accès à l'information et aux fonctions des systèmes doit être restreint." },
-            new() { Id = "A.8.4", Category = "A.8", Title = "Accès au code source", Description = "L'accès en lecture et en écriture au code source doit être géré de manière appropriée." },
-            new() { Id = "A.8.5", Category = "A.8", Title = "Authentification sécurisée", Description = "Des techniques d'authentification sécurisée doivent être mises en œuvre." },
-            new() { Id = "A.8.6", Category = "A.8", Title = "Gestion des capacités", Description = "L'utilisation des ressources doit être surveillée et ajustée." },
-            new() { Id = "A.8.7", Category = "A.8", Title = "Protection contre les logiciels malveillants", Description = "Une protection contre les logiciels malveillants doit être mise en œuvre." },
-            new() { Id = "A.8.8", Category = "A.8", Title = "Gestion des vulnérabilités techniques", Description = "Les informations sur les vulnérabilités techniques doivent être obtenues et des mesures prises." },
-            new() { Id = "A.8.9", Category = "A.8", Title = "Gestion de la configuration", Description = "Les configurations matérielles, logicielles et réseau doivent être établies et documentées." },
-            new() { Id = "A.8.10", Category = "A.8", Title = "Suppression des informations", Description = "L'information stockée dans les systèmes et supports doit être supprimée quand plus nécessaire." },
-            new() { Id = "A.8.11", Category = "A.8", Title = "Masquage des données", Description = "Le masquage des données doit être utilisé conformément aux politiques." },
-            new() { Id = "A.8.12", Category = "A.8", Title = "Prévention des fuites de données", Description = "Des mesures de prévention des fuites de données doivent être appliquées." },
-            new() { Id = "A.8.13", Category = "A.8", Title = "Sauvegarde des informations", Description = "Des copies de sauvegarde doivent être maintenues et testées régulièrement." },
-            new() { Id = "A.8.14", Category = "A.8", Title = "Redondance des installations", Description = "Les installations de traitement doivent être mises en œuvre avec une redondance suffisante." },
-            new() { Id = "A.8.15", Category = "A.8", Title = "Journalisation", Description = "Les journaux d'événements doivent être produits, stockés, protégés et analysés." },
-            new() { Id = "A.8.16", Category = "A.8", Title = "Activités de surveillance", Description = "Les réseaux, systèmes et applications doivent être surveillés pour détecter les comportements anormaux." },
-            new() { Id = "A.8.17", Category = "A.8", Title = "Synchronisation des horloges", Description = "Les horloges des systèmes doivent être synchronisées avec une source de temps approuvée." },
-            new() { Id = "A.8.18", Category = "A.8", Title = "Utilisation des utilitaires privilégiés", Description = "L'utilisation des utilitaires pouvant contourner les contrôles doit être restreinte." },
-            new() { Id = "A.8.19", Category = "A.8", Title = "Installation de logiciels sur les systèmes opérationnels", Description = "Des procédures pour l'installation de logiciels sur les systèmes opérationnels doivent être mises en œuvre." },
-            new() { Id = "A.8.20", Category = "A.8", Title = "Sécurité des réseaux", Description = "Les réseaux et dispositifs réseau doivent être sécurisés, gérés et contrôlés." },
-            new() { Id = "A.8.21", Category = "A.8", Title = "Sécurité des services réseau", Description = "Les mécanismes de sécurité et les niveaux de service des services réseau doivent être identifiés." },
-            new() { Id = "A.8.22", Category = "A.8", Title = "Ségrégation des réseaux", Description = "Les groupes de services, utilisateurs et systèmes doivent être séparés sur les réseaux." },
-            new() { Id = "A.8.23", Category = "A.8", Title = "Filtrage web", Description = "L'accès aux sites web externes doit être géré pour réduire l'exposition aux contenus malveillants." },
-            new() { Id = "A.8.24", Category = "A.8", Title = "Utilisation de la cryptographie", Description = "Des règles pour l'utilisation effective de la cryptographie doivent être définies." },
-            new() { Id = "A.8.25", Category = "A.8", Title = "Cycle de vie du développement sécurisé", Description = "Des règles pour le développement sécurisé doivent être établies." },
-            new() { Id = "A.8.26", Category = "A.8", Title = "Exigences de sécurité des applications", Description = "Les exigences de sécurité doivent être identifiées lors du développement ou de l'acquisition." },
-            new() { Id = "A.8.27", Category = "A.8", Title = "Architecture système sécurisée et principes d'ingénierie", Description = "Des principes d'ingénierie de systèmes sécurisés doivent être établis." },
-            new() { Id = "A.8.28", Category = "A.8", Title = "Codage sécurisé", Description = "Des principes de codage sécurisé doivent être appliqués au développement logiciel." },
-            new() { Id = "A.8.29", Category = "A.8", Title = "Tests de sécurité en développement et acceptance", Description = "Des processus de test de sécurité doivent être définis et mis en œuvre." },
-            new() { Id = "A.8.30", Category = "A.8", Title = "Développement externalisé", Description = "L'organisation doit diriger, surveiller et revoir les activités de développement externalisé." },
-            new() { Id = "A.8.31", Category = "A.8", Title = "Séparation des environnements", Description = "Les environnements de développement, test et production doivent être séparés." },
-            new() { Id = "A.8.32", Category = "A.8", Title = "Gestion des changements", Description = "Les changements aux installations de traitement et aux systèmes doivent être soumis à la gestion des changements." },
-            new() { Id = "A.8.33", Category = "A.8", Title = "Informations de test", Description = "Les informations de test doivent être sélectionnées, protégées et gérées de manière appropriée." },
-            new() { Id = "A.8.34", Category = "A.8", Title = "Protection des systèmes d'audit", Description = "Les tests d'audit et autres activités d'assurance impliquant les systèmes opérationnels doivent être planifiés." }
+            // A.8 - Controles technologiques
+            new() { Id = "A.8.1", Category = "A.8", Title = "Terminaux utilisateur", Description = "L'information stockee, traitee ou accessible via les terminaux doit etre protegee." },
+            new() { Id = "A.8.2", Category = "A.8", Title = "Droits d'acces privilegies", Description = "L'attribution et l'utilisation des droits d'acces privilegies doivent etre restreintes." },
+            new() { Id = "A.8.3", Category = "A.8", Title = "Restriction d'acces a l'information", Description = "L'acces a l'information et aux fonctions des systemes doit etre restreint." },
+            new() { Id = "A.8.4", Category = "A.8", Title = "Acces au code source", Description = "L'acces en lecture et en ecriture au code source doit etre gere de maniere appropriee." },
+            new() { Id = "A.8.5", Category = "A.8", Title = "Authentification securisee", Description = "Des techniques d'authentification securisee doivent etre mises en oeuvre." },
+            new() { Id = "A.8.6", Category = "A.8", Title = "Gestion des capacites", Description = "L'utilisation des ressources doit etre surveillee et ajustee." },
+            new() { Id = "A.8.7", Category = "A.8", Title = "Protection contre les logiciels malveillants", Description = "Une protection contre les logiciels malveillants doit etre mise en oeuvre." },
+            new() { Id = "A.8.8", Category = "A.8", Title = "Gestion des vulnerabilites techniques", Description = "Les informations sur les vulnerabilites techniques doivent etre obtenues et des mesures prises." },
+            new() { Id = "A.8.9", Category = "A.8", Title = "Gestion de la configuration", Description = "Les configurations materielles, logicielles et reseau doivent etre etablies et documentees." },
+            new() { Id = "A.8.10", Category = "A.8", Title = "Suppression des informations", Description = "L'information stockee dans les systemes et supports doit etre supprimee quand plus necessaire." },
+            new() { Id = "A.8.11", Category = "A.8", Title = "Masquage des donnees", Description = "Le masquage des donnees doit etre utilise conformement aux politiques." },
+            new() { Id = "A.8.12", Category = "A.8", Title = "Prevention des fuites de donnees", Description = "Des mesures de prevention des fuites de donnees doivent etre appliquees." },
+            new() { Id = "A.8.13", Category = "A.8", Title = "Sauvegarde des informations", Description = "Des copies de sauvegarde doivent etre maintenues et testees regulierement." },
+            new() { Id = "A.8.14", Category = "A.8", Title = "Redondance des installations", Description = "Les installations de traitement doivent etre mises en oeuvre avec une redondance suffisante." },
+            new() { Id = "A.8.15", Category = "A.8", Title = "Journalisation", Description = "Les journaux d'evenements doivent etre produits, stockes, proteges et analyses." },
+            new() { Id = "A.8.16", Category = "A.8", Title = "Activites de surveillance", Description = "Les reseaux, systemes et applications doivent etre surveilles pour detecter les comportements anormaux." },
+            new() { Id = "A.8.17", Category = "A.8", Title = "Synchronisation des horloges", Description = "Les horloges des systemes doivent etre synchronisees avec une source de temps approuvee." },
+            new() { Id = "A.8.18", Category = "A.8", Title = "Utilisation des utilitaires privilegies", Description = "L'utilisation des utilitaires pouvant contourner les controles doit etre restreinte." },
+            new() { Id = "A.8.19", Category = "A.8", Title = "Installation de logiciels sur les systemes operationnels", Description = "Des procedures pour l'installation de logiciels sur les systemes operationnels doivent etre mises en oeuvre." },
+            new() { Id = "A.8.20", Category = "A.8", Title = "Securite des reseaux", Description = "Les reseaux et dispositifs reseau doivent etre securises, geres et controles." },
+            new() { Id = "A.8.21", Category = "A.8", Title = "Securite des services reseau", Description = "Les mecanismes de securite et les niveaux de service des services reseau doivent etre identifies." },
+            new() { Id = "A.8.22", Category = "A.8", Title = "Segregation des reseaux", Description = "Les groupes de services, utilisateurs et systemes doivent etre separes sur les reseaux." },
+            new() { Id = "A.8.23", Category = "A.8", Title = "Filtrage web", Description = "L'acces aux sites web externes doit etre gere pour reduire l'exposition aux contenus malveillants." },
+            new() { Id = "A.8.24", Category = "A.8", Title = "Utilisation de la cryptographie", Description = "Des regles pour l'utilisation effective de la cryptographie doivent etre definies." },
+            new() { Id = "A.8.25", Category = "A.8", Title = "Cycle de vie du developpement securise", Description = "Des regles pour le developpement securise doivent etre etablies." },
+            new() { Id = "A.8.26", Category = "A.8", Title = "Exigences de securite des applications", Description = "Les exigences de securite doivent etre identifiees lors du developpement ou de l'acquisition." },
+            new() { Id = "A.8.27", Category = "A.8", Title = "Architecture systeme securisee et principes d'ingenierie", Description = "Des principes d'ingenierie de systemes securises doivent etre etablis." },
+            new() { Id = "A.8.28", Category = "A.8", Title = "Codage securise", Description = "Des principes de codage securise doivent etre appliques au developpement logiciel." },
+            new() { Id = "A.8.29", Category = "A.8", Title = "Tests de securite en developpement et acceptance", Description = "Des processus de test de securite doivent etre definis et mis en oeuvre." },
+            new() { Id = "A.8.30", Category = "A.8", Title = "Developpement externalise", Description = "L'organisation doit diriger, surveiller et revoir les activites de developpement externalise." },
+            new() { Id = "A.8.31", Category = "A.8", Title = "Separation des environnements", Description = "Les environnements de developpement, test et production doivent etre separes." },
+            new() { Id = "A.8.32", Category = "A.8", Title = "Gestion des changements", Description = "Les changements aux installations de traitement et aux systemes doivent etre soumis a la gestion des changements." },
+            new() { Id = "A.8.33", Category = "A.8", Title = "Informations de test", Description = "Les informations de test doivent etre selectionnees, protegees et gerees de maniere appropriee." },
+            new() { Id = "A.8.34", Category = "A.8", Title = "Protection des systemes d'audit", Description = "Les tests d'audit et autres activites d'assurance impliquant les systemes operationnels doivent etre planifies." }
         };
     }
 
@@ -187,7 +187,7 @@ public class Iso27001Service : IIso27001Service
             control.Evidence = evidence;
             control.LastReviewDate = DateTime.UtcNow;
             await SaveControlsAsync();
-            _logger.LogInformation("ISO 27001: Contrôle {Id} mis à jour - Statut: {Status}", controlId, status);
+            _logger.LogInformation("ISO 27001: Controle {Id} mis a jour - Statut: {Status}", controlId, status);
         }
     }
 
@@ -211,7 +211,7 @@ public class Iso27001Service : IIso27001Service
         risk.Status = RiskStatus.Identified;
         _risks.Add(risk);
         await SaveRisksAsync();
-        _logger.LogInformation("ISO 27001: Risque {Id} ajouté - Asset: {Asset}", risk.Id, risk.AssetName);
+        _logger.LogInformation("ISO 27001: Risque {Id} ajoute - Asset: {Asset}", risk.Id, risk.AssetName);
         return risk;
     }
 
@@ -223,7 +223,7 @@ public class Iso27001Service : IIso27001Service
             var index = _risks.IndexOf(existing);
             _risks[index] = risk;
             await SaveRisksAsync();
-            _logger.LogInformation("ISO 27001: Risque {Id} mis à jour", risk.Id);
+            _logger.LogInformation("ISO 27001: Risque {Id} mis a jour", risk.Id);
         }
     }
 
@@ -234,7 +234,7 @@ public class Iso27001Service : IIso27001Service
         {
             _risks.Remove(risk);
             await SaveRisksAsync();
-            _logger.LogInformation("ISO 27001: Risque {Id} supprimé", id);
+            _logger.LogInformation("ISO 27001: Risque {Id} supprime", id);
         }
     }
 
@@ -258,7 +258,7 @@ public class Iso27001Service : IIso27001Service
         incident.Status = IncidentStatus.New;
         _incidents.Add(incident);
         await SaveIncidentsAsync();
-        _logger.LogInformation("ISO 27001: Incident {Id} créé - {Title}", incident.Id, incident.Title);
+        _logger.LogInformation("ISO 27001: Incident {Id} cree - {Title}", incident.Id, incident.Title);
         return incident;
     }
 
@@ -270,7 +270,7 @@ public class Iso27001Service : IIso27001Service
             var index = _incidents.IndexOf(existing);
             _incidents[index] = incident;
             await SaveIncidentsAsync();
-            _logger.LogInformation("ISO 27001: Incident {Id} mis à jour - Statut: {Status}", incident.Id, incident.Status);
+            _logger.LogInformation("ISO 27001: Incident {Id} mis a jour - Statut: {Status}", incident.Id, incident.Status);
         }
     }
 
@@ -281,7 +281,7 @@ public class Iso27001Service : IIso27001Service
 
     #endregion
 
-    #region Politiques de Sécurité
+    #region Politiques de Securite
 
     public IEnumerable<SecurityPolicy> GetAllPolicies() => _policies;
 
@@ -294,7 +294,7 @@ public class Iso27001Service : IIso27001Service
         policy.Status = PolicyStatus.Draft;
         _policies.Add(policy);
         await SavePoliciesAsync();
-        _logger.LogInformation("ISO 27001: Politique {Code} créée - {Title}", policy.Code, policy.Title);
+        _logger.LogInformation("ISO 27001: Politique {Code} creee - {Title}", policy.Code, policy.Title);
         return policy;
     }
 
@@ -306,13 +306,13 @@ public class Iso27001Service : IIso27001Service
             var index = _policies.IndexOf(existing);
             _policies[index] = policy;
             await SavePoliciesAsync();
-            _logger.LogInformation("ISO 27001: Politique {Code} mise à jour", policy.Code);
+            _logger.LogInformation("ISO 27001: Politique {Code} mise a jour", policy.Code);
         }
     }
 
     #endregion
 
-    #region Résumé et Score
+    #region Resume et Score
 
     public Iso27001Summary GetSummary()
     {
@@ -332,7 +332,7 @@ public class Iso27001Service : IIso27001Service
                 (double)(summary.ImplementedControls + summary.PartiallyImplementedControls * 0.5) / applicable * 100, 2);
         }
 
-        // Résumé par catégorie
+        // Resume par categorie
         var categories = _controls.GroupBy(c => c.Category);
         foreach (var category in categories)
         {
@@ -359,10 +359,10 @@ public class Iso27001Service : IIso27001Service
     {
         return category switch
         {
-            "A.5" => "Contrôles organisationnels",
-            "A.6" => "Contrôles du personnel",
-            "A.7" => "Contrôles physiques",
-            "A.8" => "Contrôles technologiques",
+            "A.5" => "Controles organisationnels",
+            "A.6" => "Controles du personnel",
+            "A.7" => "Controles physiques",
+            "A.8" => "Controles technologiques",
             _ => category
         };
     }
@@ -387,7 +387,7 @@ public class Iso27001Service : IIso27001Service
                 var savedControls = JsonSerializer.Deserialize<List<Iso27001Control>>(json);
                 if (savedControls != null)
                 {
-                    // Fusionner avec les contrôles initialisés
+                    // Fusionner avec les controles initialises
                     foreach (var saved in savedControls)
                     {
                         var control = _controls.FirstOrDefault(c => c.Id == saved.Id);
@@ -426,7 +426,7 @@ public class Iso27001Service : IIso27001Service
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur chargement données ISO 27001");
+            _logger.LogError(ex, "Erreur chargement donnees ISO 27001");
         }
     }
 

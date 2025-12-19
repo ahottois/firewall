@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ConformitÈ ISO - NetGuard</title>
+    <title>Conformit√© ISO - NetGuard</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .compliance-grid {
@@ -258,21 +258,21 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>??? NetGuard - ConformitÈ ISO</h1>
+            <h1>üõ°Ô∏è NetGuard - Conformit√© ISO</h1>
             <nav>
-                <a href="index.html">? Retour au Dashboard</a>
+                <a href="index.html">‚Üê Retour au Dashboard</a>
             </nav>
         </header>
 
         <main>
             <!-- Tabs -->
             <div class="tabs-compliance">
-                <button class="tab-compliance active" data-tab="dashboard">?? Dashboard</button>
+                <button class="tab-compliance active" data-tab="dashboard">üìä Dashboard</button>
                 <button class="tab-compliance" data-tab="iso27001">ISO 27001</button>
                 <button class="tab-compliance" data-tab="iso15408">ISO 15408</button>
-                <button class="tab-compliance" data-tab="risks">?? Risques</button>
-                <button class="tab-compliance" data-tab="incidents">?? Incidents</button>
-                <button class="tab-compliance" data-tab="audits">?? Audits</button>
+                <button class="tab-compliance" data-tab="risks">‚ö†Ô∏è Risques</button>
+                <button class="tab-compliance" data-tab="incidents">üö® Incidents</button>
+                <button class="tab-compliance" data-tab="audits">üìã Audits</button>
             </div>
 
             <!-- Dashboard -->
@@ -285,7 +285,7 @@
                             <circle class="progress" id="iso27001-ring" cx="75" cy="75" r="65"></circle>
                         </svg>
                         <div class="score-value" id="iso27001-score">--</div>
-                        <p>Score de conformitÈ SMSI</p>
+                        <p>Score de conformit√© SMSI</p>
                         <button class="btn btn-primary" onclick="runAudit('ISO27001')">Lancer l'audit</button>
                     </div>
                     
@@ -303,20 +303,20 @@
 
                 <div class="grid">
                     <div class="card">
-                        <h3>?? T‚ches prioritaires</h3>
+                        <h3>üìÖ T√¢ches prioritaires</h3>
                         <ul class="task-list" id="upcoming-tasks">
                             <li class="task-item">Chargement...</li>
                         </ul>
                     </div>
                     
                     <div class="card">
-                        <h3>?? Risques majeurs</h3>
+                        <h3>‚ö†Ô∏è Risques majeurs</h3>
                         <div id="top-risks">Chargement...</div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h3>?? Constatations ouvertes</h3>
+                    <h3>üìù Constatations ouvertes</h3>
                     <div id="open-findings">Chargement...</div>
                 </div>
             </div>
@@ -325,14 +325,14 @@
             <div id="iso27001" class="tab-panel">
                 <div class="card">
                     <div class="card-header">
-                        <h3>?? ContrÙles ISO 27001:2022 (Annexe A)</h3>
+                        <h3>üìã Contr√¥les ISO 27001:2022 (Annexe A)</h3>
                         <div>
                             <select id="category-filter" onchange="filterControls()">
-                                <option value="">Toutes les catÈgories</option>
-                                <option value="A.5">A.5 - ContrÙles organisationnels</option>
-                                <option value="A.6">A.6 - ContrÙles du personnel</option>
-                                <option value="A.7">A.7 - ContrÙles physiques</option>
-                                <option value="A.8">A.8 - ContrÙles technologiques</option>
+                                <option value="">Toutes les cat√©gories</option>
+                                <option value="A.5">A.5 - Contr√¥les organisationnels</option>
+                                <option value="A.6">A.6 - Contr√¥les du personnel</option>
+                                <option value="A.7">A.7 - Contr√¥les physiques</option>
+                                <option value="A.8">A.8 - Contr√¥les technologiques</option>
                             </select>
                         </div>
                     </div>
@@ -344,18 +344,18 @@
             <div id="iso15408" class="tab-panel">
                 <div class="compliance-grid">
                     <div class="card">
-                        <h3>?? Cible de SÈcuritÈ (ST)</h3>
+                        <h3>üéØ Cible de S√©curit√© (ST)</h3>
                         <div id="security-target">Chargement...</div>
                     </div>
                     
                     <div class="card">
-                        <h3>?? …valuation EAL</h3>
+                        <h3>üìä √âvaluation EAL</h3>
                         <div id="eal-evaluation">Chargement...</div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h3>?? Exigences Fonctionnelles (SFR)</h3>
+                    <h3>üîí Exigences Fonctionnelles (SFR)</h3>
                     <table class="controls-table">
                         <thead>
                             <tr>
@@ -372,7 +372,7 @@
                 </div>
 
                 <div class="card">
-                    <h3>? Exigences d'Assurance (SAR)</h3>
+                    <h3>‚úì Exigences d'Assurance (SAR)</h3>
                     <table class="controls-table">
                         <thead>
                             <tr>
@@ -390,7 +390,7 @@
                 </div>
 
                 <div class="card">
-                    <h3>?? Menaces identifiÈes</h3>
+                    <h3>‚ö° Menaces identifi√©es</h3>
                     <div id="threats-list">Chargement...</div>
                 </div>
             </div>
@@ -399,14 +399,14 @@
             <div id="risks" class="tab-panel">
                 <div class="card">
                     <div class="card-header">
-                        <h3>?? Matrice des risques</h3>
+                        <h3>üìä Matrice des risques</h3>
                         <button class="btn btn-primary" onclick="showAddRiskModal()">+ Nouveau risque</button>
                     </div>
                     <div class="risk-matrix">
                         <div class="risk-cell header"></div>
-                        <div class="risk-cell header">NÈgligeable</div>
+                        <div class="risk-cell header">N√©gligeable</div>
                         <div class="risk-cell header">Mineur</div>
-                        <div class="risk-cell header">ModÈrÈ</div>
+                        <div class="risk-cell header">Mod√©r√©</div>
                         <div class="risk-cell header">Majeur</div>
                         <div class="risk-cell header">Catastrophique</div>
                         
@@ -448,7 +448,7 @@
                 </div>
 
                 <div class="card">
-                    <h3>?? Registre des risques</h3>
+                    <h3>üìã Registre des risques</h3>
                     <table class="controls-table">
                         <thead>
                             <tr>
@@ -473,18 +473,18 @@
             <div id="incidents" class="tab-panel">
                 <div class="card">
                     <div class="card-header">
-                        <h3>?? Incidents de sÈcuritÈ</h3>
-                        <button class="btn btn-primary" onclick="showAddIncidentModal()">+ DÈclarer un incident</button>
+                        <h3>üö® Incidents de s√©curit√©</h3>
+                        <button class="btn btn-primary" onclick="showAddIncidentModal()">+ D√©clarer un incident</button>
                     </div>
                     <table class="controls-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
                                 <th>Titre</th>
-                                <th>CatÈgorie</th>
-                                <th>SÈvÈritÈ</th>
+                                <th>Cat√©gorie</th>
+                                <th>S√©v√©rit√©</th>
                                 <th>Statut</th>
-                                <th>DÈtectÈ le</th>
+                                <th>D√©tect√© le</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -499,7 +499,7 @@
             <div id="audits" class="tab-panel">
                 <div class="card">
                     <div class="card-header">
-                        <h3>?? Historique des audits</h3>
+                        <h3>üìã Historique des audits</h3>
                         <div>
                             <button class="btn btn-primary" onclick="runAudit('ISO27001')">Audit ISO 27001</button>
                             <button class="btn btn-secondary" onclick="runAudit('ISO15408')">Audit ISO 15408</button>
@@ -511,8 +511,8 @@
                 </div>
 
                 <div class="card">
-                    <h3>?? GÈnÈrer un rapport</h3>
-                    <p>SÈlectionnez le type de rapport ‡ gÈnÈrer :</p>
+                    <h3>üìÑ G√©n√©rer un rapport</h3>
+                    <p>S√©lectionnez le type de rapport √† g√©n√©rer :</p>
                     <button class="btn btn-primary" onclick="generateReport('ISO27001')">Rapport ISO 27001</button>
                     <button class="btn btn-secondary" onclick="generateReport('ISO15408')">Rapport ISO 15408</button>
                 </div>
@@ -535,7 +535,7 @@
                     <select id="risk-asset-type">
                         <option value="0">Information</option>
                         <option value="1">Logiciel</option>
-                        <option value="2">MatÈriel</option>
+                        <option value="2">Mat√©riel</option>
                         <option value="3">Service</option>
                         <option value="4">Personnel</option>
                         <option value="5">Infrastructure</option>
@@ -546,11 +546,11 @@
                     <textarea id="risk-threat" required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>VulnÈrabilitÈ</label>
+                    <label>Vuln√©rabilit√©</label>
                     <textarea id="risk-vulnerability" required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>ProbabilitÈ</label>
+                    <label>Probabilit√©</label>
                     <select id="risk-likelihood">
                         <option value="1">Rare</option>
                         <option value="2">Improbable</option>
@@ -562,9 +562,9 @@
                 <div class="form-group">
                     <label>Impact</label>
                     <select id="risk-impact">
-                        <option value="1">NÈgligeable</option>
+                        <option value="1">N√©gligeable</option>
                         <option value="2">Mineur</option>
-                        <option value="3">ModÈrÈ</option>
+                        <option value="3">Mod√©r√©</option>
                         <option value="4">Majeur</option>
                         <option value="5">Catastrophique</option>
                     </select>
@@ -573,9 +573,9 @@
                     <label>Traitement</label>
                     <select id="risk-treatment">
                         <option value="0">Accepter</option>
-                        <option value="1">AttÈnuer</option>
-                        <option value="2">TransfÈrer</option>
-                        <option value="3">…viter</option>
+                        <option value="1">Att√©nuer</option>
+                        <option value="2">Transf√©rer</option>
+                        <option value="3">√âviter</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-primary">Enregistrer</button>
@@ -587,7 +587,7 @@
     <div id="incident-modal" class="modal" style="display:none;">
         <div class="modal-content">
             <span class="close" onclick="closeModal('incident-modal')">&times;</span>
-            <h2>DÈclarer un incident</h2>
+            <h2>D√©clarer un incident</h2>
             <form id="incident-form" onsubmit="saveIncident(event)">
                 <div class="form-group">
                     <label>Titre</label>
@@ -598,32 +598,32 @@
                     <textarea id="incident-description" required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>CatÈgorie</label>
+                    <label>Cat√©gorie</label>
                     <select id="incident-category">
                         <option value="0">Malware</option>
-                        <option value="1">AccËs non autorisÈ</option>
-                        <option value="2">Fuite de donnÈes</option>
-                        <option value="3">DÈni de service</option>
-                        <option value="4">IngÈnierie sociale</option>
-                        <option value="5">SÈcuritÈ physique</option>
+                        <option value="1">Acc√®s non autoris√©</option>
+                        <option value="2">Fuite de donn√©es</option>
+                        <option value="3">D√©ni de service</option>
+                        <option value="4">Ing√©nierie sociale</option>
+                        <option value="5">S√©curit√© physique</option>
                         <option value="6">Violation de politique</option>
                         <option value="7">Autre</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>SÈvÈritÈ</label>
+                    <label>S√©v√©rit√©</label>
                     <select id="incident-severity">
                         <option value="0">Faible</option>
                         <option value="1">Moyenne</option>
-                        <option value="2">…levÈe</option>
+                        <option value="2">√âlev√©e</option>
                         <option value="3">Critique</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Actifs affectÈs</label>
+                    <label>Actifs affect√©s</label>
                     <input type="text" id="incident-assets">
                 </div>
-                <button type="submit" class="btn btn-primary">DÈclarer</button>
+                <button type="submit" class="btn btn-primary">D√©clarer</button>
             </form>
         </div>
     </div>

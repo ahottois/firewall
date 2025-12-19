@@ -5,17 +5,17 @@ using NetworkFirewall.Models;
 namespace NetworkFirewall.Services;
 
 /// <summary>
-/// Interface pour le service de logging de sécurité
+/// Interface pour le service de logging de securite
 /// </summary>
 public interface ISecurityLogService
 {
     /// <summary>
-    /// Enregistre un événement de blocage de trafic
+    /// Enregistre un evenement de blocage de trafic
     /// </summary>
     Task LogBlockedTrafficAsync(string sourceMac, string? sourceIp, string? destIp, int? destPort, string? protocol, string? deviceName = null);
 
     /// <summary>
-    /// Enregistre une tentative de connexion bloquée
+    /// Enregistre une tentative de connexion bloquee
     /// </summary>
     Task LogBlockedConnectionAttemptAsync(string sourceMac, string? sourceIp, string? destIp, int? destPort, string? protocol, int packetCount = 1, string? deviceName = null);
 
@@ -25,22 +25,22 @@ public interface ISecurityLogService
     Task LogDeviceBlockedAsync(string macAddress, string? ipAddress, string? deviceName, string? reason);
 
     /// <summary>
-    /// Enregistre le déblocage d'un appareil
+    /// Enregistre le deblocage d'un appareil
     /// </summary>
     Task LogDeviceUnblockedAsync(string macAddress, string? ipAddress, string? deviceName);
 
     /// <summary>
-    /// Enregistre l'ajout d'une règle firewall
+    /// Enregistre l'ajout d'une regle firewall
     /// </summary>
     Task LogFirewallRuleAddedAsync(string ruleName, string? macAddress, string? ipAddress);
 
     /// <summary>
-    /// Enregistre la suppression d'une règle firewall
+    /// Enregistre la suppression d'une regle firewall
     /// </summary>
     Task LogFirewallRuleRemovedAsync(string ruleName, string? macAddress, string? ipAddress);
 
     /// <summary>
-    /// Enregistre une détection de scan de ports
+    /// Enregistre une detection de scan de ports
     /// </summary>
     Task LogPortScanDetectedAsync(string sourceIp, string? sourceMac, int portCount, string? deviceName = null);
 
@@ -50,18 +50,18 @@ public interface ISecurityLogService
     Task LogSuspiciousTrafficAsync(string message, string? sourceIp, string? sourceMac, LogSeverity severity = LogSeverity.Warning);
 
     /// <summary>
-    /// Enregistre un événement système
+    /// Enregistre un evenement systeme
     /// </summary>
     Task LogSystemEventAsync(string message, LogSeverity severity = LogSeverity.Info);
 
     /// <summary>
-    /// Enregistre un log personnalisé
+    /// Enregistre un log personnalise
     /// </summary>
     Task LogAsync(SecurityLog log);
 }
 
 /// <summary>
-/// Service de logging de sécurité avec notifications temps réel
+/// Service de logging de securite avec notifications temps reel
 /// </summary>
 public class SecurityLogService : ISecurityLogService
 {
@@ -85,8 +85,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = LogSeverity.Warning,
             Category = LogCategory.TrafficBlocked,
-            ActionTaken = "Paquet rejeté",
-            Message = $"Trafic bloqué de {deviceName ?? sourceMac} vers {destIp}:{destPort}",
+            ActionTaken = "Paquet rejete",
+            Message = $"Trafic bloque de {deviceName ?? sourceMac} vers {destIp}:{destPort}",
             SourceMac = sourceMac,
             SourceIp = sourceIp,
             DestinationIp = destIp,
@@ -106,8 +106,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = severity,
             Category = LogCategory.ConnectionAttemptBlocked,
-            ActionTaken = "Tentative de connexion bloquée",
-            Message = $"L'appareil {deviceName ?? sourceMac} a tenté de joindre {destIp} sur le port {destPort} ({packetCount} paquets)",
+            ActionTaken = "Tentative de connexion bloquee",
+            Message = $"L'appareil {deviceName ?? sourceMac} a tente de joindre {destIp} sur le port {destPort} ({packetCount} paquets)",
             SourceMac = sourceMac,
             SourceIp = sourceIp,
             DestinationIp = destIp,
@@ -119,7 +119,7 @@ public class SecurityLogService : ISecurityLogService
 
         await LogAsync(log);
 
-        // Envoyer aussi un événement de blocage
+        // Envoyer aussi un evenement de blocage
         await _alertHubNotifier.NotifyBlockEventAsync(new BlockEventDto
         {
             Timestamp = log.Timestamp,
@@ -140,8 +140,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = LogSeverity.Warning,
             Category = LogCategory.DeviceBlocked,
-            ActionTaken = "Appareil bloqué",
-            Message = $"L'appareil {deviceName ?? macAddress} ({ipAddress ?? "IP inconnue"}) a été bloqué. Raison: {reason ?? "Non spécifiée"}",
+            ActionTaken = "Appareil bloque",
+            Message = $"L'appareil {deviceName ?? macAddress} ({ipAddress ?? "IP inconnue"}) a ete bloque. Raison: {reason ?? "Non specifiee"}",
             SourceMac = macAddress,
             SourceIp = ipAddress,
             DeviceName = deviceName
@@ -156,8 +156,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = LogSeverity.Info,
             Category = LogCategory.DeviceUnblocked,
-            ActionTaken = "Appareil débloqué",
-            Message = $"L'appareil {deviceName ?? macAddress} ({ipAddress ?? "IP inconnue"}) a été débloqué",
+            ActionTaken = "Appareil debloque",
+            Message = $"L'appareil {deviceName ?? macAddress} ({ipAddress ?? "IP inconnue"}) a ete debloque",
             SourceMac = macAddress,
             SourceIp = ipAddress,
             DeviceName = deviceName
@@ -172,8 +172,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = LogSeverity.Info,
             Category = LogCategory.FirewallRuleAdded,
-            ActionTaken = "Règle firewall ajoutée",
-            Message = $"Règle '{ruleName}' ajoutée pour bloquer {macAddress ?? ipAddress}",
+            ActionTaken = "Regle firewall ajoutee",
+            Message = $"Regle '{ruleName}' ajoutee pour bloquer {macAddress ?? ipAddress}",
             SourceMac = macAddress,
             SourceIp = ipAddress
         };
@@ -187,8 +187,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = LogSeverity.Info,
             Category = LogCategory.FirewallRuleRemoved,
-            ActionTaken = "Règle firewall supprimée",
-            Message = $"Règle '{ruleName}' supprimée pour {macAddress ?? ipAddress}",
+            ActionTaken = "Regle firewall supprimee",
+            Message = $"Regle '{ruleName}' supprimee pour {macAddress ?? ipAddress}",
             SourceMac = macAddress,
             SourceIp = ipAddress
         };
@@ -204,8 +204,8 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = severity,
             Category = LogCategory.PortScanDetected,
-            ActionTaken = "Scan de ports détecté",
-            Message = $"Scan de ports détecté depuis {deviceName ?? sourceIp}: {portCount} ports scannés",
+            ActionTaken = "Scan de ports detecte",
+            Message = $"Scan de ports detecte depuis {deviceName ?? sourceIp}: {portCount} ports scannes",
             SourceIp = sourceIp,
             SourceMac = sourceMac,
             DeviceName = deviceName,
@@ -221,7 +221,7 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = severity,
             Category = LogCategory.SuspiciousTraffic,
-            ActionTaken = "Trafic suspect détecté",
+            ActionTaken = "Trafic suspect detecte",
             Message = message,
             SourceIp = sourceIp,
             SourceMac = sourceMac
@@ -236,7 +236,7 @@ public class SecurityLogService : ISecurityLogService
         {
             Severity = severity,
             Category = LogCategory.SystemEvent,
-            ActionTaken = "Événement système",
+            ActionTaken = "Evenement systeme",
             Message = message
         };
 
@@ -252,7 +252,7 @@ public class SecurityLogService : ISecurityLogService
             using var scope = _scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<ISecurityLogRepository>();
             
-            // Rechercher l'appareil associé si on a une MAC
+            // Rechercher l'appareil associe si on a une MAC
             if (!string.IsNullOrEmpty(log.SourceMac))
             {
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
@@ -269,12 +269,12 @@ public class SecurityLogService : ISecurityLogService
             // Envoyer la notification SignalR
             await _alertHubNotifier.NotifyNewSecurityLogAsync(SecurityLogDto.FromEntity(savedLog));
 
-            _logger.LogDebug("Log sécurité enregistré: [{Severity}] {Category} - {Message}", 
+            _logger.LogDebug("Log securite enregistre: [{Severity}] {Category} - {Message}", 
                 log.Severity, log.Category, log.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur lors de l'enregistrement du log de sécurité");
+            _logger.LogError(ex, "Erreur lors de l'enregistrement du log de securite");
         }
     }
 }

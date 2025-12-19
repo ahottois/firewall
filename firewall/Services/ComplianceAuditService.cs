@@ -77,16 +77,16 @@ public class ComplianceAuditService : IComplianceAuditService
 
         _audits.Add(audit);
         await SaveAuditsAsync();
-        _logger.LogInformation("Audit {Id} créé pour {Standard}", audit.AuditId, standard);
+        _logger.LogInformation("Audit {Id} cree pour {Standard}", audit.AuditId, standard);
         return audit;
     }
 
     public async Task<ComplianceAuditResult> RunAutomatedAuditAsync(string standard)
     {
-        _logger.LogInformation("Démarrage de l'audit automatisé pour {Standard}", standard);
+        _logger.LogInformation("Demarrage de l'audit automatise pour {Standard}", standard);
         
         var audit = await CreateAuditAsync(standard, AuditType.SelfAssessment);
-        audit.Auditor = "Système automatisé";
+        audit.Auditor = "Systeme automatise";
 
         if (standard.Equals("ISO27001", StringComparison.OrdinalIgnoreCase))
         {
@@ -104,19 +104,19 @@ public class ComplianceAuditService : IComplianceAuditService
             audit.OverallComplianceScore = Math.Round(assessedControls.Average(c => c.Score), 2);
         }
 
-        // Définir la prochaine date d'audit
+        // Definir la prochaine date d'audit
         audit.NextAuditDate = DateTime.UtcNow.AddMonths(6);
 
-        // Générer le résumé
+        // Generer le resume
         var compliant = audit.ControlAssessments.Count(c => c.Result == ControlAssessmentResult.Compliant);
         var partial = audit.ControlAssessments.Count(c => c.Result == ControlAssessmentResult.PartiallyCompliant);
         var nonCompliant = audit.ControlAssessments.Count(c => c.Result == ControlAssessmentResult.NonCompliant);
         
-        audit.Summary = $"Audit terminé. Conformes: {compliant}, Partiels: {partial}, Non-conformes: {nonCompliant}. " +
+        audit.Summary = $"Audit termine. Conformes: {compliant}, Partiels: {partial}, Non-conformes: {nonCompliant}. " +
                        $"Score global: {audit.OverallComplianceScore}%";
 
         await SaveAuditsAsync();
-        _logger.LogInformation("Audit {Id} terminé - Score: {Score}%", audit.AuditId, audit.OverallComplianceScore);
+        _logger.LogInformation("Audit {Id} termine - Score: {Score}%", audit.AuditId, audit.OverallComplianceScore);
         
         return audit;
     }
@@ -133,7 +133,7 @@ public class ComplianceAuditService : IComplianceAuditService
                 ControlId = control.Id
             };
 
-            // Évaluer le contrôle
+            // Evaluer le controle
             switch (control.Status)
             {
                 case Iso27001ControlStatus.NotApplicable:
@@ -150,8 +150,8 @@ public class ComplianceAuditService : IComplianceAuditService
                         ControlId = control.Id,
                         Type = FindingType.NonConformity,
                         Severity = FindingSeverity.High,
-                        Description = $"Le contrôle {control.Id} ({control.Title}) n'est pas implémenté",
-                        Recommendation = $"Implémenter le contrôle: {control.Description}",
+                        Description = $"Le controle {control.Id} ({control.Title}) n'est pas implemente",
+                        Recommendation = $"Implementer le controle: {control.Description}",
                         Status = FindingStatus.Open
                     };
                     audit.Findings.Add(finding);
@@ -159,24 +159,24 @@ public class ComplianceAuditService : IComplianceAuditService
                 case Iso27001ControlStatus.PartiallyImplemented:
                     assessment.Result = ControlAssessmentResult.PartiallyCompliant;
                     assessment.Score = 50;
-                    assessment.Notes = "Implémentation partielle détectée";
+                    assessment.Notes = "Implementation partielle detectee";
                     break;
                 case Iso27001ControlStatus.Implemented:
                     assessment.Result = ControlAssessmentResult.Compliant;
                     assessment.Score = 85;
-                    assessment.Notes = "Contrôle implémenté, efficacité à vérifier";
+                    assessment.Notes = "Controle implemente, efficacite a verifier";
                     break;
                 case Iso27001ControlStatus.Effective:
                     assessment.Result = ControlAssessmentResult.Compliant;
                     assessment.Score = 100;
-                    assessment.Notes = "Contrôle implémenté et efficace";
+                    assessment.Notes = "Controle implemente et efficace";
                     break;
             }
 
             audit.ControlAssessments.Add(assessment);
         }
 
-        // Vérifications automatiques supplémentaires
+        // Verifications automatiques supplementaires
         await RunAutomatedChecksIso27001Async(audit);
     }
 
@@ -193,12 +193,12 @@ public class ComplianceAuditService : IComplianceAuditService
                 Type = FindingType.Observation,
                 Severity = FindingSeverity.Medium,
                 Description = loggingCheck.message,
-                Recommendation = "Améliorer la configuration de journalisation",
+                Recommendation = "Ameliorer la configuration de journalisation",
                 Status = FindingStatus.Open
             });
         }
 
-        // A.8.20 - Sécurité des réseaux (le firewall lui-même)
+        // A.8.20 - Securite des reseaux (le firewall lui-meme)
         var networkSecurityCheck = CheckNetworkSecurity();
         if (networkSecurityCheck.isCompliant)
         {
@@ -208,7 +208,7 @@ public class ComplianceAuditService : IComplianceAuditService
                 ControlId = "A.8.20",
                 Type = FindingType.Strength,
                 Severity = FindingSeverity.Low,
-                Description = "Le système de surveillance réseau est opérationnel",
+                Description = "Le systeme de surveillance reseau est operationnel",
                 Status = FindingStatus.Closed
             });
         }
@@ -228,7 +228,7 @@ public class ComplianceAuditService : IComplianceAuditService
 
     private (bool isCompliant, string message) CheckLoggingImplementation()
     {
-        // Vérifier si les fichiers de log existent et sont récents
+        // Verifier si les fichiers de log existent et sont recents
         var logFiles = new[] { "netguard.log", "audit.log" };
         foreach (var logFile in logFiles)
         {
@@ -237,30 +237,30 @@ public class ComplianceAuditService : IComplianceAuditService
                 var lastWrite = File.GetLastWriteTimeUtc(logFile);
                 if ((DateTime.UtcNow - lastWrite).TotalHours < 24)
                 {
-                    return (true, "Journalisation active et récente");
+                    return (true, "Journalisation active et recente");
                 }
             }
         }
-        return (false, "Fichiers de journalisation non trouvés ou obsolètes");
+        return (false, "Fichiers de journalisation non trouves ou obsoletes");
     }
 
     private (bool isCompliant, string message) CheckNetworkSecurity()
     {
-        // Le firewall est le système lui-même, donc toujours conforme
-        return (true, "Système de surveillance réseau opérationnel");
+        // Le firewall est le systeme lui-meme, donc toujours conforme
+        return (true, "Systeme de surveillance reseau operationnel");
     }
 
     private (bool isCompliant, string message) CheckMalwareProtection()
     {
-        // Vérifier si le service ThreatIntelligence est actif
-        return (true, "Service de détection de menaces actif");
+        // Verifier si le service ThreatIntelligence est actif
+        return (true, "Service de detection de menaces actif");
     }
 
     private async Task<(bool isCompliant, string message)> CheckTimeSync()
     {
         try
         {
-            // Sur Linux, vérifier timedatectl
+            // Sur Linux, verifier timedatectl
             if (OperatingSystem.IsLinux())
             {
                 var psi = new System.Diagnostics.ProcessStartInfo
@@ -276,15 +276,15 @@ public class ComplianceAuditService : IComplianceAuditService
                     var output = await process.StandardOutput.ReadToEndAsync();
                     if (output.Contains("NTP service: active") || output.Contains("System clock synchronized: yes"))
                     {
-                        return (true, "NTP synchronisé");
+                        return (true, "NTP synchronise");
                     }
                 }
             }
-            return (false, "Synchronisation NTP non vérifiée");
+            return (false, "Synchronisation NTP non verifiee");
         }
         catch
         {
-            return (false, "Impossible de vérifier la synchronisation NTP");
+            return (false, "Impossible de verifier la synchronisation NTP");
         }
     }
 
@@ -307,7 +307,7 @@ public class ComplianceAuditService : IComplianceAuditService
             .Concat(assuranceReqs.Select(r => r.Id))
             .ToList();
 
-        // Évaluer les exigences fonctionnelles
+        // Evaluer les exigences fonctionnelles
         foreach (var req in functionalReqs)
         {
             var assessment = new ControlAssessment { ControlId = req.Id };
@@ -323,7 +323,7 @@ public class ComplianceAuditService : IComplianceAuditService
                         ControlId = req.Id,
                         Type = FindingType.NonConformity,
                         Severity = FindingSeverity.High,
-                        Description = $"SFR {req.Id} non implémentée: {req.Description}",
+                        Description = $"SFR {req.Id} non implementee: {req.Description}",
                         Status = FindingStatus.Open
                     });
                     break;
@@ -344,7 +344,7 @@ public class ComplianceAuditService : IComplianceAuditService
             audit.ControlAssessments.Add(assessment);
         }
 
-        // Évaluer les exigences d'assurance
+        // Evaluer les exigences d'assurance
         foreach (var req in assuranceReqs)
         {
             var assessment = new ControlAssessment { ControlId = req.Id };
@@ -394,7 +394,7 @@ public class ComplianceAuditService : IComplianceAuditService
                 var index = audit.Findings.IndexOf(existing);
                 audit.Findings[index] = finding;
                 await SaveAuditsAsync();
-                _logger.LogInformation("Constatation {Id} mise à jour - Statut: {Status}", finding.Id, finding.Status);
+                _logger.LogInformation("Constatation {Id} mise a jour - Statut: {Status}", finding.Id, finding.Status);
                 return;
             }
         }
@@ -408,7 +408,7 @@ public class ComplianceAuditService : IComplianceAuditService
             finding.Id = _findingIdCounter++;
             audit.Findings.Add(finding);
             await SaveAuditsAsync();
-            _logger.LogInformation("Constatation ajoutée à l'audit {AuditId}", auditId);
+            _logger.LogInformation("Constatation ajoutee a l'audit {AuditId}", auditId);
         }
         return finding;
     }
@@ -425,7 +425,7 @@ public class ComplianceAuditService : IComplianceAuditService
         evidence.CollectedDate = DateTime.UtcNow;
         _evidence.Add(evidence);
         await SaveEvidenceAsync();
-        _logger.LogInformation("Preuve {Id} ajoutée pour le contrôle {ControlId}", evidence.Id, evidence.ControlId);
+        _logger.LogInformation("Preuve {Id} ajoutee pour le controle {ControlId}", evidence.Id, evidence.ControlId);
         return evidence;
     }
 
@@ -457,7 +457,7 @@ public class ComplianceAuditService : IComplianceAuditService
             })
             .ToList();
 
-        // Incidents récents
+        // Incidents recents
         dashboard.RecentIncidents = _iso27001Service.GetOpenIncidents()
             .OrderByDescending(i => i.DetectedAt)
             .Take(5)
@@ -468,7 +468,7 @@ public class ComplianceAuditService : IComplianceAuditService
             .Take(10)
             .ToList();
 
-        // Tâches à venir
+        // Taches a venir
         dashboard.UpcomingTasks = GetUpcomingTasks();
 
         return dashboard;
@@ -478,7 +478,7 @@ public class ComplianceAuditService : IComplianceAuditService
     {
         var tasks = new List<UpcomingTask>();
 
-        // Contrôles à revoir
+        // Controles a revoir
         var controlsToReview = _iso27001Service.GetAllControls()
             .Where(c => c.NextReviewDate.HasValue && c.NextReviewDate.Value <= DateTime.UtcNow.AddDays(30))
             .ToList();
@@ -487,14 +487,14 @@ public class ComplianceAuditService : IComplianceAuditService
         {
             tasks.Add(new UpcomingTask
             {
-                TaskType = "Revue de contrôle",
-                Description = $"Revoir le contrôle {control.Id}: {control.Title}",
+                TaskType = "Revue de controle",
+                Description = $"Revoir le controle {control.Id}: {control.Title}",
                 DueDate = control.NextReviewDate ?? DateTime.UtcNow,
                 Priority = TaskPriority.Medium
             });
         }
 
-        // Politiques à revoir
+        // Politiques a revoir
         var policiesToReview = _iso27001Service.GetAllPolicies()
             .Where(p => p.ReviewDate.HasValue && p.ReviewDate.Value <= DateTime.UtcNow.AddDays(30))
             .ToList();
@@ -510,7 +510,7 @@ public class ComplianceAuditService : IComplianceAuditService
             });
         }
 
-        // Constatations avec échéance
+        // Constatations avec echeance
         var findingsWithDueDate = GetOpenFindings()
             .Where(f => f.DueDate.HasValue && f.DueDate.Value <= DateTime.UtcNow.AddDays(14))
             .ToList();
@@ -536,8 +536,8 @@ public class ComplianceAuditService : IComplianceAuditService
         {
             tasks.Add(new UpcomingTask
             {
-                TaskType = "Audit planifié",
-                Description = $"Préparer l'audit {nextAudit.Standard}",
+                TaskType = "Audit planifie",
+                Description = $"Preparer l'audit {nextAudit.Standard}",
                 DueDate = nextAudit.NextAuditDate ?? DateTime.UtcNow,
                 Priority = TaskPriority.High
             });
@@ -553,25 +553,25 @@ public class ComplianceAuditService : IComplianceAuditService
     public async Task<string> GenerateComplianceReportAsync(string standard)
     {
         var report = new System.Text.StringBuilder();
-        report.AppendLine($"# Rapport de Conformité {standard}");
-        report.AppendLine($"**Date de génération:** {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+        report.AppendLine($"# Rapport de Conformite {standard}");
+        report.AppendLine($"**Date de generation:** {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
         report.AppendLine();
 
         if (standard.Equals("ISO27001", StringComparison.OrdinalIgnoreCase))
         {
             var summary = _iso27001Service.GetSummary();
-            report.AppendLine("## Résumé ISO/IEC 27001:2022");
+            report.AppendLine("## Resume ISO/IEC 27001:2022");
             report.AppendLine();
-            report.AppendLine($"**Score de conformité global:** {summary.CompliancePercentage}%");
+            report.AppendLine($"**Score de conformite global:** {summary.CompliancePercentage}%");
             report.AppendLine();
-            report.AppendLine("### Statut des contrôles");
+            report.AppendLine("### Statut des controles");
             report.AppendLine($"- Total: {summary.TotalControls}");
-            report.AppendLine($"- Implémentés: {summary.ImplementedControls}");
-            report.AppendLine($"- Partiellement implémentés: {summary.PartiallyImplementedControls}");
-            report.AppendLine($"- Non implémentés: {summary.NotImplementedControls}");
+            report.AppendLine($"- Implementes: {summary.ImplementedControls}");
+            report.AppendLine($"- Partiellement implementes: {summary.PartiallyImplementedControls}");
+            report.AppendLine($"- Non implementes: {summary.NotImplementedControls}");
             report.AppendLine($"- Non applicables: {summary.NotApplicableControls}");
             report.AppendLine();
-            report.AppendLine("### Par catégorie");
+            report.AppendLine("### Par categorie");
             foreach (var cat in summary.ByCategory)
             {
                 report.AppendLine($"- **{cat.Value.CategoryName}**: {cat.Value.CompliancePercentage}%");
@@ -579,7 +579,7 @@ public class ComplianceAuditService : IComplianceAuditService
 
             // Risques
             report.AppendLine();
-            report.AppendLine("### Risques critiques et élevés");
+            report.AppendLine("### Risques critiques et eleves");
             var highRisks = _iso27001Service.GetAllRisks()
                 .Where(r => r.RiskLevel >= ComplianceRiskLevel.High)
                 .ToList();
@@ -593,7 +593,7 @@ public class ComplianceAuditService : IComplianceAuditService
             }
             else
             {
-                report.AppendLine("Aucun risque critique ou élevé identifié.");
+                report.AppendLine("Aucun risque critique ou eleve identifie.");
             }
         }
         else if (standard.Equals("ISO15408", StringComparison.OrdinalIgnoreCase))
@@ -601,7 +601,7 @@ public class ComplianceAuditService : IComplianceAuditService
             var summary = _iso15408Service.GetSummary();
             var evaluation = await _iso15408Service.EvaluateComplianceAsync();
 
-            report.AppendLine("## Résumé ISO/IEC 15408 (Critères Communs)");
+            report.AppendLine("## Resume ISO/IEC 15408 (Criteres Communs)");
             report.AppendLine();
             report.AppendLine($"**Niveau EAL cible:** EAL{(int)summary.TargetEal}");
             report.AppendLine($"**Niveau EAL atteint:** EAL{(int)evaluation.AchievedLevel}");
@@ -618,7 +618,7 @@ public class ComplianceAuditService : IComplianceAuditService
             if (evaluation.Gaps.Any())
             {
                 report.AppendLine();
-                report.AppendLine("### Lacunes identifiées");
+                report.AppendLine("### Lacunes identifiees");
                 foreach (var gap in evaluation.Gaps.Take(10))
                 {
                     report.AppendLine($"- {gap}");
@@ -650,7 +650,7 @@ public class ComplianceAuditService : IComplianceAuditService
 
         report.AppendLine();
         report.AppendLine("---");
-        report.AppendLine("*Rapport généré automatiquement par NetGuard Compliance Module*");
+        report.AppendLine("*Rapport genere automatiquement par NetGuard Compliance Module*");
 
         return report.ToString();
     }
@@ -683,7 +683,7 @@ public class ComplianceAuditService : IComplianceAuditService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erreur chargement données d'audit de conformité");
+            _logger.LogError(ex, "Erreur chargement donnees d'audit de conformite");
         }
     }
 
