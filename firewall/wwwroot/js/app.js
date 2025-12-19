@@ -487,59 +487,137 @@ class FirewallApp {
             document.getElementById('agent-detail-ip').textContent = agent.ipAddress || 'Inconnue';
             document.getElementById('agent-detail-seen').textContent = this.formatDate(agent.lastSeen);
 
-            // Informations matériel
-            document.getElementById('agent-hardware-info').innerHTML = `
-                <p><strong>CPU:</strong> ${agent.cpuUsage?.toFixed(1) || 0}%</p>
-                <p><strong>Mémoire:</strong> ${agent.memoryUsage?.toFixed(1) || 0}%</p>
-                <p><strong>Disque:</strong> ${agent.diskUsage?.toFixed(1) || 0}%</p>
-            `;
+            // Initialiser les sections
+            let hardwareHtml = '';
+            let networkHtml = '';
+            let systemHtml = '';
 
-            // Informations réseau
-            document.getElementById('agent-network-info').innerHTML = `
-                <p><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress || '-')}</p>
-                <p><strong>MAC:</strong> ${this.escapeHtml(agent.macAddress || '-')}</p>
-            `;
-
-            // Informations système
-            document.getElementById('agent-system-info').innerHTML = `
-                <p><strong>OS:</strong> ${this.escapeHtml(agent.os || '-')}</p>
-                <p><strong>Version Agent:</strong> ${this.escapeHtml(agent.version || '1.0.0')}</p>
-                <p><strong>Enregistré le:</strong> ${this.formatDate(agent.registeredAt)}</p>
-            `;
-
-            // Détails JSON supplémentaires si disponibles
+            // Tenter de parser le JSON des détails
+            let details = null;
             if (agent.detailsJson) {
                 try {
-                    const details = JSON.parse(agent.detailsJson);
-                    
-                    if (details.hardware) {
-                        document.getElementById('agent-hardware-info').innerHTML += `
-                            ${details.hardware.cpuModel ? `<p><strong>Processeur:</strong> ${this.escapeHtml(details.hardware.cpuModel)}</p>` : ''}
-                            ${details.hardware.totalRam ? `<p><strong>RAM totale:</strong> ${details.hardware.totalRam}</p>` : ''}
-                            ${details.hardware.diskTotal ? `<p><strong>Disque total:</strong> ${details.hardware.diskTotal}</p>` : ''}
-                        `;
+                    // Le detailsJson peut être échappé, donc on décode
+                    let jsonStr = agent.detailsJson;
+                    if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
+                        jsonStr = JSON.parse(jsonStr);
                     }
-                    
-                    if (details.network && details.network.interfaces) {
-                        let networkHtml = document.getElementById('agent-network-info').innerHTML;
-                        networkHtml += '<p style="margin-top: 10px;"><strong>Interfaces:</strong></p>';
-                        details.network.interfaces.forEach(iface => {
-                            networkHtml += `<p style="font-size: 0.85rem; margin-left: 10px;">• ${this.escapeHtml(iface.name)}: ${this.escapeHtml(iface.ip || '-')}</p>`;
-                        });
-                        document.getElementById('agent-network-info').innerHTML = networkHtml;
-                    }
-                    
-                    if (details.system) {
-                        document.getElementById('agent-system-info').innerHTML += `
-                            ${details.system.hostname ? `<p><strong>Hostname:</strong> ${this.escapeHtml(details.system.hostname)}</p>` : ''}
-                            ${details.system.uptime ? `<p><strong>Uptime:</strong> ${this.escapeHtml(details.system.uptime)}</p>` : ''}
-                            ${details.system.kernel ? `<p><strong>Kernel:</strong> ${this.escapeHtml(details.system.kernel)}</p>` : ''}
-                        `;
-                    }
+                    details = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
                 } catch (e) {
-                    console.warn('Impossible de parser detailsJson:', e);
+                    console.warn('Impossible de parser detailsJson:', e, agent.detailsJson);
                 }
             }
+
+            if (details) {
+                // ========== HARDWARE ==========
+                if (details.hardware) {
+                    const hw = details.hardware;
+                    hardwareHtml = `
+                        <div class="detail-row"><strong>Processeur:</strong> ${this.escapeHtml(hw.cpuModel || 'Inconnu')}</div>
+                        <div class="detail-row"><strong>Coeurs:</strong> ${hw.cpuCores || '-'}</div>
+                        ${hw.cpuFreqMhz ? `<div class="detail-row"><strong>Fréquence:</strong> ${hw.cpuFreqMhz} MHz</div>` : ''}
+                        ${hw.cpuTemp && hw.cpuTemp !== 'N/A' ? `<div class="detail-row"><strong>Température:</strong> ${hw.cpuTemp}°C</div>` : ''}
+                        <div class="detail-row"><strong>RAM:</strong> ${this.escapeHtml(hw.usedRam || '-')} / ${this.escapeHtml(hw.totalRam || '-')}</div>
+                        ${hw.totalSwap && hw.totalSwap !== '0 GB' ? `<div class="detail-row"><strong>Swap:</strong> ${this.escapeHtml(hw.usedSwap || '0')} / ${this.escapeHtml(hw.totalSwap)}</div>` : ''}
+                        <div class="detail-row"><strong>Disque /:</strong> ${this.escapeHtml(hw.diskUsed || '-')} / ${this.escapeHtml(hw.diskTotal || '-')}</div>
+                    `;
+                }
+
+                // ========== SYSTEM ==========
+                if (details.system) {
+                    const sys = details.system;
+                    systemHtml = `
+                        <div class="detail-row"><strong>Kernel:</strong> ${this.escapeHtml(sys.kernel || '-')}</div>
+                        <div class="detail-row"><strong>Architecture:</strong> ${this.escapeHtml(sys.arch || '-')}</div>
+                        <div class="detail-row"><strong>Uptime:</strong> ${this.escapeHtml(sys.uptime || '-')}</div>
+                        <div class="detail-row"><strong>Dernier boot:</strong> ${this.escapeHtml(sys.lastBoot || '-')}</div>
+                        <div class="detail-row"><strong>Load Average:</strong> ${sys.loadAvg1 || 0} / ${sys.loadAvg5 || 0} / ${sys.loadAvg15 || 0}</div>
+                        <div class="detail-row"><strong>Processus:</strong> ${sys.processCount || '-'}</div>
+                    `;
+                }
+
+                // ========== NETWORK ==========
+                if (details.network) {
+                    const net = details.network;
+                    networkHtml = `
+                        <div class="detail-row"><strong>Interface:</strong> ${this.escapeHtml(net.primaryInterface || '-')}</div>
+                        <div class="detail-row"><strong>IP:</strong> ${this.escapeHtml(net.primaryIp || agent.ipAddress || '-')}</div>
+                        <div class="detail-row"><strong>MAC:</strong> ${this.escapeHtml(net.primaryMac || agent.macAddress || '-')}</div>
+                        <div class="detail-row"><strong>Trafic RX:</strong> ${net.rxTotalGb || 0} GB</div>
+                        <div class="detail-row"><strong>Trafic TX:</strong> ${net.txTotalGb || 0} GB</div>
+                    `;
+                    
+                    // Interfaces supplémentaires
+                    if (net.interfaces && Array.isArray(net.interfaces) && net.interfaces.length > 1) {
+                        networkHtml += '<div class="detail-row" style="margin-top: 10px;"><strong>Autres interfaces:</strong></div>';
+                        net.interfaces.forEach(iface => {
+                            if (iface.name !== net.primaryInterface) {
+                                const ips = iface.ips ? iface.ips.join(', ') : '-';
+                                networkHtml += `<div class="detail-row" style="font-size: 0.85rem; margin-left: 10px;">• ${this.escapeHtml(iface.name)}: ${this.escapeHtml(ips)}</div>`;
+                            }
+                        });
+                    }
+                }
+
+                // ========== SERVICES ==========
+                if (details.services) {
+                    const svc = details.services;
+                    systemHtml += '<div class="detail-row" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;"><strong>Services:</strong></div>';
+                    
+                    const getStatusBadge = (status) => {
+                        if (status === 'active') return '<span class="status-badge online">Actif</span>';
+                        if (status === 'inactive') return '<span class="status-badge offline">Inactif</span>';
+                        if (status === 'not installed') return '<span class="status-badge unknown">Non installé</span>';
+                        return `<span class="status-badge unknown">${status}</span>`;
+                    };
+                    
+                    systemHtml += `<div class="detail-row" style="margin-left: 10px;">SSH: ${getStatusBadge(svc.ssh)}</div>`;
+                    systemHtml += `<div class="detail-row" style="margin-left: 10px;">Docker: ${getStatusBadge(svc.docker)}`;
+                    if (svc.docker === 'active' && svc.dockerContainers > 0) {
+                        systemHtml += ` (${svc.dockerContainers} conteneur${svc.dockerContainers > 1 ? 's' : ''})`;
+                    }
+                    systemHtml += '</div>';
+                }
+
+                // ========== DISKS ==========
+                if (details.disks && Array.isArray(details.disks) && details.disks.length > 0) {
+                    hardwareHtml += '<div class="detail-row" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;"><strong>Disques:</strong></div>';
+                    details.disks.forEach(disk => {
+                        const usageColor = disk.percent > 90 ? 'var(--danger)' : disk.percent > 70 ? 'var(--warning)' : 'var(--success)';
+                        hardwareHtml += `
+                            <div class="detail-row" style="margin-left: 10px;">
+                                <span>${this.escapeHtml(disk.mount)}</span>
+                                <div style="display: inline-block; width: 100px; height: 8px; background: var(--bg-primary); border-radius: 4px; margin: 0 10px; vertical-align: middle;">
+                                    <div style="width: ${disk.percent}%; height: 100%; background: ${usageColor}; border-radius: 4px;"></div>
+                                </div>
+                                <span>${disk.used}G / ${disk.total}G (${disk.percent}%)</span>
+                            </div>
+                        `;
+                    });
+                }
+            } else {
+                // Fallback: afficher les métriques de base
+                hardwareHtml = `
+                    <div class="detail-row"><strong>CPU:</strong> ${agent.cpuUsage?.toFixed(1) || 0}%</div>
+                    <div class="detail-row"><strong>Mémoire:</strong> ${agent.memoryUsage?.toFixed(1) || 0}%</div>
+                    <div class="detail-row"><strong>Disque:</strong> ${agent.diskUsage?.toFixed(1) || 0}%</div>
+                `;
+                
+                networkHtml = `
+                    <div class="detail-row"><strong>IP:</strong> ${this.escapeHtml(agent.ipAddress || '-')}</div>
+                    <div class="detail-row"><strong>MAC:</strong> ${this.escapeHtml(agent.macAddress || '-')}</div>
+                `;
+                
+                systemHtml = `
+                    <div class="detail-row"><strong>OS:</strong> ${this.escapeHtml(agent.os || '-')}</div>
+                    <div class="detail-row"><strong>Version Agent:</strong> ${this.escapeHtml(agent.version || '1.0.0')}</div>
+                    <div class="detail-row"><strong>Enregistré le:</strong> ${this.formatDate(agent.registeredAt)}</div>
+                `;
+            }
+
+            // Mettre à jour le DOM
+            document.getElementById('agent-hardware-info').innerHTML = hardwareHtml || '<p>Aucune information</p>';
+            document.getElementById('agent-network-info').innerHTML = networkHtml || '<p>Aucune information</p>';
+            document.getElementById('agent-system-info').innerHTML = systemHtml || '<p>Aucune information</p>';
 
             // Afficher le modal
             document.getElementById('agent-details-modal').classList.add('active');

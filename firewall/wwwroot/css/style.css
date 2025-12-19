@@ -2150,6 +2150,39 @@ input:checked + .slider:before {
 .agent-metric-bar-fill.memory { background: var(--success); }
 .agent-metric-bar-fill.disk { background: var(--warning); }
 
+/* Agent Details - Rows */
+.detail-row {
+    padding: 6px 0;
+    font-size: var(--font-size-body);
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.detail-row strong {
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    min-width: 120px;
+}
+
+.detail-card {
+    background: var(--bg-secondary);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+}
+
+.detail-card h4 {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 /* ==========================================
    12. RESPONSIVE DESIGN
    ========================================== */
