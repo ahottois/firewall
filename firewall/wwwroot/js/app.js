@@ -951,6 +951,38 @@ class FirewallApp {
         }
     }
 
+    async purgeDevices() {
+        // Double confirmation pour eviter les erreurs
+        if (!confirm('⚠️ ATTENTION: Voulez-vous vraiment supprimer TOUS les appareils de la base de donnees?\n\nCette action est irreversible!')) {
+            return;
+        }
+        
+        if (!confirm('Derniere confirmation: Etes-vous sur de vouloir purger la base de donnees?')) {
+            return;
+        }
+
+        try {
+            this.showToast({ title: 'Purge', message: 'Suppression de tous les appareils...', severity: 1 });
+            
+            const result = await this.api('devices/purge', { method: 'DELETE' });
+            
+            this.showToast({ 
+                title: 'Purge terminee', 
+                message: result.message || `${result.deletedCount} appareils supprimes`, 
+                severity: 0 
+            });
+
+            // Recharger la liste (qui sera vide)
+            await this.loadDevices();
+            
+            // Mettre a jour les stats du dashboard
+            this.loadDashboardStats();
+        } catch (error) {
+            console.error('Erreur purge:', error);
+            this.showToast({ title: 'Erreur', message: 'Erreur lors de la purge: ' + error.message, severity: 2 });
+        }
+    }
+
     async scanNetwork() {
         const btn = document.getElementById('scan-network-btn');
         const icon = document.getElementById('scan-icon');

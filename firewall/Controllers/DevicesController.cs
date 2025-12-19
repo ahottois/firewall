@@ -543,6 +543,63 @@ public class DevicesController : ControllerBase
             osDescription = System.Runtime.InteropServices.RuntimeInformation.OSDescription
         });
     }
+
+    /// <summary>
+    /// Purger tous les appareils de la base de donnees
+    /// </summary>
+    [HttpDelete("purge")]
+    public async Task<IActionResult> PurgeAllDevices()
+    {
+        _logger.LogWarning("PURGE: Suppression de tous les appareils demandee");
+        
+        try
+        {
+            // D'abord debloquer tous les appareils bloques au niveau firewall
+            var blockedDevices = await _deviceRepository.GetBlockedDevicesAsync();
+            foreach (var device in blockedDevices)
+            {
+                try
+                {
+                    await _blockingService.UnblockDeviceAsync(device.MacAddress, device.IpAddress);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "PURGE: Erreur deblocage {Mac}", device.MacAddress);
+                }
+            }
+
+            // Supprimer tous les appareils
+            var allDevices = await _deviceRepository.GetAllAsync();
+            int deletedCount = 0;
+            
+            foreach (var device in allDevices)
+            {
+                try
+                {
+                    await _deviceRepository.DeleteAsync(device.Id);
+                    deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "PURGE: Erreur suppression {Mac}", device.MacAddress);
+                }
+            }
+
+            _logger.LogInformation("PURGE TERMINE: {Count} appareils supprimes", deletedCount);
+
+            return Ok(new
+            {
+                message = $"Base de donnees purgee: {deletedCount} appareils supprimes",
+                deletedCount = deletedCount,
+                success = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "PURGE ERREUR");
+            return StatusCode(500, new { message = ex.Message, success = false });
+        }
+    }
 }
 
 public record TrustRequest(bool Trusted);
