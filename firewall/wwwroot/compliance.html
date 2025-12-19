@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conformité ISO - NetGuard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .compliance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .score-card {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .score-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .score-value.good { color: var(--success-color); }
+        .score-value.medium { color: var(--warning-color); }
+        .score-value.bad { color: var(--danger-color); }
+        
+        .progress-ring {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 15px;
+        }
+        
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 10;
+        }
+        
+        .progress-ring .bg {
+            stroke: var(--bg-tertiary);
+        }
+        
+        .progress-ring .progress {
+            stroke: var(--primary-color);
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: center;
+            transition: stroke-dashoffset 0.5s;
+        }
+        
+        .eal-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
+        .controls-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .controls-table th,
+        .controls-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .controls-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+        }
+        
+        .controls-table tr:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .status-badge.implemented { background: var(--success-color); color: white; }
+        .status-badge.partial { background: var(--warning-color); color: black; }
+        .status-badge.not-implemented { background: var(--danger-color); color: white; }
+        .status-badge.na { background: var(--text-muted); color: white; }
+        
+        .category-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 10px 15px;
+            margin-top: 20px;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .category-header:hover {
+            opacity: 0.9;
+        }
+        
+        .category-content {
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .risk-matrix {
+            display: grid;
+            grid-template-columns: auto repeat(5, 1fr);
+            gap: 2px;
+            margin: 20px 0;
+        }
+        
+        .risk-cell {
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8em;
+        }
+        
+        .risk-cell.header {
+            background: var(--bg-secondary);
+            font-weight: bold;
+        }
+        
+        .risk-cell.low { background: #4CAF50; color: white; }
+        .risk-cell.medium { background: #FFC107; color: black; }
+        .risk-cell.high { background: #FF9800; color: white; }
+        .risk-cell.critical { background: #F44336; color: white; }
+        
+        .tabs-compliance {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-compliance {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 1em;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab-compliance:hover {
+            color: var(--primary-color);
+        }
+        
+        .tab-compliance.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-panel {
+            display: none;
+        }
+        
+        .tab-panel.active {
+            display: block;
+        }
+        
+        .finding-card {
+            border-left: 4px solid var(--danger-color);
+            padding: 15px;
+            margin: 10px 0;
+            background: var(--bg-secondary);
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .finding-card.high { border-left-color: var(--danger-color); }
+        .finding-card.medium { border-left-color: var(--warning-color); }
+        .finding-card.low { border-left-color: var(--info-color); }
+        
+        .sfr-class {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .task-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .task-priority {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+        
+        .task-priority.critical { background: var(--danger-color); }
+        .task-priority.high { background: var(--warning-color); }
+        .task-priority.medium { background: var(--info-color); }
+        .task-priority.low { background: var(--success-color); }
+        
+        .audit-timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        
+        .audit-timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border-color);
+        }
+        
+        .audit-item {
+            position: relative;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        
+        .audit-item::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 20px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>??? NetGuard - Conformité ISO</h1>
+            <nav>
+                <a href="index.html">? Retour au Dashboard</a>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Tabs -->
+            <div class="tabs-compliance">
+                <button class="tab-compliance active" data-tab="dashboard">?? Dashboard</button>
+                <button class="tab-compliance" data-tab="iso27001">ISO 27001</button>
+                <button class="tab-compliance" data-tab="iso15408">ISO 15408</button>
+                <button class="tab-compliance" data-tab="risks">?? Risques</button>
+                <button class="tab-compliance" data-tab="incidents">?? Incidents</button>
+                <button class="tab-compliance" data-tab="audits">?? Audits</button>
+            </div>
+
+            <!-- Dashboard -->
+            <div id="dashboard" class="tab-panel active">
+                <div class="compliance-grid">
+                    <div class="card score-card">
+                        <h3>ISO/IEC 27001:2022</h3>
+                        <svg class="progress-ring" viewBox="0 0 150 150">
+                            <circle class="bg" cx="75" cy="75" r="65"></circle>
+                            <circle class="progress" id="iso27001-ring" cx="75" cy="75" r="65"></circle>
+                        </svg>
+                        <div class="score-value" id="iso27001-score">--</div>
+                        <p>Score de conformité SMSI</p>
+                        <button class="btn btn-primary" onclick="runAudit('ISO27001')">Lancer l'audit</button>
+                    </div>
+                    
+                    <div class="card score-card">
+                        <h3>ISO/IEC 15408 (CC)</h3>
+                        <svg class="progress-ring" viewBox="0 0 150 150">
+                            <circle class="bg" cx="75" cy="75" r="65"></circle>
+                            <circle class="progress" id="iso15408-ring" cx="75" cy="75" r="65"></circle>
+                        </svg>
+                        <div class="score-value" id="iso15408-score">--</div>
+                        <p>Niveau d'assurance cible</p>
+                        <span class="eal-badge" id="eal-badge">EAL4</span>
+                    </div>
+                </div>
+
+                <div class="grid">
+                    <div class="card">
+                        <h3>?? Tâches prioritaires</h3>
+                        <ul class="task-list" id="upcoming-tasks">
+                            <li class="task-item">Chargement...</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>?? Risques majeurs</h3>
+                        <div id="top-risks">Chargement...</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>?? Constatations ouvertes</h3>
+                    <div id="open-findings">Chargement...</div>
+                </div>
+            </div>
+
+            <!-- ISO 27001 -->
+            <div id="iso27001" class="tab-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>?? Contrôles ISO 27001:2022 (Annexe A)</h3>
+                        <div>
+                            <select id="category-filter" onchange="filterControls()">
+                                <option value="">Toutes les catégories</option>
+                                <option value="A.5">A.5 - Contrôles organisationnels</option>
+                                <option value="A.6">A.6 - Contrôles du personnel</option>
+                                <option value="A.7">A.7 - Contrôles physiques</option>
+                                <option value="A.8">A.8 - Contrôles technologiques</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="iso27001-controls">Chargement...</div>
+                </div>
+            </div>
+
+            <!-- ISO 15408 -->
+            <div id="iso15408" class="tab-panel">
+                <div class="compliance-grid">
+                    <div class="card">
+                        <h3>?? Cible de Sécurité (ST)</h3>
+                        <div id="security-target">Chargement...</div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>?? Évaluation EAL</h3>
+                        <div id="eal-evaluation">Chargement...</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>?? Exigences Fonctionnelles (SFR)</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Classe</th>
+                                <th>Description</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sfr-table">
+                            <tr><td colspan="4">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3>? Exigences d'Assurance (SAR)</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Classe</th>
+                                <th>Niveau</th>
+                                <th>Description</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sar-table">
+                            <tr><td colspan="5">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3>?? Menaces identifiées</h3>
+                    <div id="threats-list">Chargement...</div>
+                </div>
+            </div>
+
+            <!-- Risques -->
+            <div id="risks" class="tab-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>?? Matrice des risques</h3>
+                        <button class="btn btn-primary" onclick="showAddRiskModal()">+ Nouveau risque</button>
+                    </div>
+                    <div class="risk-matrix">
+                        <div class="risk-cell header"></div>
+                        <div class="risk-cell header">Négligeable</div>
+                        <div class="risk-cell header">Mineur</div>
+                        <div class="risk-cell header">Modéré</div>
+                        <div class="risk-cell header">Majeur</div>
+                        <div class="risk-cell header">Catastrophique</div>
+                        
+                        <div class="risk-cell header">Quasi-certain</div>
+                        <div class="risk-cell medium">5</div>
+                        <div class="risk-cell high">10</div>
+                        <div class="risk-cell critical">15</div>
+                        <div class="risk-cell critical">20</div>
+                        <div class="risk-cell critical">25</div>
+                        
+                        <div class="risk-cell header">Probable</div>
+                        <div class="risk-cell low">4</div>
+                        <div class="risk-cell medium">8</div>
+                        <div class="risk-cell high">12</div>
+                        <div class="risk-cell critical">16</div>
+                        <div class="risk-cell critical">20</div>
+                        
+                        <div class="risk-cell header">Possible</div>
+                        <div class="risk-cell low">3</div>
+                        <div class="risk-cell medium">6</div>
+                        <div class="risk-cell medium">9</div>
+                        <div class="risk-cell high">12</div>
+                        <div class="risk-cell critical">15</div>
+                        
+                        <div class="risk-cell header">Improbable</div>
+                        <div class="risk-cell low">2</div>
+                        <div class="risk-cell low">4</div>
+                        <div class="risk-cell medium">6</div>
+                        <div class="risk-cell medium">8</div>
+                        <div class="risk-cell high">10</div>
+                        
+                        <div class="risk-cell header">Rare</div>
+                        <div class="risk-cell low">1</div>
+                        <div class="risk-cell low">2</div>
+                        <div class="risk-cell low">3</div>
+                        <div class="risk-cell low">4</div>
+                        <div class="risk-cell medium">5</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>?? Registre des risques</h3>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Actif</th>
+                                <th>Menace</th>
+                                <th>Score</th>
+                                <th>Niveau</th>
+                                <th>Traitement</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="risks-table">
+                            <tr><td colspan="8">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Incidents -->
+            <div id="incidents" class="tab-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>?? Incidents de sécurité</h3>
+                        <button class="btn btn-primary" onclick="showAddIncidentModal()">+ Déclarer un incident</button>
+                    </div>
+                    <table class="controls-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Titre</th>
+                                <th>Catégorie</th>
+                                <th>Sévérité</th>
+                                <th>Statut</th>
+                                <th>Détecté le</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-table">
+                            <tr><td colspan="7">Chargement...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Audits -->
+            <div id="audits" class="tab-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>?? Historique des audits</h3>
+                        <div>
+                            <button class="btn btn-primary" onclick="runAudit('ISO27001')">Audit ISO 27001</button>
+                            <button class="btn btn-secondary" onclick="runAudit('ISO15408')">Audit ISO 15408</button>
+                        </div>
+                    </div>
+                    <div class="audit-timeline" id="audit-timeline">
+                        Chargement...
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>?? Générer un rapport</h3>
+                    <p>Sélectionnez le type de rapport à générer :</p>
+                    <button class="btn btn-primary" onclick="generateReport('ISO27001')">Rapport ISO 27001</button>
+                    <button class="btn btn-secondary" onclick="generateReport('ISO15408')">Rapport ISO 15408</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Risque -->
+    <div id="risk-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('risk-modal')">&times;</span>
+            <h2>Ajouter un risque</h2>
+            <form id="risk-form" onsubmit="saveRisk(event)">
+                <div class="form-group">
+                    <label>Nom de l'actif</label>
+                    <input type="text" id="risk-asset" required>
+                </div>
+                <div class="form-group">
+                    <label>Type d'actif</label>
+                    <select id="risk-asset-type">
+                        <option value="0">Information</option>
+                        <option value="1">Logiciel</option>
+                        <option value="2">Matériel</option>
+                        <option value="3">Service</option>
+                        <option value="4">Personnel</option>
+                        <option value="5">Infrastructure</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Description de la menace</label>
+                    <textarea id="risk-threat" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Vulnérabilité</label>
+                    <textarea id="risk-vulnerability" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Probabilité</label>
+                    <select id="risk-likelihood">
+                        <option value="1">Rare</option>
+                        <option value="2">Improbable</option>
+                        <option value="3">Possible</option>
+                        <option value="4">Probable</option>
+                        <option value="5">Quasi-certain</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Impact</label>
+                    <select id="risk-impact">
+                        <option value="1">Négligeable</option>
+                        <option value="2">Mineur</option>
+                        <option value="3">Modéré</option>
+                        <option value="4">Majeur</option>
+                        <option value="5">Catastrophique</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Traitement</label>
+                    <select id="risk-treatment">
+                        <option value="0">Accepter</option>
+                        <option value="1">Atténuer</option>
+                        <option value="2">Transférer</option>
+                        <option value="3">Éviter</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Incident -->
+    <div id="incident-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('incident-modal')">&times;</span>
+            <h2>Déclarer un incident</h2>
+            <form id="incident-form" onsubmit="saveIncident(event)">
+                <div class="form-group">
+                    <label>Titre</label>
+                    <input type="text" id="incident-title" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="incident-description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Catégorie</label>
+                    <select id="incident-category">
+                        <option value="0">Malware</option>
+                        <option value="1">Accès non autorisé</option>
+                        <option value="2">Fuite de données</option>
+                        <option value="3">Déni de service</option>
+                        <option value="4">Ingénierie sociale</option>
+                        <option value="5">Sécurité physique</option>
+                        <option value="6">Violation de politique</option>
+                        <option value="7">Autre</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sévérité</label>
+                    <select id="incident-severity">
+                        <option value="0">Faible</option>
+                        <option value="1">Moyenne</option>
+                        <option value="2">Élevée</option>
+                        <option value="3">Critique</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Actifs affectés</label>
+                    <input type="text" id="incident-assets">
+                </div>
+                <button type="submit" class="btn btn-primary">Déclarer</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/compliance.js"></script>
+</body>
+</html>
