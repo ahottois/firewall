@@ -42,6 +42,7 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("check-update")]
+    [HttpGet("updates/check")]  // Alias pour compatibilité avec le frontend
     public async Task<IActionResult> CheckForUpdate()
     {
         try
