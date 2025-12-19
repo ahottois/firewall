@@ -126,7 +126,7 @@ public class Iso27001Service : IIso27001Service
             new() { Id = "A.7.6", Category = "A.7", Title = "Travail dans les zones sécurisées", Description = "Des mesures de sécurité pour le travail dans les zones sécurisées doivent être conçues." },
             new() { Id = "A.7.7", Category = "A.7", Title = "Bureau propre et écran vide", Description = "Des règles de bureau propre et d'écran vide doivent être définies." },
             new() { Id = "A.7.8", Category = "A.7", Title = "Emplacement et protection des équipements", Description = "Les équipements doivent être situés et protégés contre les risques environnementaux." },
-            new() { Id = "A.7.9", Category = "A.7", Title = "Sécurité des actifs hors site", Description = "Des mesures de sécurité pour les actifs hors site doivent être appliquées." },
+            new() { Id = "A.7.9", Category = "A.7", Title = "Sécurité des assets hors site", Description = "Des mesures de sécurité pour les actifs hors site doivent être appliquées." },
             new() { Id = "A.7.10", Category = "A.7", Title = "Supports de stockage", Description = "Les supports de stockage doivent être gérés tout au long de leur cycle de vie." },
             new() { Id = "A.7.11", Category = "A.7", Title = "Services généraux de soutien", Description = "Les installations de traitement doivent être protégées contre les pannes de services." },
             new() { Id = "A.7.12", Category = "A.7", Title = "Sécurité du câblage", Description = "Les câbles transportant des données ou de l'énergie doivent être protégés." },
@@ -433,25 +433,25 @@ public class Iso27001Service : IIso27001Service
     private async Task SaveControlsAsync()
     {
         var json = JsonSerializer.Serialize(_controls, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(ControlsConfigPath, json);
+        await File.WriteAllTextAsync(ControlsConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     private async Task SaveRisksAsync()
     {
         var json = JsonSerializer.Serialize(_risks, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(RisksConfigPath, json);
+        await File.WriteAllTextAsync(RisksConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     private async Task SaveIncidentsAsync()
     {
         var json = JsonSerializer.Serialize(_incidents, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(IncidentsConfigPath, json);
+        await File.WriteAllTextAsync(IncidentsConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     private async Task SavePoliciesAsync()
     {
         var json = JsonSerializer.Serialize(_policies, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(PoliciesConfigPath, json);
+        await File.WriteAllTextAsync(PoliciesConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     #endregion

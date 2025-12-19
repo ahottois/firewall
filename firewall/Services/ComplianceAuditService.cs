@@ -690,13 +690,13 @@ public class ComplianceAuditService : IComplianceAuditService
     private async Task SaveAuditsAsync()
     {
         var json = JsonSerializer.Serialize(_audits, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(AuditsConfigPath, json);
+        await File.WriteAllTextAsync(AuditsConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     private async Task SaveEvidenceAsync()
     {
         var json = JsonSerializer.Serialize(_evidence, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(EvidenceConfigPath, json);
+        await File.WriteAllTextAsync(EvidenceConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     #endregion

@@ -520,7 +520,7 @@ public class Iso15408Service : IIso15408Service
         };
 
         var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(ConfigPath, json);
+        await File.WriteAllTextAsync(ConfigPath, json, System.Text.Encoding.UTF8);
     }
 
     private class Iso15408Data
