@@ -37,7 +37,7 @@
     --bg-hover: #334155;
     --bg-table-alt: #1A2341;
     
-    /* Couleurs de Texte */
+    /* Couleurs de Texto */
     --text-primary: #FFFFFF;
     --text-secondary: #94A3B8;
     --text-muted: #64748B;
@@ -97,10 +97,20 @@
     --btn-padding-x-sm: 10px;
     --btn-padding-y-sm: 8px;
     
-    /* Cartes */
+    /* Cartes - Uniformise */
     --card-padding: 20px;
+    --card-padding-header: 16px 20px;
+    --card-padding-body: 20px;
+    --card-padding-footer: 16px 20px;
     --card-border-radius: 8px;
     --card-border: 1px solid #334155;
+    --card-gap: 24px;
+    
+    /* Stat Cards - Uniformise */
+    --stat-card-padding: 20px;
+    --stat-card-gap: 16px;
+    --stat-icon-size: 2rem;
+    --stat-value-size: 1.8rem;
     
     /* Tableaux */
     --table-padding-x: 12px;
@@ -445,7 +455,7 @@ label, .label {
    4. COMPONENTS - BUTTONS
    ========================================== */
 .btn {
-    padding: var(--btn-padding-y) var(--btn-padding-x);
+    padding: var(--btn-padding-y) var(--btn-padding-x;
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
@@ -568,17 +578,18 @@ label, .label {
     background: var(--bg-card);
     border-radius: var(--card-border-radius);
     border: var(--card-border);
-    margin-bottom: var(--spacing-2xl);
+    margin-bottom: var(--card-gap);
     overflow: hidden;
 }
 
 .card-header {
-    padding: var(--spacing-lg) var(--card-padding);
+    padding: var(--card-padding-header);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: var(--bg-secondary);
+    min-height: 56px;
 }
 
 .card-header h3 {
@@ -588,6 +599,7 @@ label, .label {
     align-items: center;
     gap: 10px;
     color: var(--text-primary);
+    margin: 0;
 }
 
 .card-header h3 i {
@@ -596,32 +608,33 @@ label, .label {
 }
 
 .card-body {
-    padding: var(--card-padding);
+    padding: var(--card-padding-body);
 }
 
 .card-footer {
-    padding: var(--spacing-lg) var(--card-padding);
+    padding: var(--card-padding-footer);
     border-top: 1px solid var(--border-color);
     background: var(--bg-secondary);
 }
 
-/* Stats Cards Grid */
+/* Stats Cards Grid - Uniformise */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: var(--spacing-2xl);
-    margin-bottom: var(--spacing-3xl);
+    gap: var(--card-gap);
+    margin-bottom: var(--card-gap);
 }
 
 .stat-card {
     background: var(--bg-card);
-    padding: var(--card-padding);
+    padding: var(--stat-card-padding);
     border-radius: var(--card-border-radius);
     display: flex;
     align-items: center;
-    gap: var(--spacing-lg);
+    gap: var(--stat-card-gap);
     border: var(--card-border);
     transition: all var(--transition-fast);
+    min-height: 88px;
 }
 
 .stat-card:hover {
@@ -636,16 +649,23 @@ label, .label {
 .stat-card.info { border-left: 4px solid var(--info); }
 
 .stat-icon {
-    font-size: 2rem;
+    font-size: var(--stat-icon-size);
     opacity: 0.9;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .stat-info {
     flex: 1;
+    min-width: 0;
 }
 
 .stat-value {
-    font-size: 1.8rem;
+    font-size: var(--stat-value-size);
     font-weight: var(--font-weight-bold);
     display: block;
     line-height: 1.2;
@@ -655,7 +675,17 @@ label, .label {
 .stat-label {
     color: var(--text-secondary);
     font-size: var(--font-size-small);
-    margin-top: 2px;
+    margin-top: 4px;
+    display: block;
+}
+
+/* Dashboard Cards - Uniformise */
+.dashboard-card {
+    margin-bottom: var(--card-gap);
+}
+
+.dashboard-card .card-body {
+    padding: var(--card-padding-body);
 }
 
 /* ==========================================
@@ -1150,15 +1180,15 @@ input:checked + .slider:before {
 .block-event-details { font-size: var(--font-size-small); color: var(--text-secondary); font-family: monospace; }
 .block-event-time { font-size: var(--font-size-small); color: var(--text-muted); }
 
-/* Cameras Grid */
+/* Cameras Grid - Uniformise */
 .cameras-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--spacing-2xl);
+    gap: var(--card-gap);
 }
 
 .camera-card {
-    background: var(--bg-secondary);
+    background: var(--bg-card);
     border-radius: var(--card-border-radius);
     overflow: hidden;
     border: var(--card-border);
@@ -1228,17 +1258,47 @@ input:checked + .slider:before {
 
 @keyframes blink { 50% { opacity: 0.5; } }
 
-.camera-info { padding: var(--spacing-lg); }
-.camera-name { font-weight: var(--font-weight-semibold); margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
-.camera-address { font-family: monospace; font-size: var(--font-size-small); color: var(--text-secondary); margin-bottom: 10px; }
-.camera-meta { display: flex; gap: 15px; font-size: var(--font-size-small); color: var(--text-secondary); margin-bottom: 10px; }
-.camera-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.camera-info { 
+    padding: var(--card-padding-body); 
+}
+
+.camera-name { 
+    font-weight: var(--font-weight-semibold); 
+    margin-bottom: 8px; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+
+.camera-address { 
+    font-family: monospace; 
+    font-size: var(--font-size-small); 
+    color: var(--text-secondary); 
+    margin-bottom: var(--spacing-md); 
+}
+
+.camera-meta { 
+    display: flex; 
+    gap: 15px; 
+    font-size: var(--font-size-small); 
+    color: var(--text-secondary); 
+    margin-bottom: var(--spacing-md); 
+}
+
+.camera-actions { 
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    margin-top: var(--spacing-md);
+}
 
 .camera-password-status {
-    padding: 8px 12px;
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--border-radius-sm);
     font-size: var(--font-size-small);
-    margin-bottom: 10px;
+    margin-bottom: var(--spacing-md);
 }
 
 .camera-password-status.default {
@@ -1254,21 +1314,19 @@ input:checked + .slider:before {
 }
 
 /* ==========================================
-   7. PARENTAL CONTROL
-   ==========================================
-   profile-card
+   7. PARENTAL CONTROL - Uniformise
    ========================================== */
 .parental-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: var(--spacing-2xl);
+    gap: var(--card-gap);
 }
 
 .profile-card {
     background: var(--bg-card);
     border-radius: var(--card-border-radius);
     border: var(--card-border);
-    padding: var(--card-padding);
+    padding: var(--card-padding-body);
     position: relative;
     overflow: hidden;
     transition: all var(--transition-fast);
@@ -1290,8 +1348,8 @@ input:checked + .slider:before {
 .profile-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-2xl);
+    gap: var(--stat-card-gap);
+    margin-bottom: var(--spacing-xl);
 }
 
 .profile-avatar {
@@ -1304,20 +1362,22 @@ input:checked + .slider:before {
     justify-content: center;
     background: var(--bg-secondary);
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .profile-avatar-img { width: 100%; height: 100%; object-fit: cover; }
 .profile-avatar-emoji { font-size: 2rem; }
-.profile-info { flex: 1; }
+.profile-info { flex: 1; min-width: 0; }
 .profile-name { font-size: 1.2rem; font-weight: var(--font-weight-semibold); margin-bottom: 4px; }
 .profile-status { font-size: var(--font-size-small); font-weight: var(--font-weight-medium); }
 
 .btn-pause {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     font-size: 1.2rem;
     box-shadow: var(--shadow-md);
+    flex-shrink: 0;
 }
 
 .btn-pause:hover { transform: scale(1.1); }
@@ -1338,7 +1398,7 @@ input:checked + .slider:before {
     transition: width 0.5s ease;
 }
 
-.time-value { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); margin-top: 5px; display: block; }
+.time-value { font-size: var(--font-size-body); font-weight: var(--font-weight-medium); margin-top: 6px; display: block; }
 
 .profile-devices {
     display: flex;
@@ -1347,14 +1407,17 @@ input:checked + .slider:before {
     font-size: var(--font-size-small);
     color: var(--text-secondary);
     margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-sm);
 }
 
 .profile-block-reason,
 .profile-next-time {
     font-size: var(--font-size-small);
-    padding: 8px 12px;
+    padding: var(--spacing-md) var(--spacing-lg);
     border-radius: var(--border-radius-sm);
-    margin-bottom: 10px;
+    margin-bottom: var(--spacing-md);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1917,7 +1980,7 @@ input:checked + .slider:before {
 .agents-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--spacing-2xl);
+    gap: var(--card-gap);
 }
 
 .agent-card {
@@ -1935,12 +1998,13 @@ input:checked + .slider:before {
 }
 
 .agent-card .card-header {
-    padding: var(--spacing-lg) var(--card-padding);
+    padding: var(--card-padding-header);
     background: linear-gradient(135deg, var(--primary-light) 0%, rgba(124, 58, 237, 0.05) 100%);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    min-height: 56px;
 }
 
 .agent-card .card-header h4 {
@@ -1950,6 +2014,7 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin: 0;
 }
 
 .agent-card .card-header h4::before {
@@ -1961,7 +2026,7 @@ input:checked + .slider:before {
 }
 
 .agent-card .card-body {
-    padding: var(--card-padding);
+    padding: var(--card-padding-body);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -1975,6 +2040,7 @@ input:checked + .slider:before {
     color: var(--text-secondary);
     padding: 8px 0;
     border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    margin: 0;
 }
 
 .agent-card .card-body p:last-child {
@@ -1995,7 +2061,7 @@ input:checked + .slider:before {
 .agent-card .card-body p i.fa-memory { color: var(--success); }
 
 .agent-card .card-footer {
-    padding: var(--spacing-lg) var(--card-padding);
+    padding: var(--card-padding-footer);
     background: var(--bg-secondary);
     border-top: 1px solid var(--border-color);
     display: flex;
@@ -2022,7 +2088,7 @@ input:checked + .slider:before {
     border-left: 4px solid var(--warning);
 }
 
-/* Agent Metrics */
+/* Agent Metrics - Uniformise */
 .agent-metric {
     display: flex;
     align-items: center;
@@ -2035,11 +2101,14 @@ input:checked + .slider:before {
     align-items: center;
     gap: 10px;
     color: var(--text-secondary);
+    min-width: 60px;
 }
 
 .agent-metric-value {
     font-weight: var(--font-weight-semibold);
     font-family: 'Consolas', 'Monaco', monospace;
+    min-width: 50px;
+    text-align: right;
 }
 
 .agent-metric-bar {
