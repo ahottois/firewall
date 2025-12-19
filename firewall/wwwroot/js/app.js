@@ -1171,7 +1171,7 @@ class FirewallApp {
         let endpoint = 'dhcp/config/easy';
         let config = {
             enabled: getValue('enabled'),
-            rangeStart: getValue('rangeStart'),
+            rangeStart: getValue('rangeStart',
             rangeEnd: getValue('rangeEnd'),
             gateway: getValue('gateway'),
             dns1: getValue('dns1'),
@@ -1607,7 +1607,7 @@ class FirewallApp {
 
     async loadParental() {
         try {
-            const profiles = await this.api('parental/profiles').catch(() => []);
+            const profiles = await this.api('parentalcontrol/profiles').catch(() => []);
             const grid = document.getElementById('parental-profiles-grid');
             const empty = document.getElementById('parental-empty');
 
@@ -1697,9 +1697,9 @@ class FirewallApp {
 
         try {
             if (id) {
-                await this.api(`parental/profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+                await this.api(`parentalcontrol/profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) });
             } else {
-                await this.api('parental/profiles', { method: 'POST', body: JSON.stringify(data) });
+                await this.api('parentalcontrol/profiles', { method: 'POST', body: JSON.stringify(data) });
             }
             this.closeParentalModal();
             this.loadParental();
@@ -1712,7 +1712,7 @@ class FirewallApp {
     async deleteProfile(id) {
         if (!confirm('Supprimer ce profil ?')) return;
         try {
-            await this.api(`parental/profiles/${id}`, { method: 'DELETE' });
+            await this.api(`parentalcontrol/profiles/${id}`, { method: 'DELETE' });
             this.loadParental();
             this.showToast({ title: 'Succès', message: 'Profil supprimé', severity: 0 });
         } catch (error) {
