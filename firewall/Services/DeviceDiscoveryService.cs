@@ -329,7 +329,8 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 return 0;
             }
             
-            var devices = new ConcurrentBag<NetworkDevice>();
+            // Utiliser un dictionnaire pour eviter les doublons par MAC
+            var devicesByMac = new Dictionary<string, NetworkDevice>(StringComparer.OrdinalIgnoreCase);
             
             foreach (var localAddress in localAddresses)
             {
@@ -351,8 +352,10 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 int filteredCount = 0;
                 foreach (var (ip, mac) in arpDevices)
                 {
+                    var normalizedMac = mac.ToUpperInvariant();
+                    
                     // Filtrer les faux positifs
-                    if (ShouldIgnoreDevice(mac, ip))
+                    if (ShouldIgnoreDevice(normalizedMac, ip))
                     {
                         filteredCount++;
                         continue;
@@ -360,18 +363,26 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
 
                     if (ip.StartsWith(subnet + "."))
                     {
-                        var hostname = await ResolveHostnameAsync(ip);
-                        var vendor = _ouiLookup.GetVendor(mac);
-                        
-                        devices.Add(new NetworkDevice
+                        // Verifier si on a deja cet appareil
+                        if (devicesByMac.ContainsKey(normalizedMac))
                         {
-                            MacAddress = mac.ToUpperInvariant(),
+                            // Mettre a jour l'IP si necessaire
+                            devicesByMac[normalizedMac].IpAddress = ip;
+                            continue;
+                        }
+
+                        var hostname = await ResolveHostnameAsync(ip);
+                        var vendor = _ouiLookup.GetVendor(normalizedMac);
+                        
+                        devicesByMac[normalizedMac] = new NetworkDevice
+                        {
+                            MacAddress = normalizedMac,
                             IpAddress = ip,
                             Hostname = hostname,
                             Vendor = vendor,
                             Status = DeviceStatus.Online
-                        });
-                        _logger.LogInformation("  ARP: {Ip} -> {Mac} ({Vendor})", ip, mac, vendor ?? "Inconnu");
+                        };
+                        _logger.LogInformation("  ARP: {Ip} -> {Mac} ({Vendor})", ip, normalizedMac, vendor ?? "Inconnu");
                     }
                 }
 
@@ -416,34 +427,40 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                     var newArpDevices = await ReadArpTableAsync();
                     foreach (var (ip, mac) in newArpDevices)
                     {
+                        var normalizedMac = mac.ToUpperInvariant();
+                        
                         // Filtrer les faux positifs
-                        if (ShouldIgnoreDevice(mac, ip))
+                        if (ShouldIgnoreDevice(normalizedMac, ip))
                             continue;
 
-                        if (ip.StartsWith(subnet + ".") && !devices.Any(d => d.MacAddress == mac.ToUpperInvariant()))
+                        // Verifier si on a deja cet appareil
+                        if (devicesByMac.ContainsKey(normalizedMac))
+                            continue;
+
+                        if (ip.StartsWith(subnet + "."))
                         {
                             var hostname = await ResolveHostnameAsync(ip);
-                            var vendor = _ouiLookup.GetVendor(mac);
+                            var vendor = _ouiLookup.GetVendor(normalizedMac);
                             
-                            devices.Add(new NetworkDevice
+                            devicesByMac[normalizedMac] = new NetworkDevice
                             {
-                                MacAddress = mac.ToUpperInvariant(),
+                                MacAddress = normalizedMac,
                                 IpAddress = ip,
                                 Hostname = hostname,
                                 Vendor = vendor,
                                 Status = DeviceStatus.Online
-                            });
-                            _logger.LogInformation("  NEW: {Ip} -> {Mac} ({Vendor})", ip, mac, vendor ?? "Inconnu");
+                            };
+                            _logger.LogInformation("  NEW: {Ip} -> {Mac} ({Vendor})", ip, normalizedMac, vendor ?? "Inconnu");
                         }
                     }
                 }
             }
 
-            _logger.LogInformation("SCAN: Total {Count} appareils trouves (apres filtrage)", devices.Count);
+            _logger.LogInformation("SCAN: Total {Count} appareils uniques trouves (apres filtrage)", devicesByMac.Count);
             _logger.LogInformation("SCAN: Sauvegarde en base...");
 
             int savedCount = 0;
-            foreach (var device in devices)
+            foreach (var device in devicesByMac.Values)
             {
                 try
                 {
@@ -457,7 +474,7 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
                 }
             }
 
-            var summary = $"Scan termine: {savedCount} appareils";
+            var summary = $"Scan termine: {savedCount} appareils uniques";
             _logger.LogInformation("========================================");
             _logger.LogInformation("SCAN TERMINE: {Summary}", summary);
             _logger.LogInformation("========================================");

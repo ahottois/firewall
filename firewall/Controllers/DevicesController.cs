@@ -85,15 +85,23 @@ public class DevicesController : ControllerBase
     }
 
     /// <summary>
-    /// Nettoyer les appareils fantomes (Docker, MAC random, etc.)
+    /// Nettoyer les appareils fantomes (Docker, MAC random, etc.) ET les doublons
     /// </summary>
     [HttpPost("cleanup")]
     public async Task<IActionResult> CleanupPhantomDevices()
     {
-        _logger.LogInformation("CLEANUP: Demarrage du nettoyage des appareils fantomes");
+        _logger.LogInformation("CLEANUP: Demarrage du nettoyage des appareils fantomes et doublons");
         
         try
         {
+            // Etape 1: Supprimer les doublons
+            var duplicatesRemoved = await _deviceRepository.RemoveDuplicatesAsync();
+            if (duplicatesRemoved > 0)
+            {
+                _logger.LogInformation("CLEANUP: {Count} doublons supprimes", duplicatesRemoved);
+            }
+
+            // Etape 2: Supprimer les appareils fantomes
             var allDevices = await _deviceRepository.GetAllAsync();
             var toDelete = new List<NetworkDevice>();
             
@@ -141,14 +149,14 @@ public class DevicesController : ControllerBase
                 }
             }
 
-            // Supprimer les appareils
-            int deletedCount = 0;
+            // Supprimer les appareils fantomes
+            int phantomsDeleted = 0;
             foreach (var device in toDelete)
             {
                 try
                 {
                     await _deviceRepository.DeleteAsync(device.Id);
-                    deletedCount++;
+                    phantomsDeleted++;
                 }
                 catch (Exception ex)
                 {
@@ -156,12 +164,16 @@ public class DevicesController : ControllerBase
                 }
             }
 
-            _logger.LogInformation("CLEANUP TERMINE: {Count} appareils fantomes supprimes", deletedCount);
+            var totalDeleted = duplicatesRemoved + phantomsDeleted;
+            _logger.LogInformation("CLEANUP TERMINE: {Duplicates} doublons + {Phantoms} fantomes = {Total} supprimes", 
+                duplicatesRemoved, phantomsDeleted, totalDeleted);
 
             return Ok(new
             {
-                message = $"Nettoyage termine: {deletedCount} appareils fantomes supprimes",
-                deletedCount = deletedCount,
+                message = $"Nettoyage termine: {duplicatesRemoved} doublons + {phantomsDeleted} fantomes = {totalDeleted} supprimes",
+                duplicatesRemoved = duplicatesRemoved,
+                phantomsDeleted = phantomsDeleted,
+                totalDeleted = totalDeleted,
                 success = true
             });
         }
