@@ -68,6 +68,172 @@ class FirewallApp {
         this.connectDeviceHub();
         this.loadDashboard();
         this.startAutoRefresh();
+        this.dhcpConfigLevel = 'easy'; // Niveau par défaut pour DHCP
+    }
+
+    // ==========================================
+    // NAVIGATION SETUP
+    // ==========================================
+
+    setupNavigation() {
+        // Gestion du clic sur les éléments de navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const page = item.dataset.page;
+                if (page) {
+                    // Cas spécial pour la page setup - redirection vers une autre page HTML
+                    if (page === 'setup') {
+                        window.location.href = '/setup.html';
+                        return;
+                    }
+                    this.navigateTo(page);
+                }
+            });
+        });
+    }
+
+    setupEventListeners() {
+        // Fermeture des modals
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal').classList.remove('active');
+            });
+        });
+
+        // Clic en dehors du modal
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // Filtres des appareils
+        document.querySelectorAll('.btn-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.filterDevices(btn.dataset.filter);
+            });
+        });
+    }
+
+    setupSorting() {
+        document.querySelectorAll('.sortable-table th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const table = th.closest('table');
+                const column = th.dataset.sort;
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                // Toggle direction
+                const currentDir = this.sortDirection[column] || 'asc';
+                const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+                this.sortDirection[column] = newDir;
+
+                // Update headers
+                table.querySelectorAll('th.sortable').forEach(h => {
+                    h.classList.remove('asc', 'desc');
+                });
+                th.classList.add(newDir);
+
+                // Sort rows
+                rows.sort((a, b) => {
+                    const aVal = a.querySelector(`td:nth-child(${th.cellIndex + 1})`).textContent;
+                    const bVal = b.querySelector(`td:nth-child(${th.cellIndex + 1})`).textContent;
+                    
+                    if (newDir === 'asc') {
+                        return aVal.localeCompare(bVal, 'fr', { numeric: true });
+                    }
+                    return bVal.localeCompare(aVal, 'fr', { numeric: true });
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+    }
+
+    // ==========================================
+    // API HELPER
+    // ==========================================
+
+    async api(endpoint, options = {}) {
+        const url = `/api/${endpoint}`;
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        };
+
+        const response = await fetch(url, config);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || `HTTP ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        }
+        return response.text();
+    }
+
+    // ==========================================
+    // SIGNALR / NOTIFICATIONS
+    // ==========================================
+
+    async connectNotifications() {
+        try {
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/alerts')
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on('NewAlert', (alert) => {
+                this.showToast(alert);
+                this.updateAlertBadge();
+            });
+
+            await connection.start();
+            console.log('Connecté au hub des alertes');
+        } catch (error) {
+            console.error('Erreur connexion hub alertes:', error);
+        }
+    }
+
+    async connectDeviceHub() {
+        try {
+            this.deviceHub = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/devices')
+                .withAutomaticReconnect()
+                .build();
+
+            this.deviceHub.on('DeviceUpdated', (device) => {
+                if (this.currentPage === 'devices') {
+                    this.loadDevices();
+                }
+            });
+
+            this.deviceHub.on('NewDeviceDetected', (device) => {
+                this.showToast({
+                    title: 'Nouvel appareil',
+                    message: `${device.macAddress} détecté sur le réseau`,
+                    severity: 1
+                });
+                if (this.currentPage === 'devices') {
+                    this.loadDevices();
+                }
+            });
+
+            await this.deviceHub.start();
+            console.log('Connecté au hub des appareils');
+        } catch (error) {
+            console.error('Erreur connexion hub appareils:', error);
+        }
     }
 
     // ==========================================
@@ -162,7 +328,8 @@ class FirewallApp {
             const [security, devices, alerts] = await Promise.all([
                 this.api('security/dashboard').catch(() => ({})),
                 this.api('devices').catch(() => []),
-                this.api('alerts?count=5').catch(() => [])
+                this.api('alerts?count=5').catch(() => []),
+                this.api('settings/system').catch(() => ({}))
             ]);
 
             // Update traffic overview
@@ -170,6 +337,7 @@ class FirewallApp {
             this.updateTopThreats(security.recentThreats || []);
             this.updateFirewallRules();
             this.updateSystemStatus(security);
+            this.updateAdminStatus(security);
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
@@ -248,6 +416,14 @@ class FirewallApp {
         const cpuText = document.getElementById('cpu-status-text');
         if (cpuText) {
             cpuText.textContent = `Score de sécurité: ${score.overallScore || 0}/100`;
+        }
+    }
+
+    updateAdminStatus(security) {
+        const status = document.getElementById('service-status');
+        if (status) {
+            status.textContent = security.adminStatus === 'running' ? 'En cours' : 'Arrêté';
+            status.className = `status-badge ${security.adminStatus === 'running' ? 'online' : 'offline'}`;
         }
     }
 
@@ -1215,3 +1391,6 @@ class FirewallApp {
         }
     }
 }
+
+// Instanciation de l'application au chargement de la page
+const app = new FirewallApp();
