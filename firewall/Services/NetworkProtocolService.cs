@@ -59,57 +59,110 @@ public class NetworkProtocolService : INetworkProtocolService
     {
         var configs = new List<IpConfiguration>();
         
-        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+        try
         {
-            if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
-                continue;
-                
-            var props = nic.GetIPProperties();
-            var config = new IpConfiguration
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
             {
-                InterfaceName = nic.Name,
-                IPv4Enabled = nic.Supports(NetworkInterfaceComponent.IPv4),
-                IPv6Enabled = nic.Supports(NetworkInterfaceComponent.IPv6),
-                MTU = IsLinux ? await GetMtuAsync(nic.Name) : 1500
-            };
+                try
+                {
+                    if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                        continue;
+                        
+                    var props = nic.GetIPProperties();
+                    var config = new IpConfiguration
+                    {
+                        InterfaceName = nic.Name,
+                        IPv4Enabled = nic.Supports(NetworkInterfaceComponent.IPv4),
+                        IPv6Enabled = nic.Supports(NetworkInterfaceComponent.IPv6),
+                        MTU = 1500
+                    };
 
-            // IPv4
-            var ipv4 = props.UnicastAddresses
-                .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork);
-            if (ipv4 != null)
-            {
-                config.IPv4Address = ipv4.Address.ToString();
-                config.IPv4SubnetMask = ipv4.IPv4Mask?.ToString();
+                    // MTU sur Linux
+                    if (IsLinux)
+                    {
+                        try
+                        {
+                            config.MTU = await GetMtuAsync(nic.Name);
+                        }
+                        catch { }
+                    }
+
+                    // IPv4
+                    try
+                    {
+                        var ipv4 = props.UnicastAddresses
+                            .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork);
+                        if (ipv4 != null)
+                        {
+                            config.IPv4Address = ipv4.Address.ToString();
+                            config.IPv4SubnetMask = ipv4.IPv4Mask?.ToString();
+                        }
+                        
+                        var gw4 = props.GatewayAddresses
+                            .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
+                        if (gw4 != null)
+                            config.IPv4Gateway = gw4.Address.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error getting IPv4 config for {Interface}", nic.Name);
+                    }
+
+                    // IPv6
+                    try
+                    {
+                        var ipv6 = props.UnicastAddresses
+                            .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6 && 
+                                                !a.Address.IsIPv6LinkLocal);
+                        if (ipv6 != null)
+                        {
+                            config.IPv6Address = ipv6.Address.ToString();
+                            config.IPv6PrefixLength = ipv6.PrefixLength;
+                        }
+                        
+                        var gw6 = props.GatewayAddresses
+                            .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetworkV6);
+                        if (gw6 != null)
+                            config.IPv6Gateway = gw6.Address.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Error getting IPv6 config for {Interface}", nic.Name);
+                    }
+
+                    // DNS
+                    try
+                    {
+                        config.DnsServers = props.DnsAddresses.Select(d => d.ToString()).ToList();
+                    }
+                    catch
+                    {
+                        config.DnsServers = new List<string>();
+                    }
+                    
+                    // DHCP
+                    try
+                    {
+                        var ipv4Props = props.GetIPv4Properties();
+                        if (ipv4Props != null)
+                            config.IPv4DHCP = ipv4Props.IsDhcpEnabled;
+                    }
+                    catch
+                    {
+                        config.IPv4DHCP = false;
+                    }
+
+                    configs.Add(config);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Error processing interface {Interface}", nic.Name);
+                }
             }
-            
-            var gw4 = props.GatewayAddresses
-                .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetwork);
-            if (gw4 != null)
-                config.IPv4Gateway = gw4.Address.ToString();
-
-            // IPv6
-            var ipv6 = props.UnicastAddresses
-                .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6 && 
-                                    !a.Address.IsIPv6LinkLocal);
-            if (ipv6 != null)
-            {
-                config.IPv6Address = ipv6.Address.ToString();
-                config.IPv6PrefixLength = ipv6.PrefixLength;
-            }
-            
-            var gw6 = props.GatewayAddresses
-                .FirstOrDefault(g => g.Address.AddressFamily == AddressFamily.InterNetworkV6);
-            if (gw6 != null)
-                config.IPv6Gateway = gw6.Address.ToString();
-
-            // DNS
-            config.DnsServers = props.DnsAddresses.Select(d => d.ToString()).ToList();
-            
-            // DHCP
-            if (props.GetIPv4Properties() != null)
-                config.IPv4DHCP = props.GetIPv4Properties().IsDhcpEnabled;
-
-            configs.Add(config);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting network interfaces");
         }
 
         return configs;
