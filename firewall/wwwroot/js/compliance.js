@@ -5,6 +5,7 @@ const API_BASE = '/api/compliance';
 let currentTab = 'dashboard';
 let iso27001Controls = [];
 let iso15408Data = {};
+let editingRiskId = null;
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
@@ -96,6 +97,7 @@ async function loadDashboard() {
                     <strong>[${finding.controlId}] ${getSeverityLabel(finding.severity)}</strong>
                     <p>${finding.description}</p>
                     ${finding.recommendation ? `<small><em>Recommandation: ${finding.recommendation}</em></small>` : ''}
+
                 </div>
             `).join('');
         } else {
@@ -199,6 +201,7 @@ function renderIso27001Controls() {
                                 </td>
                             </tr>
                         `).join('')}
+
                     </tbody>
                 </table>
             </div>
@@ -387,6 +390,7 @@ function getRiskStatusLabel(status) {
 }
 
 function showAddRiskModal() {
+    resetRiskForm();
     document.getElementById('risk-modal').style.display = 'block';
 }
 
@@ -404,18 +408,38 @@ async function saveRisk(event) {
     };
     
     try {
-        await fetch(`${API_BASE}/risks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(risk)
-        });
+        if (editingRiskId) {
+            // Mode édition
+            await fetch(`${API_BASE}/risks/${editingRiskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(risk)
+            });
+            showNotification('Risque mis à jour', 'success');
+        } else {
+            // Mode création
+            await fetch(`${API_BASE}/risks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(risk)
+            });
+            showNotification('Risque ajouté avec succès', 'success');
+        }
         
         closeModal('risk-modal');
+        resetRiskForm();
         loadRisks();
-        showNotification('Risque ajouté avec succès', 'success');
     } catch (error) {
-        showNotification('Erreur lors de l\'ajout', 'error');
+        showNotification('Erreur lors de l\'enregistrement', 'error');
     }
+}
+
+// Réinitialiser le formulaire de risque
+function resetRiskForm() {
+    editingRiskId = null;
+    document.getElementById('risk-form').reset();
+    const modalTitle = document.querySelector('#risk-modal h2');
+    if (modalTitle) modalTitle.textContent = 'Ajouter un risque';
 }
 
 async function deleteRisk(id) {
@@ -427,6 +451,38 @@ async function deleteRisk(id) {
         showNotification('Risque supprimé', 'success');
     } catch (error) {
         showNotification('Erreur suppression', 'error');
+    }
+}
+
+// Éditer un risque existant
+async function editRisk(id) {
+    try {
+        const response = await fetch(`${API_BASE}/risks/${id}`);
+        if (!response.ok) throw new Error('Risque non trouvé');
+        
+        const risk = await response.json();
+        
+        // Remplir le formulaire avec les données existantes
+        document.getElementById('risk-asset').value = risk.assetName || '';
+        document.getElementById('risk-asset-type').value = risk.assetType || 0;
+        document.getElementById('risk-threat').value = risk.threatDescription || '';
+        document.getElementById('risk-vulnerability').value = risk.vulnerabilityDescription || '';
+        document.getElementById('risk-likelihood').value = risk.likelihood || 1;
+        document.getElementById('risk-impact').value = risk.impact || 1;
+        document.getElementById('risk-treatment').value = risk.treatment || 0;
+        
+        // Stocker l'ID pour la mise à jour
+        editingRiskId = id;
+        
+        // Changer le titre du modal
+        const modalTitle = document.querySelector('#risk-modal h2');
+        if (modalTitle) modalTitle.textContent = 'Modifier le risque';
+        
+        // Afficher le modal
+        document.getElementById('risk-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Erreur chargement risque:', error);
+        showNotification('Erreur lors du chargement du risque', 'error');
     }
 }
 
@@ -503,10 +559,91 @@ async function saveIncident(event) {
         });
         
         closeModal('incident-modal');
+        document.getElementById('incident-form').reset();
         loadIncidents();
         showNotification('Incident déclaré', 'success');
     } catch (error) {
         showNotification('Erreur lors de la déclaration', 'error');
+    }
+}
+
+// Voir les détails d'un incident
+async function viewIncident(id) {
+    try {
+        const response = await fetch(`${API_BASE}/incidents/${id}`);
+        if (!response.ok) throw new Error('Incident non trouvé');
+        
+        const incident = await response.json();
+        
+        // Créer un modal de visualisation
+        const existingModal = document.getElementById('view-incident-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'view-incident-modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="document.getElementById('view-incident-modal').remove();">&times;</span>
+                <h2>?? Incident #${incident.id}</h2>
+                <div style="margin-top: 20px;">
+                    <p><strong>Titre:</strong> ${incident.title}</p>
+                    <p><strong>Description:</strong> ${incident.description || 'Non spécifiée'}</p>
+                    <p><strong>Catégorie:</strong> ${getIncidentCategoryLabel(incident.category)}</p>
+                    <p><strong>Sévérité:</strong> <span class="status-badge ${getSeverityClass(incident.severity)}">${getSeverityLabel(incident.severity)}</span></p>
+                    <p><strong>Statut:</strong> ${getIncidentStatusLabel(incident.status)}</p>
+                    <p><strong>Détecté le:</strong> ${formatDate(incident.detectedAt)}</p>
+                    ${incident.resolvedAt ? `<p><strong>Résolu le:</strong> ${formatDate(incident.resolvedAt)}</p>` : ''}
+                    ${incident.affectedAssets ? `<p><strong>Actifs affectés:</strong> ${incident.affectedAssets}</p>` : ''}
+                    ${incident.rootCause ? `<p><strong>Cause racine:</strong> ${incident.rootCause}</p>` : ''}
+                    ${incident.lessonsLearned ? `<p><strong>Leçons apprises:</strong> ${incident.lessonsLearned}</p>` : ''}
+                </div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    ${incident.status < 6 ? `
+                        <button class="btn btn-primary" onclick="updateIncidentStatus(${incident.id}, ${incident.status + 1})">
+                            Passer à l'étape suivante
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-secondary" onclick="document.getElementById('view-incident-modal').remove();">
+                        Fermer
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Fermer en cliquant dehors
+        modal.onclick = function(e) {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        };
+    } catch (error) {
+        console.error('Erreur chargement incident:', error);
+        showNotification('Erreur lors du chargement de l\'incident', 'error');
+    }
+}
+
+// Mettre à jour le statut d'un incident
+async function updateIncidentStatus(id, newStatus) {
+    try {
+        await fetch(`${API_BASE}/incidents/${id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        showNotification('Statut mis à jour', 'success');
+        
+        // Fermer le modal et recharger
+        const modal = document.getElementById('view-incident-modal');
+        if (modal) modal.remove();
+        
+        loadIncidents();
+    } catch (error) {
+        showNotification('Erreur mise à jour statut', 'error');
     }
 }
 
