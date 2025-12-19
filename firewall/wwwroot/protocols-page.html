@@ -1,0 +1,513 @@
+<!-- Network Protocols Page - Include in index.html -->
+<section id="protocols-page" class="page">
+    <!-- Onglets -->
+    <div class="protocol-tabs">
+        <button class="protocol-tab active" data-tab="ip-icmp" onclick="app.switchProtocolTab('ip-icmp')">
+            <i class="fas fa-network-wired"></i> IP/ICMP
+        </button>
+        <button class="protocol-tab" data-tab="routing" onclick="app.switchProtocolTab('routing')">
+            <i class="fas fa-route"></i> Routage
+        </button>
+        <button class="protocol-tab" data-tab="nat" onclick="app.switchProtocolTab('nat')">
+            <i class="fas fa-exchange-alt"></i> NAT/PAT
+        </button>
+        <button class="protocol-tab" data-tab="ssh" onclick="app.switchProtocolTab('ssh')">
+            <i class="fas fa-terminal"></i> SSH
+        </button>
+        <button class="protocol-tab" data-tab="ntp" onclick="app.switchProtocolTab('ntp')">
+            <i class="fas fa-clock"></i> NTP
+        </button>
+        <button class="protocol-tab" data-tab="snmp" onclick="app.switchProtocolTab('snmp')">
+            <i class="fas fa-chart-bar"></i> SNMP
+        </button>
+    </div>
+
+    <!-- IP/ICMP Tab -->
+    <div id="ip-icmp-tab" class="protocol-content active">
+        <div class="stats-grid">
+            <div class="stat-card info">
+                <div class="stat-icon"><i class="fas fa-download"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ip-packets-received">0</span>
+                    <span class="stat-label">Paquets reçus</span>
+                </div>
+            </div>
+            <div class="stat-card success">
+                <div class="stat-icon"><i class="fas fa-upload"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ip-packets-sent">0</span>
+                    <span class="stat-label">Paquets envoyés</span>
+                </div>
+            </div>
+            <div class="stat-card warning">
+                <div class="stat-icon"><i class="fas fa-trash"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ip-packets-dropped">0</span>
+                    <span class="stat-label">Paquets perdus</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-satellite-dish"></i> Outils de diagnostic</h3>
+            </div>
+            <div class="card-body">
+                <div class="diagnostic-tools">
+                    <div class="tool-section">
+                        <h4><i class="fas fa-bullseye"></i> Ping</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <input type="text" id="ping-host" class="form-control" placeholder="Hôte (ex: google.com ou 8.8.8.8)">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <input type="number" id="ping-count" class="form-control" value="4" min="1" max="20">
+                            </div>
+                            <button class="btn btn-primary" onclick="app.runPing()">
+                                <i class="fas fa-play"></i> Ping
+                            </button>
+                        </div>
+                        <div id="ping-results" class="tool-results"></div>
+                    </div>
+                    <div class="tool-section">
+                        <h4><i class="fas fa-route"></i> Traceroute</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <input type="text" id="traceroute-host" class="form-control" placeholder="Hôte destination">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <input type="number" id="traceroute-hops" class="form-control" value="30" min="1" max="64">
+                            </div>
+                            <button class="btn btn-primary" onclick="app.runTraceroute()">
+                                <i class="fas fa-play"></i> Tracer
+                            </button>
+                        </div>
+                        <div id="traceroute-results" class="tool-results"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-ethernet"></i> Configuration IP des interfaces</h3>
+                <button class="btn btn-sm btn-secondary" onclick="app.loadIpInterfaces()">
+                    <i class="fas fa-sync"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="ip-interfaces-list" class="interfaces-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Routing Tab -->
+    <div id="routing-tab" class="protocol-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-sitemap"></i> Table de routage</h3>
+                <div class="header-actions">
+                    <button class="btn btn-sm btn-secondary" onclick="app.loadRoutingTable()">
+                        <i class="fas fa-sync"></i> Actualiser
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="app.showAddRouteModal()">
+                        <i class="fas fa-plus"></i> Ajouter route
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Destination</th>
+                            <th>Passerelle</th>
+                            <th>Interface</th>
+                            <th>Métrique</th>
+                            <th>Protocole</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="routing-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="routing-protocols-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-wave-square"></i> RIP</h3>
+                    <label class="switch">
+                        <input type="checkbox" id="rip-enabled" onchange="app.toggleRip()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Version</label>
+                        <select id="rip-version" class="form-control">
+                            <option value="1">RIPv1</option>
+                            <option value="2" selected>RIPv2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Réseaux à annoncer</label>
+                        <textarea id="rip-networks" class="form-control" rows="3" placeholder="192.168.1.0/24"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="app.saveRipConfig()">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-spider"></i> OSPF</h3>
+                    <label class="switch">
+                        <input type="checkbox" id="ospf-enabled" onchange="app.toggleOspf()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Router ID</label>
+                        <input type="text" id="ospf-router-id" class="form-control" placeholder="1.1.1.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Réseaux</label>
+                        <textarea id="ospf-networks" class="form-control" rows="3" placeholder="192.168.1.0 0.0.0.255 0"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="app.saveOspfConfig()">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-globe"></i> BGP</h3>
+                    <label class="switch">
+                        <input type="checkbox" id="bgp-enabled" onchange="app.toggleBgp()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="card-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Local AS</label>
+                            <input type="number" id="bgp-local-as" class="form-control" placeholder="65001">
+                        </div>
+                        <div class="form-group">
+                            <label>Router ID</label>
+                            <input type="text" id="bgp-router-id" class="form-control" placeholder="1.1.1.1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Voisins (adresse:AS)</label>
+                        <textarea id="bgp-neighbors" class="form-control" rows="2" placeholder="192.168.1.2:65002"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="app.saveBgpConfig()">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAT Tab -->
+    <div id="nat-tab" class="protocol-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-random"></i> Configuration NAT/PAT</h3>
+                <div class="header-actions">
+                    <label class="switch">
+                        <input type="checkbox" id="nat-enabled" onchange="app.toggleNat()">
+                        <span class="slider round"></span>
+                    </label>
+                    <span style="margin-left: 10px;">NAT</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="nat-masquerade" onchange="app.toggleMasquerade()">
+                            Masquerade (SNAT automatique)
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>Interface WAN</label>
+                        <select id="nat-wan-interface" class="form-control"></select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-list"></i> Règles NAT</h3>
+                <button class="btn btn-sm btn-primary" onclick="app.showAddNatRuleModal()">
+                    <i class="fas fa-plus"></i> Ajouter règle
+                </button>
+            </div>
+            <div class="card-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nom</th>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>Translation</th>
+                            <th>Actif</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nat-rules-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-plug"></i> Connexions NAT actives</h3>
+                <button class="btn btn-sm btn-secondary" onclick="app.loadNatConnections()">
+                    <i class="fas fa-sync"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="nat-connections" class="connections-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SSH Tab -->
+    <div id="ssh-tab" class="protocol-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-lock"></i> Configuration SSH</h3>
+                <div class="header-actions">
+                    <label class="switch">
+                        <input type="checkbox" id="ssh-enabled" onchange="app.toggleSsh()">
+                        <span class="slider round"></span>
+                    </label>
+                    <span style="margin-left: 10px;">SSH</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="number" id="ssh-port" class="form-control" value="22">
+                    </div>
+                    <div class="form-group">
+                        <label>Max tentatives</label>
+                        <input type="number" id="ssh-max-auth" class="form-control" value="3">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="ssh-password-auth" checked>
+                            Authentification par mot de passe
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="ssh-pubkey-auth" checked>
+                            Authentification par clé publique
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="ssh-root-login">
+                        Autoriser connexion root
+                    </label>
+                </div>
+                <button class="btn btn-primary" onclick="app.saveSshConfig()">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-key"></i> Clés SSH autorisées</h3>
+                <button class="btn btn-sm btn-primary" onclick="app.showAddSshKeyModal()">
+                    <i class="fas fa-plus"></i> Ajouter clé
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="ssh-keys-list" class="keys-list"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-users"></i> Sessions SSH actives</h3>
+                <button class="btn btn-sm btn-secondary" onclick="app.loadSshSessions()">
+                    <i class="fas fa-sync"></i> Actualiser
+                </button>
+            </div>
+            <div class="card-body">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Adresse</th>
+                            <th>Terminal</th>
+                            <th>Connecté depuis</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ssh-sessions-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- NTP Tab -->
+    <div id="ntp-tab" class="protocol-content">
+        <div class="stats-grid">
+            <div class="stat-card" id="ntp-sync-card">
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ntp-sync-status">Non synchronisé</span>
+                    <span class="stat-label">Statut</span>
+                </div>
+            </div>
+            <div class="stat-card info">
+                <div class="stat-icon"><i class="fas fa-server"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ntp-current-server">-</span>
+                    <span class="stat-label">Serveur actuel</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-stopwatch"></i></div>
+                <div class="stat-info">
+                    <span class="stat-value" id="ntp-offset">0 ms</span>
+                    <span class="stat-label">Décalage</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-clock"></i> Configuration NTP</h3>
+                <div class="header-actions">
+                    <label class="switch">
+                        <input type="checkbox" id="ntp-enabled" checked onchange="app.toggleNtp()">
+                        <span class="slider round"></span>
+                    </label>
+                    <span style="margin-left: 10px;">NTP</span>
+                    <button class="btn btn-sm btn-secondary" style="margin-left: 15px;" onclick="app.syncNtpNow()">
+                        <i class="fas fa-sync"></i> Synchroniser
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Fuseau horaire</label>
+                    <select id="ntp-timezone" class="form-control" onchange="app.setTimezone()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="ntp-is-server">
+                        Servir de serveur NTP
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-server"></i> Serveurs NTP</h3>
+            </div>
+            <div class="card-body">
+                <div id="ntp-servers-list" class="ntp-servers-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SNMP Tab -->
+    <div id="snmp-tab" class="protocol-content">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-chart-line"></i> Configuration SNMP</h3>
+                <div class="header-actions">
+                    <label class="switch">
+                        <input type="checkbox" id="snmp-enabled" onchange="app.toggleSnmp()">
+                        <span class="slider round"></span>
+                    </label>
+                    <span style="margin-left: 10px;">SNMP</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Version</label>
+                        <select id="snmp-version" class="form-control" onchange="app.onSnmpVersionChange()">
+                            <option value="1">SNMPv1</option>
+                            <option value="2" selected>SNMPv2c</option>
+                            <option value="3">SNMPv3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Port</label>
+                        <input type="number" id="snmp-port" class="form-control" value="161">
+                    </div>
+                </div>
+                <div id="snmp-v1v2-config">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Communauté lecture</label>
+                            <input type="text" id="snmp-read-community" class="form-control" value="public">
+                        </div>
+                        <div class="form-group">
+                            <label>Communauté écriture</label>
+                            <input type="password" id="snmp-write-community" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Contact système</label>
+                        <input type="text" id="snmp-contact" class="form-control" placeholder="admin@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Localisation</label>
+                        <input type="text" id="snmp-location" class="form-control" placeholder="Salle serveur">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="app.saveSnmpConfig()">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+
+        <div class="card" id="snmp-users-card" style="display: none;">
+            <div class="card-header">
+                <h3><i class="fas fa-user-shield"></i> Utilisateurs SNMPv3</h3>
+                <button class="btn btn-sm btn-primary" onclick="app.showAddSnmpUserModal()">
+                    <i class="fas fa-plus"></i> Ajouter
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="snmp-users-list" class="users-list"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-bell"></i> Récepteurs de Traps</h3>
+                <button class="btn btn-sm btn-primary" onclick="app.showAddTrapReceiverModal()">
+                    <i class="fas fa-plus"></i> Ajouter
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="snmp-traps-list" class="traps-list"></div>
+            </div>
+        </div>
+    </div>
+</section>

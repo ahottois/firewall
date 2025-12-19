@@ -16,6 +16,7 @@ public interface IDhcpService
     bool AddStaticReservation(DhcpStaticReservation reservation);
     bool RemoveStaticReservation(string macAddress);
     DhcpServerStatus GetStatus();
+    DhcpServerStatistics GetStatistics();
 }
 
 public class DhcpServerStatus
@@ -31,24 +32,42 @@ public class DhcpServerStatus
     public string? LastError { get; set; }
 }
 
+public class DhcpServerStatistics
+{
+    public long TotalDiscovers { get; set; }
+    public long TotalOffers { get; set; }
+    public long TotalRequests { get; set; }
+    public long TotalAcks { get; set; }
+    public long TotalNaks { get; set; }
+    public long TotalReleases { get; set; }
+    public long TotalDeclines { get; set; }
+    public long TotalInforms { get; set; }
+    public long ConflictsDetected { get; set; }
+    public long DeniedByMacFilter { get; set; }
+    public DateTime StartTime { get; set; }
+}
+
 public class DhcpService : BackgroundService, IDhcpService
 {
     private readonly ILogger<DhcpService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
     private DhcpConfig _config = new();
     private readonly ConcurrentDictionary<string, DhcpLease> _leases = new();
-    private readonly ConcurrentDictionary<string, DhcpLease> _pendingOffers = new(); // IP -> Lease en attente
+    private readonly ConcurrentDictionary<string, DhcpLease> _pendingOffers = new();
+    private readonly ConcurrentDictionary<string, DateTime> _conflictedIps = new(); // IPs en conflit temporairement bloquées
     private UdpClient? _udpServer;
     private uint _serverIp;
     private bool _isRunning;
     private DateTime? _lastPacketReceived;
     private string? _lastError;
+    private DhcpServerStatistics _statistics = new() { StartTime = DateTime.UtcNow };
     
     private const int DhcpServerPort = 67;
     private const int DhcpClientPort = 68;
     private const string ConfigPath = "dhcp_config.json";
     private const string LeasesPath = "dhcp_leases.json";
     private static readonly TimeSpan OfferTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ConflictBlockDuration = TimeSpan.FromMinutes(30);
 
     public DhcpService(ILogger<DhcpService> logger, IServiceScopeFactory scopeFactory)
     {
@@ -154,9 +173,12 @@ public class DhcpService : BackgroundService, IDhcpService
         };
     }
 
+    public DhcpServerStatistics GetStatistics() => _statistics;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("DHCP Service démarré");
+        _statistics.StartTime = DateTime.UtcNow;
         
         // Nettoyer les baux expirés périodiquement
         _ = CleanupExpiredLeasesAsync(stoppingToken);
@@ -322,46 +344,138 @@ public class DhcpService : BackgroundService, IDhcpService
         var packet = DhcpPacketHandler.Parse(data);
         if (packet == null)
         {
-            _logger.LogDebug("DHCP: Paquet invalide reçu de {Remote}", remoteEndPoint);
+            if (_config.LogAllPackets)
+                _logger.LogDebug("DHCP: Paquet invalide reçu de {Remote}", remoteEndPoint);
             return;
         }
         
         var messageType = packet.GetMessageType();
         if (messageType == null)
         {
-            _logger.LogDebug("DHCP: Paquet sans type de message de {Remote}", remoteEndPoint);
+            if (_config.LogAllPackets)
+                _logger.LogDebug("DHCP: Paquet sans type de message de {Remote}", remoteEndPoint);
             return;
         }
         
         var clientMac = packet.GetClientMac();
-        _logger.LogInformation("DHCP: {Type} reçu de {Mac}", messageType, clientMac);
+        
+        // Vérifier les filtres MAC
+        if (!IsClientAllowed(clientMac))
+        {
+            _statistics.DeniedByMacFilter++;
+            _logger.LogWarning("DHCP: Client {Mac} refusé par filtre MAC", clientMac);
+            return;
+        }
+        
+        if (_config.LogAllPackets)
+            _logger.LogInformation("DHCP: {Type} reçu de {Mac}", messageType, clientMac);
         
         switch (messageType)
         {
             case DhcpMessageType.Discover:
+                _statistics.TotalDiscovers++;
                 await HandleDiscoverAsync(packet, clientMac);
                 break;
                 
             case DhcpMessageType.Request:
+                _statistics.TotalRequests++;
                 await HandleRequestAsync(packet, clientMac);
                 break;
                 
             case DhcpMessageType.Release:
+                _statistics.TotalReleases++;
                 HandleRelease(packet, clientMac);
                 break;
                 
             case DhcpMessageType.Decline:
+                _statistics.TotalDeclines++;
                 HandleDecline(packet, clientMac);
                 break;
                 
             case DhcpMessageType.Inform:
+                _statistics.TotalInforms++;
                 await HandleInformAsync(packet, clientMac);
                 break;
         }
     }
 
+    /// <summary>
+    /// Vérifie si un client est autorisé selon les listes noires/blanches
+    /// </summary>
+    private bool IsClientAllowed(string clientMac)
+    {
+        var normalizedMac = NormalizeMac(clientMac);
+        
+        // Liste noire prioritaire
+        if (_config.DenyMacList.Any(m => NormalizeMac(m) == normalizedMac))
+            return false;
+        
+        // Si allowUnknownClients est false, vérifier la liste blanche
+        if (!_config.AllowUnknownClients)
+        {
+            // Vérifier liste blanche
+            if (_config.AllowMacList.Any(m => NormalizeMac(m) == normalizedMac))
+                return true;
+            
+            // Vérifier réservations statiques
+            if (_config.StaticReservations.Any(r => NormalizeMac(r.MacAddress) == normalizedMac))
+                return true;
+            
+            return false;
+        }
+        
+        return true;
+    }
+
+    /// <summary>
+    /// Détecte si une IP est déjà utilisée (ping ICMP)
+    /// </summary>
+    private async Task<bool> IsIpInConflict(uint ip)
+    {
+        if (!_config.ConflictDetection)
+            return false;
+        
+        var ipStr = DhcpPacket.IpToString(ip);
+        
+        // Vérifier le cache des conflits
+        if (_conflictedIps.TryGetValue(ipStr, out var blockedUntil))
+        {
+            if (blockedUntil > DateTime.UtcNow)
+                return true;
+            _conflictedIps.TryRemove(ipStr, out _);
+        }
+        
+        try
+        {
+            using var ping = new Ping();
+            for (int i = 0; i < _config.ConflictDetectionAttempts; i++)
+            {
+                var reply = await ping.SendPingAsync(ipStr, 500);
+                if (reply.Status == IPStatus.Success)
+                {
+                    _logger.LogWarning("DHCP: Conflit détecté - IP {Ip} déjà utilisée", ipStr);
+                    _conflictedIps[ipStr] = DateTime.UtcNow.Add(ConflictBlockDuration);
+                    _statistics.ConflictsDetected++;
+                    return true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "DHCP: Erreur détection conflit pour {Ip}", ipStr);
+        }
+        
+        return false;
+    }
+
     private async Task HandleDiscoverAsync(DhcpPacket request, string clientMac)
     {
+        // Délai configurable avant envoi de l'offre
+        if (_config.OfferDelayMs > 0)
+        {
+            await Task.Delay(_config.OfferDelayMs);
+        }
+        
         // 1. Chercher une réservation statique
         var reservation = _config.StaticReservations
             .FirstOrDefault(r => NormalizeMac(r.MacAddress) == clientMac);
@@ -375,7 +489,7 @@ public class DhcpService : BackgroundService, IDhcpService
         }
         else
         {
-            // 2. Chercher un bail existant pour ce client
+            // 2. Chercher un bail existant
             if (_leases.TryGetValue(clientMac, out var existingLease))
             {
                 offeredIp = DhcpPacket.StringToIp(existingLease.IpAddress);
@@ -385,7 +499,7 @@ public class DhcpService : BackgroundService, IDhcpService
             {
                 // 3. Chercher l'IP demandée si disponible
                 var requestedIp = request.GetRequestedIp();
-                if (requestedIp.HasValue && IsIpAvailable(requestedIp.Value, clientMac))
+                if (requestedIp.HasValue && await IsIpAvailableAsync(requestedIp.Value, clientMac))
                 {
                     offeredIp = requestedIp.Value;
                     _logger.LogInformation("DHCP: IP demandée {Ip} disponible pour {Mac}", 
@@ -394,15 +508,27 @@ public class DhcpService : BackgroundService, IDhcpService
                 else
                 {
                     // 4. Allouer une nouvelle IP
-                    offeredIp = AllocateNewIp(clientMac);
+                    offeredIp = await AllocateNewIpAsync(clientMac);
                     if (offeredIp == 0)
                     {
                         _logger.LogWarning("DHCP: Plus d'IP disponibles pour {Mac}", clientMac);
-                        return; // Pas d'IP disponible, ne pas répondre
+                        return;
                     }
                     _logger.LogInformation("DHCP: Nouvelle IP allouée pour {Mac}: {Ip}", 
                         clientMac, DhcpPacket.IpToString(offeredIp));
                 }
+            }
+        }
+        
+        // Vérifier le conflit d'IP (sauf pour réservations)
+        if (reservation == null && await IsIpInConflict(offeredIp))
+        {
+            // Essayer une autre IP
+            offeredIp = await AllocateNewIpAsync(clientMac);
+            if (offeredIp == 0)
+            {
+                _logger.LogWarning("DHCP: Plus d'IP disponibles après conflit pour {Mac}", clientMac);
+                return;
             }
         }
         
@@ -422,6 +548,7 @@ public class DhcpService : BackgroundService, IDhcpService
         var offer = DhcpPacketHandler.CreateOffer(request, offeredIp, _serverIp, _config);
         await SendResponseAsync(offer, request);
         
+        _statistics.TotalOffers++;
         _logger.LogInformation("DHCP: OFFER envoyé à {Mac} pour {Ip}", clientMac, DhcpPacket.IpToString(offeredIp));
     }
 
@@ -440,8 +567,7 @@ public class DhcpService : BackgroundService, IDhcpService
         if (requestedIp == 0)
         {
             _logger.LogWarning("DHCP: REQUEST sans IP valide de {Mac}", clientMac);
-            var nak = DhcpPacketHandler.CreateNak(request, _serverIp);
-            await SendResponseAsync(nak, request);
+            await SendNakAsync(request);
             return;
         }
         
@@ -478,7 +604,7 @@ public class DhcpService : BackgroundService, IDhcpService
                 isValid = true;
             }
             // 4. L'IP est-elle dans notre plage et disponible?
-            else if (IsIpInRange(requestedIp) && IsIpAvailable(requestedIp, clientMac))
+            else if (IsIpInRange(requestedIp) && await IsIpAvailableAsync(requestedIp, clientMac))
             {
                 isValid = true;
             }
@@ -487,10 +613,16 @@ public class DhcpService : BackgroundService, IDhcpService
         if (!isValid)
         {
             _logger.LogWarning("DHCP: REQUEST refusé pour {Mac} - IP {Ip} non valide", clientMac, requestedIpStr);
-            var nak = DhcpPacketHandler.CreateNak(request, _serverIp);
-            await SendResponseAsync(nak, request);
+            await SendNakAsync(request);
             return;
         }
+        
+        // Calculer la durée du bail (respecter min/max)
+        var leaseMinutes = _config.LeaseTimeMinutes;
+        if (leaseMinutes < _config.MinLeaseTimeMinutes)
+            leaseMinutes = _config.MinLeaseTimeMinutes;
+        if (leaseMinutes > _config.MaxLeaseTimeMinutes)
+            leaseMinutes = _config.MaxLeaseTimeMinutes;
         
         // Créer ou mettre à jour le bail
         var lease = new DhcpLease
@@ -499,7 +631,7 @@ public class DhcpService : BackgroundService, IDhcpService
             IpAddress = requestedIpStr,
             Hostname = request.GetHostname() ?? string.Empty,
             LeaseStart = DateTime.UtcNow,
-            Expiration = DateTime.UtcNow.AddMinutes(_config.LeaseTimeMinutes),
+            Expiration = DateTime.UtcNow.AddMinutes(leaseMinutes),
             State = DhcpLeaseState.Active
         };
         
@@ -511,11 +643,19 @@ public class DhcpService : BackgroundService, IDhcpService
         var ack = DhcpPacketHandler.CreateAck(request, requestedIp, _serverIp, _config);
         await SendResponseAsync(ack, request);
         
+        _statistics.TotalAcks++;
         _logger.LogInformation("DHCP: ACK envoyé à {Mac} ({Hostname}) pour {Ip}, bail jusqu'à {Expiration}",
             clientMac, lease.Hostname, requestedIpStr, lease.Expiration.ToLocalTime());
         
         // Notifier le service de découverte d'appareils
         NotifyDeviceDiscovered(lease);
+    }
+
+    private async Task SendNakAsync(DhcpPacket request)
+    {
+        var nak = DhcpPacketHandler.CreateNak(request, _serverIp);
+        await SendResponseAsync(nak, request);
+        _statistics.TotalNaks++;
     }
 
     private void HandleRelease(DhcpPacket request, string clientMac)
@@ -531,11 +671,14 @@ public class DhcpService : BackgroundService, IDhcpService
     private void HandleDecline(DhcpPacket request, string clientMac)
     {
         var declinedIp = request.GetRequestedIp() ?? request.CiAddr;
-        _logger.LogWarning("DHCP: DECLINE reçu de {Mac} pour {Ip} - conflit d'adresse possible",
-            clientMac, DhcpPacket.IpToString(declinedIp));
+        var declinedIpStr = DhcpPacket.IpToString(declinedIp);
         
-        // Marquer l'IP comme non utilisable temporairement
-        // (Dans une implémentation complète, on maintiendrait une liste noire temporaire)
+        _logger.LogWarning("DHCP: DECLINE reçu de {Mac} pour {Ip} - conflit d'adresse possible",
+            clientMac, declinedIpStr);
+        
+        // Bloquer l'IP temporairement
+        _conflictedIps[declinedIpStr] = DateTime.UtcNow.Add(ConflictBlockDuration);
+        _statistics.ConflictsDetected++;
     }
 
     private async Task HandleInformAsync(DhcpPacket request, string clientMac)
@@ -585,23 +728,23 @@ public class DhcpService : BackgroundService, IDhcpService
         }
     }
 
-    private uint AllocateNewIp(string clientMac)
+    private async Task<uint> AllocateNewIpAsync(string clientMac)
     {
         var rangeStart = DhcpPacket.StringToIp(_config.RangeStart);
         var rangeEnd = DhcpPacket.StringToIp(_config.RangeEnd);
         
         for (uint ip = rangeStart; ip <= rangeEnd; ip++)
         {
-            if (IsIpAvailable(ip, clientMac))
+            if (await IsIpAvailableAsync(ip, clientMac))
             {
                 return ip;
             }
         }
         
-        return 0; // Aucune IP disponible
+        return 0;
     }
 
-    private bool IsIpAvailable(uint ip, string clientMac)
+    private async Task<bool> IsIpAvailableAsync(uint ip, string clientMac)
     {
         var ipStr = DhcpPacket.IpToString(ip);
         
@@ -609,17 +752,18 @@ public class DhcpService : BackgroundService, IDhcpService
         if (!IsIpInRange(ip))
             return false;
         
-        // Vérifier les réservations statiques
+        // Vérifier les IPs en conflit
+        if (_conflictedIps.TryGetValue(ipStr, out var blockedUntil) && blockedUntil > DateTime.UtcNow)
+            return false;
+        
         var reservation = _config.StaticReservations.FirstOrDefault(r => r.IpAddress == ipStr);
         if (reservation != null && NormalizeMac(reservation.MacAddress) != clientMac)
             return false;
         
-        // Vérifier les baux actifs
         var existingLease = _leases.Values.FirstOrDefault(l => l.IpAddress == ipStr);
         if (existingLease != null && existingLease.MacAddress != clientMac && existingLease.Expiration > DateTime.UtcNow)
             return false;
         
-        // Vérifier les offres en attente
         if (_pendingOffers.TryGetValue(ipStr, out var pending) && 
             pending.MacAddress != clientMac && 
             pending.Expiration > DateTime.UtcNow)
@@ -658,6 +802,13 @@ public class DhcpService : BackgroundService, IDhcpService
                 {
                     if (kvp.Value.Expiration < DateTime.UtcNow)
                         _pendingOffers.TryRemove(kvp.Key, out _);
+                }
+                
+                // Nettoyer les IPs en conflit expirées
+                foreach (var kvp in _conflictedIps)
+                {
+                    if (kvp.Value < DateTime.UtcNow)
+                        _conflictedIps.TryRemove(kvp.Key, out _);
                 }
                 
                 if (expiredCount > 0)

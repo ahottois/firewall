@@ -9,6 +9,11 @@ public static class DhcpPacketHandler
 {
     private const int MinPacketSize = 240; // Taille minimale d'un paquet DHCP
     
+    // Options DHCP supplémentaires
+    private const byte OptionNtpServers = 42;
+    private const byte OptionTftpServerName = 66;
+    private const byte OptionBootFileName = 67;
+    
     /// <summary>
     /// Parser un paquet DHCP brut
     /// </summary>
@@ -170,7 +175,7 @@ public static class DhcpPacketHandler
         uint serverIp,
         DhcpConfig config)
     {
-        var response = CreateBaseResponse(request, offeredIp, serverIp);
+        var response = CreateBaseResponse(request, offeredIp, serverIp, config);
         
         // Message Type = OFFER
         response.Options[DhcpOption.MessageType] = new byte[] { (byte)DhcpMessageType.Offer };
@@ -178,31 +183,9 @@ public static class DhcpPacketHandler
         // Server Identifier
         response.Options[DhcpOption.ServerIdentifier] = DhcpPacket.IpToBytes(serverIp);
         
-        // Lease Time (en secondes)
-        var leaseSeconds = (uint)(config.LeaseTimeMinutes * 60);
-        response.Options[DhcpOption.LeaseTime] = BitConverter.GetBytes(leaseSeconds).Reverse().ToArray();
-        
-        // Renewal Time (T1) = 50% of lease
-        var renewalTime = leaseSeconds / 2;
-        response.Options[DhcpOption.RenewalTime] = BitConverter.GetBytes(renewalTime).Reverse().ToArray();
-        
-        // Rebinding Time (T2) = 87.5% of lease
-        var rebindingTime = (uint)(leaseSeconds * 0.875);
-        response.Options[DhcpOption.RebindingTime] = BitConverter.GetBytes(rebindingTime).Reverse().ToArray();
-        
-        // Subnet Mask
-        response.Options[DhcpOption.SubnetMask] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.SubnetMask));
-        
-        // Router (Gateway)
-        if (!string.IsNullOrEmpty(config.Gateway))
-            response.Options[DhcpOption.Router] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Gateway));
-        
-        // DNS Servers
-        AddDnsServers(response, config);
-        
-        // Domain Name
-        if (!string.IsNullOrEmpty(config.DomainName))
-            response.Options[DhcpOption.DomainName] = System.Text.Encoding.ASCII.GetBytes(config.DomainName);
+        AddLeaseTimeOptions(response, config);
+        AddNetworkOptions(response, config);
+        AddAdvancedOptions(response, config);
         
         return response;
     }
@@ -216,7 +199,7 @@ public static class DhcpPacketHandler
         uint serverIp,
         DhcpConfig config)
     {
-        var response = CreateBaseResponse(request, assignedIp, serverIp);
+        var response = CreateBaseResponse(request, assignedIp, serverIp, config);
         
         // Message Type = ACK
         response.Options[DhcpOption.MessageType] = new byte[] { (byte)DhcpMessageType.Ack };
@@ -224,31 +207,9 @@ public static class DhcpPacketHandler
         // Server Identifier
         response.Options[DhcpOption.ServerIdentifier] = DhcpPacket.IpToBytes(serverIp);
         
-        // Lease Time
-        var leaseSeconds = (uint)(config.LeaseTimeMinutes * 60);
-        response.Options[DhcpOption.LeaseTime] = BitConverter.GetBytes(leaseSeconds).Reverse().ToArray();
-        
-        // Renewal Time (T1)
-        var renewalTime = leaseSeconds / 2;
-        response.Options[DhcpOption.RenewalTime] = BitConverter.GetBytes(renewalTime).Reverse().ToArray();
-        
-        // Rebinding Time (T2)
-        var rebindingTime = (uint)(leaseSeconds * 0.875);
-        response.Options[DhcpOption.RebindingTime] = BitConverter.GetBytes(rebindingTime).Reverse().ToArray();
-        
-        // Subnet Mask
-        response.Options[DhcpOption.SubnetMask] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.SubnetMask));
-        
-        // Router (Gateway)
-        if (!string.IsNullOrEmpty(config.Gateway))
-            response.Options[DhcpOption.Router] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Gateway));
-        
-        // DNS Servers
-        AddDnsServers(response, config);
-        
-        // Domain Name
-        if (!string.IsNullOrEmpty(config.DomainName))
-            response.Options[DhcpOption.DomainName] = System.Text.Encoding.ASCII.GetBytes(config.DomainName);
+        AddLeaseTimeOptions(response, config);
+        AddNetworkOptions(response, config);
+        AddAdvancedOptions(response, config);
         
         return response;
     }
@@ -281,7 +242,7 @@ public static class DhcpPacketHandler
         return response;
     }
     
-    private static DhcpPacket CreateBaseResponse(DhcpPacket request, uint assignedIp, uint serverIp)
+    private static DhcpPacket CreateBaseResponse(DhcpPacket request, uint assignedIp, uint serverIp, DhcpConfig config)
     {
         var response = new DhcpPacket
         {
@@ -300,7 +261,137 @@ public static class DhcpPacketHandler
         
         Array.Copy(request.ChAddr, response.ChAddr, request.ChAddr.Length);
         
+        // Support PXE boot - Next server IP
+        if (!string.IsNullOrEmpty(config.NextServerIp))
+        {
+            try
+            {
+                response.SiAddr = DhcpPacket.StringToIp(config.NextServerIp);
+            }
+            catch { }
+        }
+        
+        // Boot file name dans le champ file (pour PXE)
+        if (!string.IsNullOrEmpty(config.BootFileName))
+        {
+            var bootFileBytes = System.Text.Encoding.ASCII.GetBytes(config.BootFileName);
+            Array.Copy(bootFileBytes, response.File, Math.Min(bootFileBytes.Length, 128));
+        }
+        
+        // Server name (pour TFTP)
+        if (!string.IsNullOrEmpty(config.TftpServerName))
+        {
+            var serverNameBytes = System.Text.Encoding.ASCII.GetBytes(config.TftpServerName);
+            Array.Copy(serverNameBytes, response.SName, Math.Min(serverNameBytes.Length, 64));
+        }
+        
         return response;
+    }
+    
+    private static void AddLeaseTimeOptions(DhcpPacket response, DhcpConfig config)
+    {
+        // Lease Time
+        var leaseSeconds = (uint)(config.LeaseTimeMinutes * 60);
+        response.Options[DhcpOption.LeaseTime] = BitConverter.GetBytes(leaseSeconds).Reverse().ToArray();
+        
+        // Renewal Time (T1)
+        var renewalSeconds = config.RenewalTimeMinutes > 0 
+            ? (uint)(config.RenewalTimeMinutes * 60) 
+            : leaseSeconds / 2;
+        response.Options[DhcpOption.RenewalTime] = BitConverter.GetBytes(renewalSeconds).Reverse().ToArray();
+        
+        // Rebinding Time (T2)
+        var rebindingSeconds = config.RebindingTimeMinutes > 0
+            ? (uint)(config.RebindingTimeMinutes * 60)
+            : (uint)(leaseSeconds * 0.875);
+        response.Options[DhcpOption.RebindingTime] = BitConverter.GetBytes(rebindingSeconds).Reverse().ToArray();
+    }
+    
+    private static void AddNetworkOptions(DhcpPacket response, DhcpConfig config)
+    {
+        // Subnet Mask
+        response.Options[DhcpOption.SubnetMask] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.SubnetMask));
+        
+        // Router (Gateway)
+        if (!string.IsNullOrEmpty(config.Gateway))
+            response.Options[DhcpOption.Router] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Gateway));
+        
+        // DNS Servers
+        AddDnsServers(response, config);
+        
+        // Domain Name
+        if (!string.IsNullOrEmpty(config.DomainName))
+            response.Options[DhcpOption.DomainName] = System.Text.Encoding.ASCII.GetBytes(config.DomainName);
+        
+        // Broadcast Address
+        if (!string.IsNullOrEmpty(config.BroadcastAddress))
+        {
+            try
+            {
+                response.Options[DhcpOption.BroadcastAddress] = DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.BroadcastAddress));
+            }
+            catch { }
+        }
+    }
+    
+    private static void AddAdvancedOptions(DhcpPacket response, DhcpConfig config)
+    {
+        // NTP Servers (Option 42)
+        var ntpServers = new List<byte>();
+        if (!string.IsNullOrEmpty(config.NtpServer1))
+        {
+            try
+            {
+                ntpServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.NtpServer1)));
+            }
+            catch { }
+        }
+        if (!string.IsNullOrEmpty(config.NtpServer2))
+        {
+            try
+            {
+                ntpServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.NtpServer2)));
+            }
+            catch { }
+        }
+        if (ntpServers.Count > 0)
+            response.Options[(DhcpOption)OptionNtpServers] = ntpServers.ToArray();
+        
+        // TFTP Server Name (Option 66) - pour PXE boot
+        if (!string.IsNullOrEmpty(config.TftpServerName))
+            response.Options[(DhcpOption)OptionTftpServerName] = System.Text.Encoding.ASCII.GetBytes(config.TftpServerName);
+        
+        // Boot File Name (Option 67) - pour PXE boot
+        if (!string.IsNullOrEmpty(config.BootFileName))
+            response.Options[(DhcpOption)OptionBootFileName] = System.Text.Encoding.ASCII.GetBytes(config.BootFileName);
+        
+        // Options personnalisées
+        if (config.CustomOptions != null)
+        {
+            foreach (var customOption in config.CustomOptions)
+            {
+                if (customOption.OptionCode >= 1 && customOption.OptionCode <= 254 && 
+                    !string.IsNullOrEmpty(customOption.Value))
+                {
+                    try
+                    {
+                        // Essayer de parser comme IP si ça ressemble à une IP
+                        if (customOption.Value.Contains('.') && customOption.Value.Split('.').Length == 4)
+                        {
+                            response.Options[(DhcpOption)customOption.OptionCode] = 
+                                DhcpPacket.IpToBytes(DhcpPacket.StringToIp(customOption.Value));
+                        }
+                        else
+                        {
+                            // Sinon, encoder en ASCII
+                            response.Options[(DhcpOption)customOption.OptionCode] = 
+                                System.Text.Encoding.ASCII.GetBytes(customOption.Value);
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
     }
     
     private static void AddDnsServers(DhcpPacket response, DhcpConfig config)
@@ -308,10 +399,31 @@ public static class DhcpPacketHandler
         var dnsServers = new List<byte>();
         
         if (!string.IsNullOrEmpty(config.Dns1))
-            dnsServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Dns1)));
+        {
+            try
+            {
+                dnsServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Dns1)));
+            }
+            catch { }
+        }
         
         if (!string.IsNullOrEmpty(config.Dns2))
-            dnsServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Dns2)));
+        {
+            try
+            {
+                dnsServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Dns2)));
+            }
+            catch { }
+        }
+        
+        if (!string.IsNullOrEmpty(config.Dns3))
+        {
+            try
+            {
+                dnsServers.AddRange(DhcpPacket.IpToBytes(DhcpPacket.StringToIp(config.Dns3)));
+            }
+            catch { }
+        }
         
         if (dnsServers.Count > 0)
             response.Options[DhcpOption.DnsServer] = dnsServers.ToArray();

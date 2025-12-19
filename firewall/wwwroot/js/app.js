@@ -1922,6 +1922,7 @@ class FirewallApp {
             pihole: 'Pi-hole',
             dhcp: 'Serveur DHCP',
             wifi: 'WiFi Multi-Bandes',
+            protocols: 'Protocoles Réseau',
             setup: 'Installation',
             sniffer: 'Analyse de paquets',
             router: 'Regles de securite',
@@ -1946,6 +1947,7 @@ class FirewallApp {
             case 'traffic': this.loadTraffic(); break;
             case 'dhcp': this.loadDhcp(); break;
             case 'wifi': this.loadWiFi(); break;
+            case 'protocols': this.loadProtocols(); break;
             case 'sniffer': this.loadSniffer(); break;
             case 'router': this.loadRouter(); break;
             case 'settings': this.loadSettings(); break;
