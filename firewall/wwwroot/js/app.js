@@ -555,13 +555,14 @@ class FirewallApp {
 
     async getInstallScript(os) {
         try {
-            const result = await this.api(`agents/install-script/${os}`);
+            const result = await this.api(`agents/install-script?os=${os}`);
             const container = document.getElementById('install-script-container');
             const command = document.getElementById('install-command');
             
-            command.textContent = result.script;
+            command.textContent = result.command;
             container.style.display = 'block';
         } catch (error) {
+            console.error('Erreur génération script:', error);
             this.showToast({ title: 'Erreur', message: 'Impossible de générer le script', severity: 2 });
         }
     }
