@@ -1185,7 +1185,7 @@ class FirewallApp {
             pihole: 'Pi-hole',
             dhcp: 'Serveur DHCP',
             setup: 'Installation',
-            sniffer: 'Analyse reseau',
+            sniffer: 'Analyse de paquets',
             router: 'Regles de securite',
             settings: 'Parametres',
             admin: 'Administration',
