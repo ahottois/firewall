@@ -456,7 +456,7 @@ label, .label {
    4. COMPONENTS - BUTTONS
    ========================================== */
 .btn {
-    padding: var(--btn-padding-y) var(--btn-padding-x);
+    padding: var(--btn-padding-y) var(--btn-padding-x;
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
@@ -539,7 +539,7 @@ label, .label {
 
 /* Button Sizes */
 .btn-sm {
-    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm;
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
     font-size: var(--font-size-small);
 }
 
