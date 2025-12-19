@@ -6,7 +6,7 @@ using NetworkFirewall.Services;
 namespace NetworkFirewall.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/parental")]
 public class ParentalControlController : ControllerBase
 {
     private readonly IParentalControlService _parentalControlService;
