@@ -26,6 +26,28 @@ public class SettingsController : ControllerBase
     }
 
     /// <summary>
+    /// Obtenir les informations système (endpoint simplifié pour le frontend)
+    /// </summary>
+    [HttpGet("system")]
+    public IActionResult GetSystem()
+    {
+        var uptime = DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime();
+        var uptimeStr = uptime.Days > 0 
+            ? $"{uptime.Days}j {uptime.Hours}h {uptime.Minutes}m"
+            : $"{uptime.Hours}h {uptime.Minutes}m";
+
+        return Ok(new
+        {
+            os = RuntimeInformation.OSDescription,
+            hostname = Environment.MachineName,
+            uptime = uptimeStr,
+            cpuCores = Environment.ProcessorCount,
+            architecture = RuntimeInformation.OSArchitecture.ToString(),
+            dotnetVersion = RuntimeInformation.FrameworkDescription
+        });
+    }
+
+    /// <summary>
     /// Obtenir les informations système
     /// </summary>
     [HttpGet("system-info")]
