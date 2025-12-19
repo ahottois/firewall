@@ -11,7 +11,6 @@ namespace NetworkFirewall.Services;
 public interface IDeviceDiscoveryService
 {
     event EventHandler<DeviceDiscoveredEventArgs>? DeviceDiscovered;
-    event EventHandler<DeviceDiscoveredEventArgs>? UnknownDeviceDetected;
     Task ProcessPacketAsync(PacketCapturedEventArgs packet);
     Task<IEnumerable<NetworkDevice>> GetOnlineDevicesAsync();
     Task<int> ScanNetworkAsync();
@@ -63,7 +62,6 @@ public class DeviceDiscoveryService : IDeviceDiscoveryService
     };
 
     public event EventHandler<DeviceDiscoveredEventArgs>? DeviceDiscovered;
-    public event EventHandler<DeviceDiscoveredEventArgs>? UnknownDeviceDetected;
 
     public DeviceDiscoveryService(
         ILogger<DeviceDiscoveryService> logger,

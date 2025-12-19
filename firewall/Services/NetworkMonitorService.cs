@@ -55,9 +55,6 @@ public class NetworkMonitorService : BackgroundService
         // Subscribe to packet capture events
         _packetCapture.PacketCaptured += OnPacketCaptured;
 
-        // Subscribe to device discovery events
-        _deviceDiscovery.UnknownDeviceDetected += OnUnknownDeviceDetected;
-
         try
         {
             // Initialize database
@@ -116,7 +113,6 @@ public class NetworkMonitorService : BackgroundService
             await _packetCapture.StopAsync();
             await _trafficLogging.FlushAsync();
             _packetCapture.PacketCaptured -= OnPacketCaptured;
-            _deviceDiscovery.UnknownDeviceDetected -= OnUnknownDeviceDetected;
         }
     }
 
@@ -174,34 +170,6 @@ public class NetworkMonitorService : BackgroundService
                ip.StartsWith("172.30.") ||
                ip.StartsWith("172.31.") ||
                ip == "127.0.0.1";
-    }
-
-    private async void OnUnknownDeviceDetected(object? sender, DeviceDiscoveredEventArgs e)
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var alertRepo = scope.ServiceProvider.GetRequiredService<IAlertRepository>();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-            var alert = new NetworkAlert
-            {
-                Type = e.IsNew ? AlertType.NewDevice : AlertType.UnknownDevice,
-                Severity = AlertSeverity.Medium,
-                Title = e.IsNew ? "New Ship Spotted!" : "Unknown Vessel Active",
-                Message = $"Device detected: MAC={e.Device.MacAddress}, IP={e.Device.IpAddress}, Vendor={e.Device.Vendor ?? "Unknown"}",
-                SourceMac = e.Device.MacAddress,
-                SourceIp = e.Device.IpAddress,
-                DeviceId = e.Device.Id
-            };
-
-            await alertRepo.AddAsync(alert);
-            await notificationService.SendAlertAsync(alert);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error handling unknown device");
-        }
     }
 
     private async Task InitializeDatabaseAsync()
