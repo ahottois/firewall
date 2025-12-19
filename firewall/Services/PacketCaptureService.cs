@@ -90,16 +90,20 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
                 dev.Name ?? "N/A", dev.Description ?? "N/A");
         }
 
+        // Filtrer les interfaces Docker et virtuelles
+        var filteredDevices = devices.Where(d => !IsDockerOrVirtualInterface(d.Name)).ToList();
+        _logger.LogInformation("Filtered interfaces (excluding Docker/virtual): {Count}", filteredDevices.Count);
+
         // Selectionner l'interface
         if (!string.IsNullOrEmpty(_settings.NetworkInterface))
         {
-            _device = devices.FirstOrDefault(d => 
+            _device = filteredDevices.FirstOrDefault(d => 
                 (d.Name != null && d.Name.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase)) ||
                 (d.Description != null && d.Description.Contains(_settings.NetworkInterface, StringComparison.OrdinalIgnoreCase)));
         }
 
         // Sur Linux, chercher eth0, enp, ens, etc.
-        _device ??= devices.FirstOrDefault(d => 
+        _device ??= filteredDevices.FirstOrDefault(d => 
             d.Name != null && (
                 d.Name.StartsWith("eth", StringComparison.OrdinalIgnoreCase) ||
                 d.Name.StartsWith("enp", StringComparison.OrdinalIgnoreCase) ||
@@ -109,18 +113,19 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
             ));
         
         // Fallback: chercher dans la description
-        _device ??= devices.FirstOrDefault(d => 
+        _device ??= filteredDevices.FirstOrDefault(d => 
             d.Description != null && (
                 d.Description.Contains("Ethernet", StringComparison.OrdinalIgnoreCase) ||
                 d.Description.Contains("eth", StringComparison.OrdinalIgnoreCase)
             ));
         
-        // Dernier recours: prendre la premiere interface non-loopback
-        _device ??= devices.FirstOrDefault(d => 
+        // Dernier recours: prendre la premiere interface non-loopback (filtree)
+        _device ??= filteredDevices.FirstOrDefault(d => 
             d.Name != null && !d.Name.Contains("lo", StringComparison.OrdinalIgnoreCase) &&
             !d.Name.Contains("loopback", StringComparison.OrdinalIgnoreCase));
         
-        _device ??= devices.First();
+        // Si toujours rien, utiliser la liste originale
+        _device ??= filteredDevices.FirstOrDefault() ?? devices.First();
 
         var interfaceName = _device.Description ?? _device.Name ?? "Unknown";
         _logger.LogInformation("Starting packet capture on: {Interface}", interfaceName);
@@ -140,6 +145,28 @@ public class PacketCaptureService : IPacketCaptureService, IDisposable
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Verifie si l'interface est une interface Docker ou virtuelle
+    /// </summary>
+    private static bool IsDockerOrVirtualInterface(string? name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return false;
+
+        var lowerName = name.ToLowerInvariant();
+        
+        // Interfaces Docker et virtuelles a ignorer
+        return lowerName.StartsWith("docker") ||
+               lowerName.StartsWith("br-") ||
+               lowerName.StartsWith("veth") ||
+               lowerName.StartsWith("virbr") ||
+               lowerName.Contains("docker") ||
+               lowerName.Contains("podman") ||
+               lowerName.Contains("cni") ||
+               lowerName.Contains("flannel") ||
+               lowerName.Contains("calico");
     }
 
     private void OnPacketArrival(object sender, PacketCapture e)

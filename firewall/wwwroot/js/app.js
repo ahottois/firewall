@@ -637,11 +637,20 @@ class FirewallApp {
 
     async approveDevice(id) {
         try {
-            await this.api(`devices/${id}/approve`, { method: 'POST' });
+            // Utiliser l'endpoint known pour approuver (marquer comme connu et de confiance)
+            await this.api(`devices/${id}/known`, { 
+                method: 'POST',
+                body: JSON.stringify({ known: true, description: null })
+            });
+            // Aussi marquer comme trusted
+            await this.api(`devices/${id}/trust`, { 
+                method: 'POST',
+                body: JSON.stringify({ trusted: true })
+            });
             this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil approuvé', severity: 0 });
+            this.showToast({ title: 'Succes', message: 'Appareil approuve', severity: 0 });
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible d\'approuver', severity: 2 });
+            this.showToast({ title: 'Erreur', message: 'Impossible d\'approuver: ' + error.message, severity: 2 });
         }
     }
 
