@@ -632,15 +632,16 @@ Object.assign(FirewallApp.prototype, {
             // Statut du service
             const statusText = document.getElementById('service-status-text');
             const statusCard = document.getElementById('service-status-card');
-            if (statusText) statusText.textContent = status.serviceRunning ? 'En cours' : 'Arrêté';
-            if (statusCard) statusCard.className = `stat-card ${status.serviceRunning ? 'success' : 'danger'}`;
+            if (statusText) statusText.textContent = status.isRunning ? 'En cours' : 'Arrete';
+            if (statusCard) statusCard.className = `stat-card ${status.isRunning ? 'success' : 'danger'}`;
 
             // Version
             const versionEl = document.getElementById('app-version');
-            if (versionEl) versionEl.textContent = status.version || '1.0.0';
+            if (versionEl) versionEl.textContent = status.currentVersion || '1.0.0';
 
-            // Vérifier les mises à jour
-            this.checkForUpdates();
+            // Verifier les mises a jour et charger l'historique
+            await this.checkForUpdates();
+            await this.loadVersionHistory();
         } catch (error) {
             console.error('Error loading admin:', error);
         }
@@ -702,44 +703,238 @@ Object.assign(FirewallApp.prototype, {
 
     async checkForUpdates() {
         const statusEl = document.getElementById('update-status');
-        if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
+        const changelogEl = document.getElementById('update-changelog');
+        const currentCommitEl = document.getElementById('current-commit');
+        
+        if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verification...';
 
         try {
             const update = await this.api('admin/updates/check');
+            
+            // Afficher le commit actuel
+            if (currentCommitEl) {
+                currentCommitEl.textContent = update.localCommit || '--';
+            }
+            
             if (statusEl) {
-                if (update.updateAvailable) {
-                    statusEl.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-circle"></i> Mise à jour disponible: ${update.latestVersion}</span>`;
+                if (!update.success) {
+                    statusEl.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> ${this.escapeHtml(update.error || 'Erreur')}</span>`;
+                    statusEl.className = 'update-status';
+                } else if (update.updateAvailable) {
+                    statusEl.innerHTML = `
+                        <i class="fas fa-arrow-circle-up" style="font-size: 2rem; color: var(--warning);"></i>
+                        <div class="update-info">
+                            <div class="update-title"><i class="fas fa-exclamation-circle"></i> Mise a jour disponible!</div>
+                            <div class="update-details">
+                                Version actuelle: <code>${this.escapeHtml(update.localCommit)}</code> &rarr; 
+                                Derniere: <code>${this.escapeHtml(update.remoteCommit)}</code>
+                                <br>
+                                <small>${this.escapeHtml(update.latestCommitMessage || '')}</small>
+                            </div>
+                        </div>
+                    `;
+                    statusEl.className = 'update-status available';
+                    
+                    // Afficher le changelog
+                    if (changelogEl && update.commits && update.commits.length > 0) {
+                        changelogEl.style.display = 'block';
+                        const changelogList = document.getElementById('changelog-list');
+                        if (changelogList) {
+                            changelogList.innerHTML = update.commits.map(c => `
+                                <div class="changelog-entry ${this.getCommitType(c.message)}">
+                                    <span class="entry-sha">${this.escapeHtml((c.sha || '').substring(0, 7))}</span>
+                                    <span class="entry-message">${this.escapeHtml(c.message || '')}</span>
+                                    <span class="entry-meta">
+                                        ${c.author ? this.escapeHtml(c.author) : ''}
+                                        ${c.date ? '<br>' + this.formatDate(c.date) : ''}
+                                    </span>
+                                </div>
+                            `).join('');
+                        }
+                    }
                 } else {
-                    statusEl.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Vous êtes à jour</span>';
+                    statusEl.innerHTML = `
+                        <i class="fas fa-check-circle" style="font-size: 2rem; color: var(--success);"></i>
+                        <div class="update-info">
+                            <div class="update-title"><i class="fas fa-check"></i> Vous etes a jour</div>
+                            <div class="update-details">
+                                Version: <code>${this.escapeHtml(update.localCommit)}</code>
+                                <br>
+                                <small>Derniere verification: ${new Date().toLocaleString('fr-FR')}</small>
+                            </div>
+                        </div>
+                    `;
+                    statusEl.className = 'update-status up-to-date';
+                    if (changelogEl) changelogEl.style.display = 'none';
                 }
             }
         } catch (error) {
-            if (statusEl) statusEl.innerHTML = '<span class="text-muted">Impossible de vérifier</span>';
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="text-muted">Impossible de verifier</span>';
+                statusEl.className = 'update-status';
+            }
         }
     },
 
-    async updateFromGithub() {
-        const result = document.getElementById('update-result');
-        if (result) result.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mise à jour en cours...';
+    async loadVersionHistory() {
+        const timelineEl = document.getElementById('version-timeline');
+        const releasesCard = document.getElementById('releases-card');
+        const releasesListEl = document.getElementById('releases-list');
+        
+        if (!timelineEl) return;
 
         try {
-            await this.api('admin/updates/apply', { method: 'POST' });
-            if (result) result.innerHTML = '<span class="text-success">Mise à jour terminée. Redémarrage...</span>';
+            const history = await this.api('admin/updates/history?count=15');
+            
+            if (!history.success) {
+                timelineEl.innerHTML = `
+                    <div class="timeline-empty">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Impossible de charger l'historique</p>
+                        <small>${this.escapeHtml(history.error || '')}</small>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!history.commits || history.commits.length === 0) {
+                timelineEl.innerHTML = `
+                    <div class="timeline-empty">
+                        <i class="fas fa-history"></i>
+                        <p>Aucun historique disponible</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Afficher la timeline des commits
+            timelineEl.innerHTML = history.commits.map((commit, index) => {
+                const isCurrent = commit.isCurrent;
+                const isLatest = commit.isLatest;
+                const commitType = this.getCommitType(commit.message);
+                
+                return `
+                    <div class="timeline-item ${isCurrent ? 'current' : ''} ${isLatest ? 'latest' : ''}">
+                        <div class="timeline-header">
+                            <div class="timeline-commit">
+                                <span class="commit-sha">${this.escapeHtml(commit.shortSha)}</span>
+                                <div class="commit-badges">
+                                    ${isCurrent ? '<span class="commit-badge current"><i class="fas fa-check"></i> Installe</span>' : ''}
+                                    ${isLatest ? '<span class="commit-badge latest"><i class="fas fa-star"></i> Dernier</span>' : ''}
+                                    ${!isCurrent && index < history.commits.findIndex(c => c.isCurrent) ? '<span class="commit-badge new">Nouveau</span>' : ''}
+                                </div>
+                            </div>
+                            <span class="timeline-date">${commit.date ? this.formatRelativeDate(commit.date) : ''}</span>
+                        </div>
+                        <div class="timeline-message">${this.escapeHtml(commit.message)}</div>
+                        <div class="timeline-meta">
+                            <span class="commit-type ${commitType}">
+                                <i class="fas ${this.getCommitTypeIcon(commitType)}"></i>
+                                ${this.getCommitTypeLabel(commitType)}
+                            </span>
+                            <span><i class="fas fa-user"></i> ${this.escapeHtml(commit.author || 'Inconnu')}</span>
+                            ${commit.date ? `<span><i class="fas fa-calendar"></i> ${this.formatDate(commit.date)}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Afficher les releases si disponibles
+            if (history.releases && history.releases.length > 0 && releasesCard && releasesListEl) {
+                releasesCard.style.display = 'block';
+                releasesListEl.innerHTML = history.releases.map(release => `
+                    <div class="release-item">
+                        <div class="release-header">
+                            <div class="release-tag">
+                                <span class="release-tag-name">
+                                    <i class="fas fa-tag"></i>
+                                    ${this.escapeHtml(release.name || release.tagName)}
+                                </span>
+                                <span class="release-badge ${release.isPrerelease ? 'prerelease' : 'stable'}">
+                                    ${release.isPrerelease ? 'Pre-release' : 'Stable'}
+                                </span>
+                            </div>
+                            <span class="release-date">
+                                ${release.publishedAt ? this.formatDate(release.publishedAt) : ''}
+                            </span>
+                        </div>
+                        ${release.body ? `<div class="release-body">${this.escapeHtml(release.body)}</div>` : ''}
+                        <div class="release-footer">
+                            <a href="${this.escapeHtml(release.htmlUrl)}" target="_blank" class="btn btn-sm btn-secondary">
+                                <i class="fas fa-external-link-alt"></i> Voir sur GitHub
+                            </a>
+                        </div>
+                    </div>
+                `).join('');
+            } else if (releasesCard) {
+                releasesCard.style.display = 'none';
+            }
+
         } catch (error) {
-            if (result) result.innerHTML = `<span class="text-danger">Erreur: ${this.escapeHtml(error.message)}</span>`;
+            console.error('Error loading version history:', error);
+            timelineEl.innerHTML = `
+                <div class="timeline-empty">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Erreur de chargement</p>
+                    <small>${this.escapeHtml(error.message || '')}</small>
+                </div>
+            `;
         }
     },
 
-    async loadServiceLogs() {
-        const logsEl = document.getElementById('service-logs');
-        if (!logsEl) return;
+    getCommitType(message) {
+        if (!message) return 'other';
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.startsWith('fix') || lowerMessage.includes('bugfix') || lowerMessage.includes('correction')) return 'fix';
+        if (lowerMessage.startsWith('feat') || lowerMessage.includes('feature') || lowerMessage.includes('ajout')) return 'feature';
+        if (lowerMessage.startsWith('refactor')) return 'refactor';
+        if (lowerMessage.startsWith('doc') || lowerMessage.includes('documentation')) return 'docs';
+        if (lowerMessage.startsWith('style') || lowerMessage.includes('css') || lowerMessage.includes('ui')) return 'style';
+        if (lowerMessage.startsWith('perf') || lowerMessage.includes('performance') || lowerMessage.includes('optimiz')) return 'perf';
+        return 'other';
+    },
 
-        try {
-            const logs = await this.api('admin/logs');
-            logsEl.textContent = logs || 'Aucun log disponible';
-        } catch (error) {
-            logsEl.textContent = `Erreur: ${error.message}`;
-        }
+    getCommitTypeIcon(type) {
+        const icons = {
+            'feature': 'fa-plus-circle',
+            'fix': 'fa-bug',
+            'refactor': 'fa-code',
+            'docs': 'fa-file-alt',
+            'style': 'fa-paint-brush',
+            'perf': 'fa-tachometer-alt',
+            'other': 'fa-code-branch'
+        };
+        return icons[type] || icons.other;
+    },
+
+    getCommitTypeLabel(type) {
+        const labels = {
+            'feature': 'Fonctionnalite',
+            'fix': 'Correction',
+            'refactor': 'Refactoring',
+            'docs': 'Documentation',
+            'style': 'Style/UI',
+            'perf': 'Performance',
+            'other': 'Autre'
+        };
+        return labels[type] || labels.other;
+    },
+
+    formatRelativeDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'A l\'instant';
+        if (diffMins < 60) return `Il y a ${diffMins} min`;
+        if (diffHours < 24) return `Il y a ${diffHours}h`;
+        if (diffDays < 7) return `Il y a ${diffDays}j`;
+        if (diffDays < 30) return `Il y a ${Math.floor(diffDays / 7)} sem`;
+        return date.toLocaleDateString('fr-FR');
     },
 
     // ==========================================

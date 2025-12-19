@@ -923,6 +923,13 @@
                         <span class="stat-label">Version</span>
                     </div>
                 </div>
+                <div class="stat-card" id="current-commit-card">
+                    <div class="stat-icon"><i class="fas fa-tag"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="current-commit">--</span>
+                        <span class="stat-label">Commit actuel</span>
+                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -963,23 +970,62 @@
                 </div>
             </div>
 
+            <!-- Section Mise à jour améliorée -->
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-cloud-download-alt"></i> Mise a jour</h3>
-                    <button class="btn btn-secondary" onclick="app.checkForUpdates()">
-                        <i class="fas fa-sync"></i> Verifier
-                    </button>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="app.checkForUpdates()">
+                            <i class="fas fa-sync"></i> Verifier
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="btn-update" onclick="app.updateFromGithub()">
+                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div id="update-status" class="update-status">
                         <i class="fas fa-spinner fa-spin"></i> Verification...
                     </div>
-                    <div class="admin-buttons" style="margin-top: 15px;">
-                        <button class="btn btn-primary" id="btn-update" onclick="app.updateFromGithub()">
-                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour
+                    <div id="update-result" class="admin-result"></div>
+                    
+                    <!-- Changelog des changements disponibles -->
+                    <div id="update-changelog" style="display: none; margin-top: 20px;">
+                        <h4 style="margin-bottom: 15px; color: var(--accent-primary);">
+                            <i class="fas fa-list-ul"></i> Changements disponibles
+                        </h4>
+                        <div id="changelog-list" class="changelog-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historique des versions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> Historique des versions</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="app.loadVersionHistory()">
+                            <i class="fas fa-sync"></i> Actualiser
                         </button>
                     </div>
-                    <div id="update-result" class="admin-result"></div>
+                </div>
+                <div class="card-body">
+                    <!-- Timeline des versions -->
+                    <div id="version-timeline" class="version-timeline">
+                        <div class="timeline-loading">
+                            <i class="fas fa-spinner fa-spin"></i> Chargement de l'historique...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Releases officielles -->
+            <div class="card" id="releases-card" style="display: none;">
+                <div class="card-header">
+                    <h3><i class="fas fa-tag"></i> Releases officielles</h3>
+                </div>
+                <div class="card-body">
+                    <div id="releases-list" class="releases-list"></div>
                 </div>
             </div>
 

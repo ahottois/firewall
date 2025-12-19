@@ -12,6 +12,7 @@
    8. Modals & Toasts
    9. Animations & Effects
    10. Responsive Design
+   11. Version Timeline & Update History
    ========================================== */
 
 /* ==========================================
@@ -455,7 +456,7 @@ label, .label {
    4. COMPONENTS - BUTTONS
    ========================================== */
 .btn {
-    padding: var(--btn-padding-y) var(--btn-padding-x);
+    padding: var(--btn-padding-y) var(--btn-padding-x;
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
@@ -2951,195 +2952,491 @@ input:checked + .slider:before {
     color: var(--danger);
 }
 
-.interface-card .ip-info {
+.protocol-history {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.interface-card .ip-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-}
-
-.interface-card .ip-row .label {
-    color: var(--text-secondary);
-}
-
-.interface-card .ip-row .value {
-    font-family: monospace;
-}
-
-/* Routing Protocols Grid */
-.routing-protocols-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    gap: 10px;
     margin-top: 20px;
+    padding: var(--spacing-lg) var(--spacing-md);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-color);
 }
 
-/* Keys List */
-.keys-list {
+.history-item {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius-sm);
     gap: 10px;
 }
 
-.key-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 15px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+.history-item.success {
+    border-left: 4px solid var(--success);
 }
 
-.key-info {
-    display: flex;
-    flex-direction: column;
+.history-item.warning {
+    border-left: 4px solid var(--warning);
 }
 
-.key-name {
-    font-weight: 600;
+.history-item.danger {
+    border-left: 4px solid var(--danger);
+}
+
+.history-item .timestamp {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    min-width: 100px;
+}
+
+.history-item .message {
+    font-size: var(--font-size-body);
     color: var(--text-primary);
 }
 
-.key-fingerprint {
-    font-size: 0.8rem;
+.version-info {
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
-    font-family: monospace;
+    margin-top: 4px;
 }
 
-.key-type {
-    font-size: 0.75rem;
-    color: var(--accent-secondary);
-    margin-top: 3px;
+/* ==========================================
+   VERSION TIMELINE & UPDATE HISTORY
+   ========================================== */
+
+/* Timeline Container */
+.version-timeline {
+    position: relative;
+    padding-left: 30px;
 }
 
-/* NTP Servers Grid */
-.ntp-servers-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 15px;
+.timeline-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
 }
 
-.ntp-server-card {
-    background: var(--bg-secondary);
-    border-radius: 10px;
-    padding: 15px;
-    border: 1px solid var(--border-color);
+/* Timeline Line */
+.version-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
 }
 
-.ntp-server-card .server-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+/* Timeline Item */
+.timeline-item {
+    position: relative;
+    padding: 15px 0;
+    padding-left: 25px;
+    border-bottom: 1px solid var(--border-color);
 }
 
-.ntp-server-card .server-address {
-    font-family: monospace;
-    font-size: 0.95rem;
+.timeline-item:last-child {
+    border-bottom: none;
 }
 
-.ntp-server-card .server-status {
-    width: 10px;
-    height: 10px;
+/* Timeline Dot */
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 22px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    z-index: 1;
 }
 
-.ntp-server-card .server-status.sync {
+/* Current Version Indicator */
+.timeline-item.current::before {
     background: var(--success);
-    box-shadow: 0 0 8px var(--success);
+    border-color: var(--success);
+    box-shadow: 0 0 10px var(--success);
 }
 
-.ntp-server-card .server-status.error {
-    background: var(--danger);
+.timeline-item.current {
+    background: var(--success-light);
+    margin-left: -25px;
+    padding-left: 50px;
+    border-radius: var(--border-radius-md);
 }
 
-.ntp-server-card .server-stats {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 0.85rem;
+/* Latest Version Indicator */
+.timeline-item.latest::before {
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
-.ntp-server-card .stat-item {
-    color: var(--text-secondary);
-}
-
-.ntp-server-card .stat-item span {
-    color: var(--text-primary);
-    font-weight: 500;
-}
-
-/* SNMP Users and Traps */
-.users-list, .traps-list {
+/* Timeline Header */
+.timeline-header {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.timeline-commit {
+    display: flex;
+    align-items: center;
     gap: 10px;
 }
 
-.user-item, .trap-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 15px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+.commit-sha {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: var(--font-size-body);
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-sm);
+    font-weight: var(--font-weight-medium);
 }
 
-.user-info, .trap-info {
+.commit-badges {
     display: flex;
-    flex-direction: column;
+    gap: 6px;
 }
 
-.user-name, .trap-address {
-    font-weight: 600;
+.commit-badge {
+    font-size: var(--font-size-small);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: var(--font-weight-semibold);
+}
+
+.commit-badge.current {
+    background: var(--success);
+    color: white;
+}
+
+.commit-badge.latest {
+    background: var(--primary);
+    color: var(--bg-primary);
+}
+
+.commit-badge.new {
+    background: var(--warning);
+    color: var(--bg-primary);
+}
+
+.timeline-date {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+}
+
+/* Timeline Message */
+.timeline-message {
+    font-size: var(--font-size-body);
     color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.4;
 }
 
-.user-level, .trap-version {
-    font-size: 0.8rem;
+/* Timeline Meta */
+.timeline-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
 }
 
-/* NAT Connections */
-.connections-list {
+.timeline-meta i {
+    margin-right: 4px;
+    opacity: 0.7;
+}
+
+/* Commit Type Badges */
+.commit-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+}
+
+.commit-type.feature {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.commit-type.fix {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.commit-type.refactor {
+    background: var(--info-light);
+    color: var(--info);
+}
+
+.commit-type.docs {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.commit-type.style {
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--accent-secondary);
+}
+
+.commit-type.perf {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.commit-type.other {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+/* Changelog List */
+.changelog-list {
     max-height: 300px;
     overflow-y: auto;
 }
 
-.connection-item {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
-    gap: 10px;
-    padding: 10px;
+.changelog-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
     background: var(--bg-secondary);
-    border-radius: 6px;
+    border-radius: var(--border-radius-sm);
     margin-bottom: 8px;
-    font-size: 0.85rem;
+    border-left: 3px solid var(--primary);
+}
+
+.changelog-entry.feature {
+    border-left-color: var(--success);
+}
+
+.changelog-entry.fix {
+    border-left-color: var(--danger);
+}
+
+.changelog-entry .entry-sha {
+    font-family: monospace;
+    font-size: var(--font-size-small);
+    color: var(--primary);
+    min-width: 60px;
+}
+
+.changelog-entry .entry-message {
+    flex: 1;
+    font-size: var(--font-size-body);
+}
+
+.changelog-entry .entry-meta {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    min-width: 120px;
+    text-align: right;
+}
+
+/* Releases List */
+.releases-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.release-item {
+    background: var(--bg-secondary);
+    border-radius: var(--card-border-radius);
+    border: var(--card-border);
+    overflow: hidden;
+}
+
+.release-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
 }
 
-.connection-item .proto {
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 0.75rem;
+.release-tag {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.connection-item .proto.tcp {
-    background: rgba(0, 217, 255, 0.2);
-    color: var(--accent-primary);
+.release-tag-name {
+    font-size: 1.2rem;
+    font-weight: var(--font-weight-bold);
+    color: var(--primary);
 }
 
-.connection-item .proto.udp {
-    background: rgba(255, 184, 0, 0.2);
+.release-tag-name i {
+    margin-right: 8px;
+}
+
+.release-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+}
+
+.release-badge.stable {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.release-badge.prerelease {
+    background: var(--warning-light);
     color: var(--warning);
+}
+
+.release-date {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+}
+
+.release-body {
+    padding: var(--spacing-lg);
+    font-size: var(--font-size-body);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.release-body pre {
+    background: var(--bg-primary);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    overflow-x: auto;
+}
+
+.release-footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Update Status Improved */
+.update-status {
+    padding: var(--spacing-lg);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.update-status.available {
+    background: var(--warning-light);
+    border: 1px solid var(--warning);
+}
+
+.update-status.up-to-date {
+    background: var(--success-light);
+    border: 1px solid var(--success);
+}
+
+.update-info {
+    flex: 1;
+}
+
+.update-info .update-title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 4px;
+}
+
+.update-info .update-details {
+    font-size: var(--font-size-small);
+    color: var(--text-secondary);
+}
+
+/* Show More Button */
+.show-more-btn {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-md);
+    text-align: center;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-top: var(--spacing-md);
+}
+
+.show-more-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+/* Version Compare */
+.version-compare {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.version-box {
+    flex: 1;
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-radius: var(--border-radius-sm);
+}
+
+.version-box.current {
+    border: 2px solid var(--success);
+}
+
+.version-box.latest {
+    border: 2px solid var(--primary);
+}
+
+.version-box .version-label {
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.version-box .version-value {
+    font-size: 1.2rem;
+    font-weight: var(--font-weight-bold);
+    font-family: monospace;
+}
+
+.version-arrow {
+    font-size: 1.5rem;
+    color: var(--primary);
+}
+
+/* Empty Timeline State */
+.timeline-empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.timeline-empty i {
+    font-size: 3rem;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.5;
 }

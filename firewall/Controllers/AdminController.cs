@@ -367,6 +367,180 @@ WantedBy=multi-user.target
         return Ok(new { Logs = result.Output, Error = result.Error });
     }
 
+    [HttpGet("updates/history")]
+    public async Task<IActionResult> GetUpdateHistory([FromQuery] int count = 20)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "NetGuard-Updater");
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            // Récupérer l'historique des commits
+            var commitsUrl = $"{GitRepoApiUrl}/commits?per_page={count}";
+            var response = await client.GetAsync(commitsUrl);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                return Ok(new { Success = false, Error = $"Erreur GitHub: {response.StatusCode}" });
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            var commits = JsonSerializer.Deserialize<List<GitHubCommit>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var localCommit = GetLocalCommit();
+            var history = commits?.Select(c => new VersionHistoryItem
+            {
+                Sha = c.Sha ?? "",
+                ShortSha = (c.Sha?.Length > 7 ? c.Sha[..7] : c.Sha) ?? "",
+                Message = c.Commit?.Message?.Split('\n').FirstOrDefault() ?? "",
+                FullMessage = c.Commit?.Message ?? "",
+                Author = c.Commit?.Author?.Name ?? "Inconnu",
+                Date = c.Commit?.Author?.Date,
+                IsCurrent = !string.IsNullOrEmpty(localCommit) && 
+                           (c.Sha?.StartsWith(localCommit, StringComparison.OrdinalIgnoreCase) == true ||
+                            localCommit.StartsWith(c.Sha ?? "", StringComparison.OrdinalIgnoreCase)),
+                IsLatest = c == commits?.FirstOrDefault()
+            }).ToList() ?? new List<VersionHistoryItem>();
+
+            // Récupérer les tags/releases si disponibles
+            var releases = new List<ReleaseInfo>();
+            try
+            {
+                var releasesUrl = $"{GitRepoApiUrl}/releases?per_page=10";
+                var releasesResponse = await client.GetAsync(releasesUrl);
+                if (releasesResponse.IsSuccessStatusCode)
+                {
+                    var releasesJson = await releasesResponse.Content.ReadAsStringAsync();
+                    var githubReleases = JsonSerializer.Deserialize<List<GitHubRelease>>(releasesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    
+                    releases = githubReleases?.Select(r => new ReleaseInfo
+                    {
+                        TagName = r.TagName ?? "",
+                        Name = r.Name ?? r.TagName ?? "",
+                        Body = r.Body ?? "",
+                        PublishedAt = r.PublishedAt,
+                        IsPrerelease = r.Prerelease,
+                        HtmlUrl = r.HtmlUrl ?? ""
+                    }).ToList() ?? new List<ReleaseInfo>();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Impossible de récupérer les releases");
+            }
+
+            return Ok(new VersionHistory
+            {
+                Success = true,
+                CurrentCommit = string.IsNullOrEmpty(localCommit) ? "Non installé" : (localCommit.Length > 7 ? localCommit[..7] : localCommit),
+                Commits = history,
+                Releases = releases,
+                TotalCommits = history.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur lors de la récupération de l'historique");
+            return Ok(new { Success = false, Error = ex.Message });
+        }
+    }
+
+    [HttpGet("updates/changelog")]
+    public async Task<IActionResult> GetChangelog([FromQuery] string? from = null, [FromQuery] string? to = null)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("User-Agent", "NetGuard-Updater");
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            var localCommit = from ?? GetLocalCommit();
+            if (string.IsNullOrEmpty(localCommit))
+            {
+                // Pas de version locale, retourner les derniers commits
+                var commitsUrl = $"{GitRepoApiUrl}/commits?per_page=10";
+                var response = await client.GetAsync(commitsUrl);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    var commits = JsonSerializer.Deserialize<List<GitHubCommit>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    
+                    return Ok(new ChangelogResult
+                    {
+                        Success = true,
+                        FromVersion = "Nouvelle installation",
+                        ToVersion = commits?.FirstOrDefault()?.Sha?[..7] ?? "latest",
+                        Changes = commits?.Select(c => new ChangelogEntry
+                        {
+                            Sha = c.Sha?[..7] ?? "",
+                            Message = c.Commit?.Message?.Split('\n').FirstOrDefault() ?? "",
+                            Author = c.Commit?.Author?.Name ?? "",
+                            Date = c.Commit?.Author?.Date,
+                            Type = CategorizeCommit(c.Commit?.Message ?? "")
+                        }).ToList() ?? new List<ChangelogEntry>()
+                    });
+                }
+            }
+
+            // Comparer les versions
+            var targetCommit = to ?? "HEAD";
+            var compareUrl = $"{GitRepoApiUrl}/compare/{localCommit}...{targetCommit}";
+            var compareResponse = await client.GetAsync(compareUrl);
+            
+            if (!compareResponse.IsSuccessStatusCode)
+            {
+                return Ok(new { Success = false, Error = "Impossible de comparer les versions" });
+            }
+
+            var compareJson = await compareResponse.Content.ReadAsStringAsync();
+            var compareData = JsonSerializer.Deserialize<GitHubCompareResult>(compareJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var changes = compareData?.Commits?.Select(c => new ChangelogEntry
+            {
+                Sha = c.Sha?[..7] ?? "",
+                Message = c.Commit?.Message?.Split('\n').FirstOrDefault() ?? "",
+                Author = c.Commit?.Author?.Name ?? "",
+                Date = c.Commit?.Author?.Date,
+                Type = CategorizeCommit(c.Commit?.Message ?? "")
+            }).OrderByDescending(c => c.Date).ToList() ?? new List<ChangelogEntry>();
+
+            return Ok(new ChangelogResult
+            {
+                Success = true,
+                FromVersion = localCommit.Length > 7 ? localCommit[..7] : localCommit,
+                ToVersion = targetCommit == "HEAD" ? "Dernière version" : targetCommit,
+                Changes = changes,
+                TotalChanges = changes.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur lors de la récupération du changelog");
+            return Ok(new { Success = false, Error = ex.Message });
+        }
+    }
+
+    private static string CategorizeCommit(string message)
+    {
+        var lowerMessage = message.ToLowerInvariant();
+        if (lowerMessage.StartsWith("fix") || lowerMessage.Contains("bugfix") || lowerMessage.Contains("correction"))
+            return "fix";
+        if (lowerMessage.StartsWith("feat") || lowerMessage.Contains("feature") || lowerMessage.Contains("ajout"))
+            return "feature";
+        if (lowerMessage.StartsWith("refactor") || lowerMessage.Contains("refactoring"))
+            return "refactor";
+        if (lowerMessage.StartsWith("doc") || lowerMessage.Contains("documentation"))
+            return "docs";
+        if (lowerMessage.StartsWith("style") || lowerMessage.Contains("css") || lowerMessage.Contains("ui"))
+            return "style";
+        if (lowerMessage.StartsWith("perf") || lowerMessage.Contains("performance") || lowerMessage.Contains("optimiz"))
+            return "perf";
+        if (lowerMessage.StartsWith("test"))
+            return "test";
+        return "other";
+    }
+
     private async Task<bool> IsServiceInstalledAsync()
     {
         var result = await ExecuteCommandAsync("systemctl", $"list-unit-files {ServiceName}.service");
@@ -531,5 +705,64 @@ WantedBy=multi-user.target
     {
         public string? Name { get; set; }
         public DateTime? Date { get; set; }
+    }
+
+    public class VersionHistory
+    {
+        public bool Success { get; set; }
+        public string CurrentCommit { get; set; } = string.Empty;
+        public List<VersionHistoryItem> Commits { get; set; } = new();
+        public List<ReleaseInfo> Releases { get; set; } = new();
+        public int TotalCommits { get; set; }
+    }
+
+    public class VersionHistoryItem
+    {
+        public string Sha { get; set; } = string.Empty;
+        public string ShortSha { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string FullMessage { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
+        public DateTime? Date { get; set; }
+        public bool IsCurrent { get; set; }
+        public bool IsLatest { get; set; }
+    }
+
+    public class ReleaseInfo
+    {
+        public string TagName { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+        public DateTime? PublishedAt { get; set; }
+        public bool IsPrerelease { get; set; }
+        public string HtmlUrl { get; set; } = string.Empty;
+    }
+
+    public class ChangelogResult
+    {
+        public bool Success { get; set; }
+        public string FromVersion { get; set; } = string.Empty;
+        public string ToVersion { get; set; } = string.Empty;
+        public List<ChangelogEntry> Changes { get; set; } = new();
+        public int TotalChanges { get; set; }
+    }
+
+    public class ChangelogEntry
+    {
+        public string Sha { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
+        public DateTime? Date { get; set; }
+        public string Type { get; set; } = "other";
+    }
+
+    public class GitHubRelease
+    {
+        public string? TagName { get; set; }
+        public string? Name { get; set; }
+        public string? Body { get; set; }
+        public DateTime? PublishedAt { get; set; }
+        public bool Prerelease { get; set; }
+        public string? HtmlUrl { get; set; }
     }
 }
