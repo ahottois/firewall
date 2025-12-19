@@ -783,497 +783,280 @@ class FirewallApp {
 
     async loadDhcp() {
         try {
-            const config = await this.api('dhcp/config').catch(() => ({}));
-            const leases = await this.api('dhcp/leases').catch(() => []);
-            
-            // Remplir la configuration
-            document.getElementById('dhcp-enabled').checked = config.enabled || false;
-            document.getElementById('dhcp-start').value = config.rangeStart || '';
-            document.getElementById('dhcp-end').value = config.rangeEnd || '';
-            document.getElementById('dhcp-mask').value = config.subnetMask || '255.255.255.0';
-            document.getElementById('dhcp-gateway').value = config.gateway || '';
-            document.getElementById('dhcp-dns1').value = config.dns1 || '';
-            document.getElementById('dhcp-dns2').value = config.dns2 || '';
-            document.getElementById('dhcp-lease').value = config.leaseTime || 1440;
+            // Charger la config avec l'aide du niveau actuel
+            const [configResponse, leases, status] = await Promise.all([
+                this.api(`dhcp/config/${this.dhcpConfigLevel}`),
+                this.api('dhcp/leases').catch(() => []),
+                this.api('dhcp/status').catch(() => ({}))
+            ]);
+
+            this.dhcpHelp = configResponse.help || [];
+            const config = configResponse.config || {};
+
+            // Mettre à jour les boutons de niveau
+            document.querySelectorAll('.dhcp-level-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.level === this.dhcpConfigLevel);
+            });
+
+            // Afficher le statut
+            this.updateDhcpStatus(status);
+
+            // Remplir le formulaire selon le niveau
+            this.renderDhcpForm(config);
             
             // Afficher les baux
-            const tbody = document.getElementById('dhcp-leases-table');
-            if (tbody) {
-                if (!leases.length) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Aucun bail actif</td></tr>';
-                } else {
-                    tbody.innerHTML = leases.map(lease => `
-                        <tr>
-                            <td>${this.escapeHtml(lease.ipAddress)}</td>
-                            <td>${this.escapeHtml(lease.macAddress)}</td>
-                            <td>${this.escapeHtml(lease.hostname || '-')}</td>
-                            <td>${this.formatDate(lease.expiration)}</td>
-                        </tr>
-                    `).join('');
-                }
-            }
+            this.renderDhcpLeases(leases);
+
         } catch (error) {
             console.error('Error loading DHCP:', error);
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger la configuration DHCP', severity: 2 });
         }
     }
 
-    async loadSniffer() {
-        // Vérifier si le sniffer est actif
-        try {
-            const status = await this.api('sniffer/status').catch(() => ({ isRunning: false }));
-            
-            const startBtn = document.getElementById('btn-start-sniffer');
-            const stopBtn = document.getElementById('btn-stop-sniffer');
-            
-            if (startBtn && stopBtn) {
-                startBtn.style.display = status.isRunning ? 'none' : 'inline-flex';
-                stopBtn.style.display = status.isRunning ? 'inline-flex' : 'none';
-            }
-        } catch (error) {
-            console.error('Error loading sniffer status:', error);
+    setDhcpLevel(level) {
+        this.dhcpConfigLevel = level;
+        this.loadDhcp();
+    }
+
+    updateDhcpStatus(status) {
+        const statusEl = document.getElementById('dhcp-server-status');
+        if (statusEl) {
+            const isRunning = status.isRunning;
+            statusEl.innerHTML = `
+                <span class="status-badge ${isRunning ? 'online' : 'offline'}">
+                    ${isRunning ? 'En cours' : 'Arrêté'}
+                </span>
+                ${status.serverIp ? `<small style="margin-left: 10px;">IP: ${status.serverIp}</small>` : ''}
+                ${status.activeLeases !== undefined ? `<small style="margin-left: 10px;">Baux: ${status.activeLeases}/${status.totalIps || '?'}</small>` : ''}
+            `;
         }
     }
 
-    async startSniffer() {
-        try {
-            await this.api('sniffer/start', { method: 'POST' });
-            document.getElementById('btn-start-sniffer').style.display = 'none';
-            document.getElementById('btn-stop-sniffer').style.display = 'inline-flex';
-            this.showToast({ title: 'Sniffer', message: 'Capture démarrée', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
+    renderDhcpForm(config) {
+        const form = document.getElementById('dhcp-config-form');
+        if (!form) return;
 
-    async stopSniffer() {
-        try {
-            await this.api('sniffer/stop', { method: 'POST' });
-            document.getElementById('btn-start-sniffer').style.display = 'inline-flex';
-            document.getElementById('btn-stop-sniffer').style.display = 'none';
-            this.showToast({ title: 'Sniffer', message: 'Capture arrêtée', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
+        const getHelp = (name) => this.dhcpHelp.find(h => h.name === name);
 
-    clearSnifferPackets() {
-        const tbody = document.getElementById('sniffer-packets-table');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">En attente de paquets...</td></tr>';
-        }
-    }
+        let html = '';
 
-    async loadRouter() {
-        await this.loadRouterInterfaces();
-        await this.loadRouterMappings();
-    }
+        // Switch pour activer/désactiver
+        const enabledHelp = getHelp('enabled');
+        html += this.createDhcpField('enabled', 'Activer le serveur DHCP', config.enabled, 'checkbox', enabledHelp);
 
-    async loadRouterInterfaces() {
-        try {
-            const interfaces = await this.api('settings/interfaces').catch(() => [];
-            const container = document.getElementById('router-interfaces-list');
-            
-            if (!container) return;
-            
-            if (!interfaces.length) {
-                container.innerHTML = '<p class="empty-state">Aucune interface détectée</p>';
-                return;
-            }
-            
-            container.innerHTML = interfaces.map(iface => `
-                <div class="interface-item">
-                    <div class="interface-icon">
-                        <i class="fas ${iface.isUp ? 'fa-network-wired' : 'fa-times-circle'}"></i>
-                    </div>
-                    <div class="interface-info">
-                        <strong>${this.escapeHtml(iface.name)}</strong>
-                        <br>
-                        <small>
-                            IP: ${this.escapeHtml(iface.ipAddress || 'Non configurée')} |
-                            MAC: ${this.escapeHtml(iface.macAddress || '-')} |
-                            ${iface.isUp ? '<span class="text-success">Actif</span>' : '<span class="text-danger">Inactif</span>'}
-                        </small>
-                    </div>
-                </div>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading router interfaces:', error);
-        }
-    }
-
-    async loadRouterMappings() {
-        try {
-            const mappings = await this.api('router/mappings').catch(() => [];
-            const tbody = document.getElementById('router-mappings-table');
-            
-            if (!tbody) return;
-            
-            if (!mappings.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucune règle de transfert</td></tr>';
-                return;
-            }
-            
-            tbody.innerHTML = mappings.map(mapping => `
-                <tr>
-                    <td>${this.escapeHtml(mapping.name || '-')}</td>
-                    <td>${mapping.localPort}</td>
-                    <td>${this.escapeHtml(mapping.targetIp)}:${mapping.targetPort}</td>
-                    <td>${this.escapeHtml(mapping.protocol)}</td>
-                    <td>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteMapping(${mapping.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error('Error loading router mappings:', error);
-        }
-    }
-
-    async loadSettings() {
-        try {
-            // Charger les informations système
-            const sysInfo = await this.api('settings/system-info').catch(() => ({}));
-            const interfaces = await this.api('settings/interfaces').catch(() => [];
-            
-            // Afficher les informations système
-            const sysInfoDiv = document.getElementById('system-info');
-            if (sysInfoDiv) {
-                sysInfoDiv.innerHTML = `
-                    <div class="detail-row"><strong>OS:</strong> ${this.escapeHtml(sysInfo.osDescription || '-')}</div>
-                    <div class="detail-row"><strong>Machine:</strong> ${this.escapeHtml(sysInfo.machineName || '-')}</div>
-                    <div class="detail-row"><strong>Processeurs:</strong> ${sysInfo.processorCount || '-'}</div>
-                    <div class="detail-row"><strong>.NET:</strong> ${this.escapeHtml(sysInfo.dotnetVersion || '-')}</div>
-                    <div class="detail-row"><strong>Mémoire:</strong> ${sysInfo.totalMemoryMb ? Math.round(sysInfo.totalMemoryMb / 1024) + ' GB' : '-'}</div>
-                `;
-            }
-            
-            // Afficher les interfaces
-            const interfacesDiv = document.getElementById('interfaces-list');
-            if (interfacesDiv) {
-                interfacesDiv.innerHTML = interfaces.map(iface => `
-                    <div class="interface-item">
-                        <div class="interface-icon">
-                            <i class="fas ${iface.isUp ? 'fa-check-circle text-success' : 'fa-times-circle text-danger'}"></i>
-                        </div>
-                        <div class="interface-info">
-                            <strong>${this.escapeHtml(iface.name)}</strong>
-                            ${iface.description ? `<br><small>${this.escapeHtml(iface.description)}</small>` : ''}
-                            <br>
-                            <small>
-                                IP: ${this.escapeHtml(iface.ipAddress || '-')} |
-                                MAC: ${this.escapeHtml(iface.macAddress || '-')}
-                            </small>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        } catch (error) {
-            console.error('Error loading settings:', error);
-        }
-    }
-
-    async loadAdmin() {
-        try {
-            // Charger le statut du service
-            const status = await this.api('admin/service/status').catch(() => ({ status: 'unknown' }));
-            const version = await this.api('admin/version').catch(() => ({ version: '-' }));
-            
-            // Mettre à jour l'affichage
-            const statusText = document.getElementById('service-status-text');
-            const statusCard = document.getElementById('service-status-card');
-            const versionText = document.getElementById('app-version');
-            
-            if (statusText) {
-                statusText.textContent = status.status === 'running' ? 'En cours' : 'Arrêté';
-            }
-            if (statusCard) {
-                statusCard.classList.remove('success', 'danger');
-                statusCard.classList.add(status.status === 'running' ? 'success' : 'danger');
-            }
-            if (versionText) {
-                versionText.textContent = version.version || '1.0.0';
-            }
-        } catch (error) {
-            console.error('Error loading admin:', error);
-        }
-    }
-
-    async startService() {
-        try {
-            await this.api('admin/service/start', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Service démarré', severity: 0 });
-            this.loadAdmin();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async stopService() {
-        try {
-            await this.api('admin/service/stop', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Service arrêté', severity: 0 });
-            this.loadAdmin();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async restartService() {
-        try {
-            await this.api('admin/service/restart', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Service redémarré', severity: 0 });
-            setTimeout(() => this.loadAdmin(), 2000);
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async installService() {
-        try {
-            const result = await this.api('admin/service/install', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: result.message || 'Service installé', severity: 0 });
-            this.loadAdmin();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async uninstallService() {
-        if (!confirm('Désinstaller le service ?')) return;
-        try {
-            const result = await this.api('admin/service/uninstall', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: result.message || 'Service désinstallé', severity: 0 });
-            this.loadAdmin();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async loadServiceLogs() {
-        try {
-            const logs = await this.api('admin/logs?lines=100');
-            const logsDiv = document.getElementById('service-logs');
-            if (logsDiv) {
-                logsDiv.innerHTML = logs.map(log => {
-                    const levelClass = log.level?.toLowerCase() || '';
-                    return `<div class="log-entry ${levelClass}">
-                        <span class="log-time">${this.formatDate(log.timestamp)}</span>
-                        <span class="log-message">${this.escapeHtml(log.message)}</span>
-                    </div>`;
-                }).join('');
-                logsDiv.scrollTop = logsDiv.scrollHeight;
-            }
-        } catch (error) {
-            console.error('Error loading service logs:', error);
-        }
-    }
-
-    async checkForUpdates() {
-        const statusDiv = document.getElementById('update-status');
-        if (statusDiv) {
-            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
-        }
+        // === NIVEAU FACILE ===
+        html += '<h4 class="dhcp-section-title"><i class="fas fa-play-circle"></i> Configuration de base</h4>';
         
-        try {
-            const result = await this.api('admin/updates/check');
-            if (statusDiv) {
-                if (result.updateAvailable) {
-                    statusDiv.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-circle"></i> Mise à jour disponible: v${result.latestVersion}</span>`;
-                } else {
-                    statusDiv.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Vous êtes à jour</span>';
-                }
-            }
-        } catch (error) {
-            if (statusDiv) {
-                statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-times-circle"></i> Erreur de vérification</span>';
-            }
+        html += '<div class="form-row">';
+        html += this.createDhcpField('rangeStart', 'IP de début', config.rangeStart, 'text', getHelp('rangeStart'));
+        html += this.createDhcpField('rangeEnd', 'IP de fin', config.rangeEnd, 'text', getHelp('rangeEnd'));
+        html += '</div>';
+
+        html += this.createDhcpField('gateway', 'Passerelle (routeur)', config.gateway, 'text', getHelp('gateway'));
+
+        html += '<div class="form-row">';
+        html += this.createDhcpField('dns1', 'DNS Principal', config.dns1, 'text', getHelp('dns1'));
+        html += this.createDhcpField('dns2', 'DNS Secondaire', config.dns2, 'text', getHelp('dns2'));
+        html += '</div>';
+
+        // === NIVEAU INTERMÉDIAIRE ===
+        if (this.dhcpConfigLevel !== 'easy') {
+            html += '<h4 class="dhcp-section-title"><i class="fas fa-sliders-h"></i> Options réseau</h4>';
+            
+            html += '<div class="form-row">';
+            html += this.createDhcpField('subnetMask', 'Masque de sous-réseau', config.subnetMask, 'text', getHelp('subnetMask'));
+            html += this.createDhcpField('domainName', 'Nom de domaine', config.domainName, 'text', getHelp('domainName'));
+            html += '</div>';
+
+            html += '<div class="form-row">';
+            html += this.createDhcpField('leaseTimeMinutes', 'Durée du bail (min)', config.leaseTimeMinutes, 'number', getHelp('leaseTimeMinutes'));
+            html += this.createDhcpField('networkInterface', 'Interface réseau', config.networkInterface, 'text', getHelp('networkInterface'));
+            html += '</div>';
+
+            html += '<div class="form-row">';
+            html += this.createDhcpField('ntpServer1', 'Serveur NTP', config.ntpServer1, 'text', getHelp('ntpServer1'));
+            html += this.createDhcpField('authoritativeMode', 'Mode autoritaire', config.authoritativeMode, 'checkbox', getHelp('authoritativeMode'));
+            html += '</div>';
         }
+
+        // === NIVEAU EXPERT ===
+        if (this.dhcpConfigLevel === 'expert') {
+            html += '<h4 class="dhcp-section-title"><i class="fas fa-cogs"></i> Options avancées</h4>';
+            
+            html += '<div class="form-row">';
+            html += this.createDhcpField('renewalTimeMinutes', 'Temps T1 (min)', config.renewalTimeMinutes, 'number', getHelp('renewalTimeMinutes'));
+            html += this.createDhcpField('rebindingTimeMinutes', 'Temps T2 (min)', config.rebindingTimeMinutes, 'number', getHelp('rebindingTimeMinutes'));
+            html += '</div>';
+
+            html += '<div class="form-row">';
+            html += this.createDhcpField('minLeaseTimeMinutes', 'Bail minimum (min)', config.minLeaseTimeMinutes, 'number', getHelp('minLeaseTimeMinutes'));
+            html += this.createDhcpField('maxLeaseTimeMinutes', 'Bail maximum (min)', config.maxLeaseTimeMinutes, 'number', getHelp('maxLeaseTimeMinutes'));
+            html += '</div>';
+
+            html += '<h4 class="dhcp-section-title"><i class="fas fa-server"></i> Boot réseau (PXE)</h4>';
+            
+            html += '<div class="form-row">';
+            html += this.createDhcpField('nextServerIp', 'Serveur PXE', config.nextServerIp, 'text', getHelp('nextServerIp'));
+            html += this.createDhcpField('bootFileName', 'Fichier de boot', config.bootFileName, 'text', getHelp('bootFileName'));
+            html += '</div>';
+            
+            html += this.createDhcpField('tftpServerName', 'Serveur TFTP', config.tftpServerName, 'text', getHelp('tftpServerName'));
+
+            html += '<h4 class="dhcp-section-title"><i class="fas fa-shield-alt"></i> Sécurité</h4>';
+            
+            html += '<div class="form-row">';
+            html += this.createDhcpField('allowUnknownClients', 'Autoriser clients inconnus', config.allowUnknownClients, 'checkbox', getHelp('allowUnknownClients'));
+            html += this.createDhcpField('conflictDetection', 'Détection de conflit', config.conflictDetection, 'checkbox', getHelp('conflictDetection'));
+            html += '</div>';
+
+            html += '<div class="form-row">';
+            html += this.createDhcpField('conflictDetectionAttempts', 'Tentatives de détection', config.conflictDetectionAttempts, 'number', getHelp('conflictDetectionAttempts'));
+            html += this.createDhcpField('offerDelayMs', 'Délai offre (ms)', config.offerDelayMs, 'number', getHelp('offerDelayMs'));
+            html += '</div>';
+
+            html += this.createDhcpField('logAllPackets', 'Journaliser tous les paquets', config.logAllPackets, 'checkbox', getHelp('logAllPackets'));
+        }
+
+        form.innerHTML = html;
     }
 
-    async updateFromGithub() {
-        if (!confirm('Mettre à jour depuis GitHub ? L\'application va redémarrer.')) return;
-        
-        try {
-            await this.api('admin/updates/apply', { method: 'POST' });
-            this.showToast({ title: 'Mise à jour', message: 'Mise à jour en cours, l\'application va redémarrer...', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-    
-    showAddMappingModal() {
-        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Nouvelle règle de transfert';
-        document.getElementById('modal-body').innerHTML = `
-            <div class="form-group">
-                <label>Nom</label>
-                <input type="text" id="mapping-name" class="form-control" placeholder="Ex: Serveur Web">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Port local</label>
-                    <input type="number" id="mapping-local-port" class="form-control" placeholder="80">
+    createDhcpField(name, label, value, type, help) {
+        const helpHtml = help ? `
+            <div class="dhcp-help" title="${this.escapeHtml(help.description)}">
+                <i class="fas fa-question-circle"></i>
+                <div class="dhcp-help-tooltip">
+                    <strong>${this.escapeHtml(help.description)}</strong>
+                    ${help.example ? `<br><em>Exemple: ${this.escapeHtml(help.example)}</em>` : ''}
+                    ${help.warning ? `<br><span class="text-warning">${this.escapeHtml(help.warning)}</span>` : ''}
                 </div>
-                <div class="form-group">
-                    <label>Protocole</label>
-                    <select id="mapping-protocol" class="form-control">
-                        <option value="TCP">TCP</option>
-                        <option value="UDP">UDP</option>
-                        <option value="BOTH">TCP + UDP</option>
-                    </select>
-                </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>IP cible</label>
-                    <input type="text" id="mapping-target-ip" class="form-control" placeholder="192.168.1.100">
-                </div>
-                <div class="form-group">
-                    <label>Port cible</label>
-                    <input type="number" id="mapping-target-port" class="form-control" placeholder="80">
-                </div>
-            </div>
-        `;
-        document.getElementById('modal-footer').innerHTML = `
-            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
-            <button class="btn btn-primary" onclick="app.saveMapping()">
-                <i class="fas fa-save"></i> Enregistrer
-            </button>
-        `;
-        document.getElementById('modal').classList.add('active');
-    }
+        ` : '';
 
-    async saveMapping() {
-        const data = {
-            name: document.getElementById('mapping-name').value,
-            localPort: parseInt(document.getElementById('mapping-local-port').value),
-            targetIp: document.getElementById('mapping-target-ip').value,
-            targetPort: parseInt(document.getElementById('mapping-target-port').value),
-            protocol: document.getElementById('mapping-protocol').value
-        };
-
-        if (!data.localPort || !data.targetIp || !data.targetPort) {
-            this.showToast({ title: 'Erreur', message: 'Veuillez remplir tous les champs obligatoires', severity: 2 });
-            return;
+        if (type === 'checkbox') {
+            return `
+                <div class="form-group dhcp-field">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="dhcp-${name}" name="${name}" ${value ? 'checked' : ''}>
+                        ${this.escapeHtml(label)}
+                        ${helpHtml}
+                    </label>
+                </div>
+            `;
         }
 
-        try {
-            await this.api('router/mappings', {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
-            document.getElementById('modal').classList.remove('active');
-            this.loadRouterMappings();
-            this.showToast({ title: 'Succès', message: 'Règle ajoutée', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async deleteMapping(id) {
-        if (!confirm('Supprimer cette règle ?')) return;
-        
-        try {
-            await this.api(`router/mappings/${id}`, { method: 'DELETE' });
-            this.loadRouterMappings();
-            this.showToast({ title: 'Succès', message: 'Règle supprimée', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    showAddDeviceModal() {
-        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Ajouter un appareil';
-        document.getElementById('modal-body').innerHTML = `
-            <div class="form-group">
-                <label>Adresse MAC *</label>
-                <input type="text" id="new-device-mac" class="form-control" placeholder="AA:BB:CC:DD:EE:FF">
-            </div>
-            <div class="form-group">
-                <label>Adresse IP</label>
-                <input type="text" id="new-device-ip" class="form-control" placeholder="192.168.1.100">
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <input type="text" id="new-device-description" class="form-control" placeholder="Ex: PC Bureau">
-            </div>
-            <div class="form-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="new-device-trusted"> Appareil de confiance
+        return `
+            <div class="form-group dhcp-field">
+                <label for="dhcp-${name}">
+                    ${this.escapeHtml(label)}
+                    ${helpHtml}
                 </label>
+                <input type="${type}" id="dhcp-${name}" name="${name}" value="${this.escapeHtml(value || '')}" class="form-control">
             </div>
         `;
-        document.getElementById('modal-footer').innerHTML = `
-            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
-            <button class="btn btn-primary" onclick="app.saveNewDevice()">
-                <i class="fas fa-save"></i> Ajouter
-            </button>
-        `;
-        document.getElementById('modal').classList.add('active');
     }
 
-    async saveNewDevice() {
-        const mac = document.getElementById('new-device-mac').value.trim().toUpperCase();
-        
-        if (!mac) {
-            this.showToast({ title: 'Erreur', message: 'L\'adresse MAC est requise', severity: 2 });
-            return;
-        }
-        
-        // Valider le format MAC
-        const macRegex = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
-        if (!macRegex.test(mac)) {
-            this.showToast({ title: 'Erreur', message: 'Format MAC invalide (ex: AA:BB:CC:DD:EE:FF)', severity: 2 });
+    renderDhcpLeases(leases) {
+        const tbody = document.getElementById('dhcp-leases-table');
+        if (!tbody) return;
+
+        if (!leases || !leases.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Aucun bail actif</td></tr>';
             return;
         }
 
-        const data = {
-            macAddress: mac,
-            ipAddress: document.getElementById('new-device-ip').value.trim() || null,
-            description: document.getElementById('new-device-description').value.trim() || null,
-            isTrusted: document.getElementById('new-device-trusted').checked
-        };
-
-        try {
-            await this.api('devices', {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
-            document.getElementById('modal').classList.remove('active');
-            this.loadDevices();
-            this.showToast({ title: 'Succès', message: 'Appareil ajouté', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
+        tbody.innerHTML = leases.map(lease => `
+            <tr>
+                <td>${this.escapeHtml(lease.ipAddress)}</td>
+                <td class="device-mac">${this.escapeHtml(lease.macAddress)}</td>
+                <td>${this.escapeHtml(lease.hostname || '-')}</td>
+                <td>${this.formatDate(lease.expiration)}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="app.releaseDhcpLease('${this.escapeHtml(lease.macAddress)}')" title="Libérer">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
     }
 
     async saveDhcpConfig() {
-        const config = {
-            enabled: document.getElementById('dhcp-enabled').checked,
-            rangeStart: document.getElementById('dhcp-start').value,
-            rangeEnd: document.getElementById('dhcp-end').value,
-            subnetMask: document.getElementById('dhcp-mask').value,
-            gateway: document.getElementById('dhcp-gateway').value,
-            dns1: document.getElementById('dhcp-dns1').value,
-            dns2: document.getElementById('dhcp-dns2').value,
-            leaseTime: parseInt(document.getElementById('dhcp-lease').value) || 1440
+        const form = document.getElementById('dhcp-config-form');
+        if (!form) return;
+
+        // Collecter les données du formulaire
+        const getValue = (name) => {
+            const el = document.getElementById(`dhcp-${name}`);
+            if (!el) return undefined;
+            if (el.type === 'checkbox') return el.checked;
+            if (el.type === 'number') return parseInt(el.value) || 0;
+            return el.value;
         };
 
+        let endpoint = 'dhcp/config/easy';
+        let config = {
+            enabled: getValue('enabled'),
+            rangeStart: getValue('rangeStart'),
+            rangeEnd: getValue('rangeEnd'),
+            gateway: getValue('gateway'),
+            dns1: getValue('dns1'),
+            dns2: getValue('dns2')
+        };
+
+        if (this.dhcpConfigLevel === 'intermediate' || this.dhcpConfigLevel === 'expert') {
+            endpoint = 'dhcp/config/intermediate';
+            config = {
+                ...config,
+                subnetMask: getValue('subnetMask'),
+                leaseTimeMinutes: getValue('leaseTimeMinutes'),
+                domainName: getValue('domainName'),
+                networkInterface: getValue('networkInterface'),
+                ntpServer1: getValue('ntpServer1'),
+                authoritativeMode: getValue('authoritativeMode'),
+                staticReservations: [] // À implémenter séparément
+            };
+        }
+
+        if (this.dhcpConfigLevel === 'expert') {
+            endpoint = 'dhcp/config/expert';
+            config = {
+                ...config,
+                renewalTimeMinutes: getValue('renewalTimeMinutes'),
+                rebindingTimeMinutes: getValue('rebindingTimeMinutes'),
+                minLeaseTimeMinutes: getValue('minLeaseTimeMinutes'),
+                maxLeaseTimeMinutes: getValue('maxLeaseTimeMinutes'),
+                nextServerIp: getValue('nextServerIp'),
+                bootFileName: getValue('bootFileName'),
+                tftpServerName: getValue('tftpServerName'),
+                allowUnknownClients: getValue('allowUnknownClients'),
+                conflictDetection: getValue('conflictDetection'),
+                conflictDetectionAttempts: getValue('conflictDetectionAttempts'),
+                offerDelayMs: getValue('offerDelayMs'),
+                logAllPackets: getValue('logAllPackets')
+            };
+        }
+
         try {
-            await this.api('dhcp/config', {
+            await this.api(endpoint, {
                 method: 'POST',
                 body: JSON.stringify(config)
             });
             this.showToast({ title: 'Succès', message: 'Configuration DHCP enregistrée', severity: 0 });
+            this.loadDhcp();
         } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de sauvegarder', severity: 2 });
         }
     }
 
-    loadDashboardStats() {
-        // Alias pour loadDashboard
-        this.loadDashboard();
+    async releaseDhcpLease(macAddress) {
+        if (!confirm(`Libérer le bail pour ${macAddress} ?`)) return;
+
+        try {
+            await this.api(`dhcp/leases/${encodeURIComponent(macAddress)}`, { method: 'DELETE' });
+            this.showToast({ title: 'Succès', message: 'Bail libéré', severity: 0 });
+            this.loadDhcp();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
     }
 
     // ==========================================
