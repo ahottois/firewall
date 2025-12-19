@@ -64,10 +64,10 @@ public class AgentService : IAgentService
         {
             agent = new Agent
             {
-                Hostname = heartbeat.Hostname,
+                Hostname = heartbeat.Hostname ?? string.Empty,
                 MacAddress = hasValidMac ? normalizedMac : string.Empty,
-                IpAddress = heartbeat.IpAddress,
-                OS = heartbeat.OS,
+                IpAddress = heartbeat.IpAddress ?? string.Empty,
+                OS = heartbeat.OS ?? string.Empty,
                 RegisteredAt = DateTime.UtcNow
             };
             _context.Agents.Add(agent);

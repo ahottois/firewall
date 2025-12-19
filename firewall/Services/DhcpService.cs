@@ -217,7 +217,7 @@ public class DhcpService : BackgroundService, IDhcpService
         try
         {
             // Trouver l'IP du serveur
-            _serverIp = await GetServerIpAsync();
+            _serverIp = GetServerIp();
             if (_serverIp == 0)
             {
                 _lastError = "Impossible de déterminer l'IP du serveur";
@@ -261,7 +261,7 @@ public class DhcpService : BackgroundService, IDhcpService
         _logger.LogInformation("DHCP: Serveur arrêté");
     }
 
-    private async Task<uint> GetServerIpAsync()
+    private uint GetServerIp()
     {
         // Si une IP est configurée, l'utiliser
         if (!string.IsNullOrEmpty(_config.ServerIdentifier))
@@ -513,7 +513,7 @@ public class DhcpService : BackgroundService, IDhcpService
             clientMac, lease.Hostname, requestedIpStr, lease.Expiration.ToLocalTime());
         
         // Notifier le service de découverte d'appareils
-        await NotifyDeviceDiscoveredAsync(lease);
+        NotifyDeviceDiscovered(lease);
     }
 
     private void HandleRelease(DhcpPacket request, string clientMac)
@@ -675,7 +675,7 @@ public class DhcpService : BackgroundService, IDhcpService
         }
     }
 
-    private async Task NotifyDeviceDiscoveredAsync(DhcpLease lease)
+    private void NotifyDeviceDiscovered(DhcpLease lease)
     {
         try
         {
