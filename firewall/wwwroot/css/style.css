@@ -455,7 +455,7 @@ label, .label {
    4. COMPONENTS - BUTTONS
    ========================================== */
 .btn {
-    padding: var(--btn-padding-y) var(--btn-padding-x;
+    padding: var(--btn-padding-y) var(--btn-padding-x);
     border: none;
     border-radius: var(--border-radius-sm);
     cursor: pointer;
@@ -556,7 +556,7 @@ label, .label {
 
 .btn-outline:hover:not(:disabled) {
     background: var(--bg-hover);
-    color: var,--text-primary);
+    color: var(--text-primary);
     border-color: var(--text-muted);
 }
 
@@ -728,25 +728,6 @@ label, .label {
     border-radius: var(--border-radius-sm);
     font-size: var(--font-size-small);
     font-weight: var(--font-weight-semibold);
-}
-
-.severity-badge.severity-Critical,
-.severity-badge.severity-3 {
-    background: var(--danger-light);
-    color: var(--danger);
-}
-
-.severity-badge.severity-Warning,
-.severity-badge.severity-2 {
-    background: var(--warning-light);
-    color: var(--warning);
-}
-
-.severity-badge.severity-Info,
-.severity-badge.severity-1,
-.severity-badge.severity-0 {
-    background: var(--info-light);
-    color: var(--info);
 }
 
 /* ==========================================
