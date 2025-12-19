@@ -744,32 +744,32 @@ public class DhcpService : BackgroundService, IDhcpService
         return 0;
     }
 
-    private async Task<bool> IsIpAvailableAsync(uint ip, string clientMac)
+    private Task<bool> IsIpAvailableAsync(uint ip, string clientMac)
     {
         var ipStr = DhcpPacket.IpToString(ip);
         
         // Vérifier si dans la plage
         if (!IsIpInRange(ip))
-            return false;
+            return Task.FromResult(false);
         
         // Vérifier les IPs en conflit
         if (_conflictedIps.TryGetValue(ipStr, out var blockedUntil) && blockedUntil > DateTime.UtcNow)
-            return false;
+            return Task.FromResult(false);
         
         var reservation = _config.StaticReservations.FirstOrDefault(r => r.IpAddress == ipStr);
         if (reservation != null && NormalizeMac(reservation.MacAddress) != clientMac)
-            return false;
+            return Task.FromResult(false);
         
         var existingLease = _leases.Values.FirstOrDefault(l => l.IpAddress == ipStr);
         if (existingLease != null && existingLease.MacAddress != clientMac && existingLease.Expiration > DateTime.UtcNow)
-            return false;
+            return Task.FromResult(false);
         
         if (_pendingOffers.TryGetValue(ipStr, out var pending) && 
             pending.MacAddress != clientMac && 
             pending.Expiration > DateTime.UtcNow)
-            return false;
+            return Task.FromResult(false);
         
-        return true;
+        return Task.FromResult(true);
     }
 
     private bool IsIpInRange(uint ip)
