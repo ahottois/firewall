@@ -204,22 +204,22 @@
                     <div class="header-actions">
                         <span id="scan-status" class="scan-status"></span>
                         <button class="btn btn-primary" id="scan-network-btn" onclick="app.scanNetwork()">
-                            <i class="fas fa-search" id="scan-icon"></i> Scanner le reseau
+                            <i class="fas fa-radar" id="scan-icon"></i> Scanner le reseau
                         </button>
-                        <button class="btn btn-warning" onclick="app.cleanupDevices()" title="Supprimer les appareils Docker/fantomes">
+                        <button class="btn btn-secondary" onclick="app.cleanupDevices()" title="Supprimer les appareils Docker/fantomes">
                             <i class="fas fa-broom"></i> Nettoyer
                         </button>
                         <button class="btn btn-danger" onclick="app.purgeDevices()" title="Supprimer TOUS les appareils">
                             <i class="fas fa-trash-alt"></i> Purger
                         </button>
-                        <button class="btn btn-secondary" id="add-device-btn" onclick="app.showAddDeviceModal()">
+                        <button class="btn btn-primary" id="add-device-btn" onclick="app.showAddDeviceModal()">
                             <i class="fas fa-plus"></i> Ajouter
                         </button>
                         <div class="filter-buttons">
-                            <button class="btn btn-sm active" data-filter="all">Tous</button>
-                            <button class="btn btn-sm" data-filter="online">En ligne</button>
-                            <button class="btn btn-sm" data-filter="unknown">Inconnus</button>
-                            <button class="btn btn-sm" data-filter="blocked">Bloques</button>
+                            <button class="btn btn-sm btn-filter active" data-filter="all">Tous</button>
+                            <button class="btn btn-sm btn-filter" data-filter="online">En ligne</button>
+                            <button class="btn btn-sm btn-filter" data-filter="unknown">Inconnus</button>
+                            <button class="btn btn-sm btn-filter" data-filter="blocked">Bloques</button>
                         </div>
                     </div>
                 </div>
@@ -228,7 +228,7 @@
                     <div id="scan-logs-panel" class="scan-logs-panel" style="display: none; margin-bottom: 20px;">
                         <div class="scan-logs-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <h4 style="margin: 0;"><i class="fas fa-terminal"></i> Journal du scan</h4>
-                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-eraser"></i> Effacer</button>
                         </div>
                         <pre id="device-scan-logs" style="background: #1a1a2e; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #00ff88; margin: 0;"></pre>
                     </div>
@@ -319,9 +319,9 @@
                     <h3><i class="fas fa-video"></i> Gestion des cameras</h3>
                     <div class="header-actions">
                         <button class="btn btn-primary" id="scan-cameras-btn">
-                            <i class="fas fa-search"></i> Scanner
+                            <i class="fas fa-radar"></i> Scanner
                         </button>
-                        <button class="btn btn-secondary" id="add-camera-btn">
+                        <button class="btn btn-primary" id="add-camera-btn">
                             <i class="fas fa-plus"></i> Ajouter
                         </button>
                     </div>
@@ -331,7 +331,7 @@
                     <div id="scan-logs-panel" class="scan-logs-panel" style="display: none;">
                         <div class="scan-logs-header">
                             <h4><i class="fas fa-terminal"></i> Journal du scan</h4>
-                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-trash"></i> Effacer</button>
+                            <button class="btn btn-sm btn-secondary" onclick="app.clearScanLogs()"><i class="fas fa-eraser"></i> Effacer</button>
                         </div>
                         <div id="scan-logs" class="scan-logs"></div>
                     </div>
@@ -446,7 +446,7 @@
                         <button class="btn btn-success" onclick="app.alertHub && app.alertHub.resolveAll()">
                             <i class="fas fa-check-double"></i> Tout resoudre
                         </button>
-                        <button class="btn btn-warning" onclick="app.alertHub && app.alertHub.resetLogs()">
+                        <button class="btn btn-danger" onclick="app.alertHub && app.alertHub.resetLogs()">
                             <i class="fas fa-redo"></i> Reinitialiser
                         </button>
                     </div>
@@ -649,20 +649,20 @@
                     </div>
                     <div class="card-body">
                         <div id="pihole-actions" class="admin-buttons">
-                            <a href="/admin/" target="_blank" class="btn btn-success" id="btn-open-pihole">
+                            <a href="/admin/" target="_blank" class="btn btn-primary" id="btn-open-pihole">
                                 <i class="fas fa-external-link-alt"></i> Ouvrir Interface Web
                             </a>
-                            <button class="btn btn-primary" id="btn-enable-pihole" onclick="app.enablePihole()" style="display:none;">
+                            <button class="btn btn-success" id="btn-enable-pihole" onclick="app.enablePihole()" style="display:none;">
                                 <i class="fas fa-play"></i> Activer le blocage
                             </button>
                             <button class="btn btn-warning" id="btn-disable-pihole" onclick="app.showDisablePiholeModal()">
-                                <i class="fas fa-pause"></i> Désactiver le blocage
+                                <i class="fas fa-pause"></i> Desactiver le blocage
                             </button>
                             <button class="btn btn-secondary" id="btn-reset-pihole-pwd" onclick="app.showPiholePasswordModal()">
                                 <i class="fas fa-key"></i> Changer Mot de Passe
                             </button>
                             <button class="btn btn-danger" id="btn-uninstall-pihole" onclick="app.uninstallPihole()">
-                                <i class="fas fa-trash"></i> Désinstaller
+                                <i class="fas fa-trash"></i> Desinstaller
                             </button>
                         </div>
                     </div>
@@ -784,17 +784,17 @@
         <section id="sniffer-page" class="page">
             <div class="card">
                 <div class="card-header">
-                    <h3><i class="fas fa-microscope"></i> Packet Sniffer</h3>
+                    <h3><i class="fas fa-microscope"></i> Analyseur de paquets</h3>
                     <div class="header-actions">
                         <div id="sniffer-controls">
                             <button class="btn btn-success" id="btn-start-sniffer" onclick="app.startSniffer()">
-                                <i class="fas fa-play"></i> Démarrer
+                                <i class="fas fa-play"></i> Demarrer
                             </button>
-                            <button class="btn btn-danger" id="btn-stop-sniffer" onclick="app.stopSniffer()" style="display:none;">
-                                <i class="fas fa-stop"></i> Arrêter
+                            <button class="btn btn-warning" id="btn-stop-sniffer" onclick="app.stopSniffer()" style="display:none;">
+                                <i class="fas fa-stop"></i> Arreter
                             </button>
-                            <button class="btn btn-warning" onclick="app.clearSnifferPackets()">
-                                <i class="fas fa-trash"></i> Effacer
+                            <button class="btn btn-secondary" onclick="app.clearSnifferPackets()">
+                                <i class="fas fa-eraser"></i> Effacer
                             </button>
                         </div>
                     </div>
@@ -926,7 +926,7 @@
                             <i class="fas fa-stop"></i> Arreter
                         </button>
                         <button class="btn btn-primary" id="btn-restart-service" onclick="app.restartService()">
-                            <i class="fas fa-sync"></i> Redemarrer
+                            <i class="fas fa-redo"></i> Redemarrer
                         </button>
                     </div>
                     <div id="service-result" class="admin-result"></div>
@@ -941,7 +941,7 @@
                     <p class="admin-info">Installez WebGuard comme service systemd pour qu'il demarre automatiquement au demarrage.</p>
                     <div class="admin-buttons">
                         <button class="btn btn-success" id="btn-install-service" onclick="app.installService()">
-                            <i class="fas fa-plus-circle"></i> Installer comme service
+                            <i class="fas fa-plus-circle"></i> Installer le service
                         </button>
                         <button class="btn btn-danger" id="btn-uninstall-service" onclick="app.uninstallService()">
                             <i class="fas fa-trash"></i> Desinstaller le service
@@ -964,7 +964,7 @@
                     </div>
                     <div class="admin-buttons" style="margin-top: 15px;">
                         <button class="btn btn-primary" id="btn-update" onclick="app.updateFromGithub()">
-                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour depuis GitHub
+                            <i class="fas fa-cloud-download-alt"></i> Mettre a jour
                         </button>
                     </div>
                     <div id="update-result" class="admin-result"></div>

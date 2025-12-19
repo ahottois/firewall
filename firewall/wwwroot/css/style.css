@@ -952,6 +952,26 @@ input:checked + .slider:before {
     gap: 6px;
 }
 
+.filter-buttons .btn-filter {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: var(--btn-padding-y-sm) var(--btn-padding-x-sm);
+    font-size: var(--font-size-small);
+}
+
+.filter-buttons .btn-filter:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.filter-buttons .btn-filter.active {
+    background: var(--primary);
+    color: var(--bg-primary);
+    border-color: var(--primary);
+}
+
 /* ==========================================
    6. PAGES
    ========================================== */
