@@ -49,12 +49,12 @@ public class EvaluationResult
 public class Iso15408Service : IIso15408Service
 {
     private readonly ILogger<Iso15408Service> _logger;
-    private ProtectionProfile _protectionProfile;
-    private SecurityTarget _securityTarget;
-    private List<SecurityFunctionalRequirement> _functionalRequirements;
-    private List<SecurityAssuranceRequirement> _assuranceRequirements;
-    private List<SecurityObjective> _objectives;
-    private List<ThreatDefinition> _threats;
+    private ProtectionProfile _protectionProfile = new();
+    private SecurityTarget _securityTarget = new();
+    private List<SecurityFunctionalRequirement> _functionalRequirements = new();
+    private List<SecurityAssuranceRequirement> _assuranceRequirements = new();
+    private List<SecurityObjective> _objectives = new();
+    private List<ThreatDefinition> _threats = new();
 
     private const string ConfigPath = "iso15408_config.json";
 

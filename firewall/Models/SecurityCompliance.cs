@@ -458,7 +458,7 @@ public class ComplianceAuditResult
     public DateTime AuditDate { get; set; }
     public string? Auditor { get; set; }
     public AuditType AuditType { get; set; }
-    public AuditScope Scope { get; set; }
+    public AuditScope Scope { get; set; } = new();
     public double OverallComplianceScore { get; set; }
     public List<AuditFinding> Findings { get; set; } = new();
     public List<ControlAssessment> ControlAssessments { get; set; } = new();
