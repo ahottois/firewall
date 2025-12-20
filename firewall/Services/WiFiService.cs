@@ -18,6 +18,12 @@ public interface IWiFiService
     Task<IEnumerable<ChannelAnalysis>> ScanChannelsAsync(WiFiBand band);
     Task<int> GetRecommendedChannelAsync(WiFiBand band);
     
+    // Gestion du point d'accès
+    Task<bool> StartAccessPointAsync();
+    Task<bool> StopAccessPointAsync();
+    Task<WiFiServiceStatus> GetServiceStatusAsync();
+    Task<string> GetSetupInstructionsAsync();
+    
     // Mesh
     MeshConfig? GetMeshConfig();
     Task UpdateMeshConfigAsync(MeshConfig config);
@@ -31,6 +37,18 @@ public interface IWiFiService
     Task<bool> TestConnectionAsync();
 }
 
+public class WiFiServiceStatus
+{
+    public bool IsHostapdInstalled { get; set; }
+    public bool IsHostapdRunning { get; set; }
+    public bool HasWirelessInterface { get; set; }
+    public string? WirelessInterface { get; set; }
+    public string? CurrentSSID { get; set; }
+    public int ConnectedClients { get; set; }
+    public string? ErrorMessage { get; set; }
+    public List<string> SetupSteps { get; set; } = new();
+}
+
 public class WiFiService : IWiFiService
 {
     private readonly ILogger<WiFiService> _logger;
@@ -39,6 +57,8 @@ public class WiFiService : IWiFiService
     private readonly ConcurrentDictionary<string, MeshNode> _meshNodes = new();
     
     private const string ConfigPath = "wifi_config.json";
+    private const string HostapdConfigPath = "/etc/hostapd/hostapd.conf";
+    private const string HostapdDefaultPath = "/etc/default/hostapd";
     private static readonly bool IsLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
 
     public WiFiService(ILogger<WiFiService> logger)
@@ -46,6 +66,17 @@ public class WiFiService : IWiFiService
         _logger = logger;
         LoadConfig();
         InitializeDefaultBands();
+        
+        // Vérifier l'état au démarrage
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2000);
+            var status = await GetServiceStatusAsync();
+            if (status.HasWirelessInterface && !status.IsHostapdRunning && _config.Enabled)
+            {
+                _logger.LogWarning("WiFi: Interface sans fil détectée mais hostapd n'est pas en cours d'exécution");
+            }
+        });
     }
 
     private void InitializeDefaultBands()
@@ -120,6 +151,298 @@ public class WiFiService : IWiFiService
 
     public WiFiConfig GetConfig() => _config;
 
+    // ==========================================
+    // GESTION DU POINT D'ACCÈS
+    // ==========================================
+
+    public async Task<WiFiServiceStatus> GetServiceStatusAsync()
+    {
+        var status = new WiFiServiceStatus();
+
+        if (!IsLinux)
+        {
+            status.ErrorMessage = "La création de point d'accès WiFi n'est supportée que sur Linux";
+            status.SetupSteps.Add("Déployez WebGuard sur un système Linux avec une carte WiFi compatible");
+            return status;
+        }
+
+        try
+        {
+            // Vérifier si hostapd est installé
+            var hostapdCheck = await ExecuteCommandAsync("which", "hostapd");
+            status.IsHostapdInstalled = !string.IsNullOrWhiteSpace(hostapdCheck);
+
+            if (!status.IsHostapdInstalled)
+            {
+                status.SetupSteps.Add("Installer hostapd: sudo apt install hostapd");
+            }
+
+            // Vérifier si hostapd est en cours d'exécution
+            var serviceStatus = await ExecuteCommandAsync("systemctl", "is-active hostapd");
+            status.IsHostapdRunning = serviceStatus.Trim() == "active";
+
+            // Trouver l'interface sans fil
+            var interfaces = await GetWirelessInterfacesAsync();
+            status.HasWirelessInterface = interfaces.Any();
+            status.WirelessInterface = interfaces.FirstOrDefault();
+
+            if (!status.HasWirelessInterface)
+            {
+                status.SetupSteps.Add("Aucune interface sans fil détectée. Vérifiez que votre carte WiFi est compatible.");
+                status.SetupSteps.Add("Commande pour vérifier: iw dev");
+            }
+            else
+            {
+                // Vérifier si l'interface supporte le mode AP
+                var phyInfo = await ExecuteCommandAsync("iw", $"phy phy0 info");
+                if (!phyInfo.Contains("* AP"))
+                {
+                    status.SetupSteps.Add($"L'interface {status.WirelessInterface} ne supporte pas le mode AP (point d'accès)");
+                }
+            }
+
+            // Récupérer le SSID actuel si hostapd est actif
+            if (status.IsHostapdRunning)
+            {
+                status.CurrentSSID = _config.GlobalSSID;
+                
+                // Compter les clients
+                var clients = await GetClientsAsync();
+                status.ConnectedClients = clients.Count();
+            }
+
+            // Instructions de configuration si nécessaire
+            if (!status.IsHostapdInstalled)
+            {
+                status.SetupSteps.Add("1. Installer hostapd: sudo apt update && sudo apt install hostapd");
+                status.SetupSteps.Add("2. Démasquer le service: sudo systemctl unmask hostapd");
+                status.SetupSteps.Add("3. Activer le service: sudo systemctl enable hostapd");
+            }
+            else if (!status.IsHostapdRunning && status.HasWirelessInterface)
+            {
+                status.SetupSteps.Add("hostapd est installé mais pas en cours d'exécution.");
+                status.SetupSteps.Add("Cliquez sur 'Démarrer le point d'accès' pour l'activer.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Erreur vérification status");
+            status.ErrorMessage = ex.Message;
+        }
+
+        return status;
+    }
+
+    public async Task<string> GetSetupInstructionsAsync()
+    {
+        var status = await GetServiceStatusAsync();
+        
+        var instructions = @"
+# Configuration du Point d'Accès WiFi
+
+## Prérequis
+- Système Linux (Raspberry Pi, Ubuntu, Debian, etc.)
+- Carte WiFi supportant le mode AP (Access Point)
+- Connexion Internet via Ethernet (recommandé)
+
+## Installation
+
+### 1. Installer les paquets nécessaires
+```bash
+sudo apt update
+sudo apt install hostapd dnsmasq iptables-persistent
+```
+
+### 2. Configurer l'interface réseau
+Éditez `/etc/dhcpcd.conf` et ajoutez:
+```
+interface wlan0
+    static ip_address=192.168.4.1/24
+    nohook wpa_supplicant
+```
+
+### 3. Configurer le serveur DHCP
+Éditez `/etc/dnsmasq.conf`:
+```
+interface=wlan0
+dhcp-range=192.168.4.2,192.168.4.20,255.255.255.0,24h
+```
+
+### 4. Activer le routage IP
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+echo 'net.ipv4.ip_forward=1' | sudo tee -a /etc/sysctl.conf
+```
+
+### 5. Configurer le NAT (pour partager Internet)
+```bash
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+sudo netfilter-persistent save
+```
+
+### 6. Démarrer les services
+```bash
+sudo systemctl unmask hostapd
+sudo systemctl enable hostapd dnsmasq
+sudo systemctl start hostapd dnsmasq
+```
+
+## Configuration via WebGuard
+Une fois ces étapes terminées, vous pourrez configurer le SSID et le mot de passe directement depuis cette interface.
+";
+
+        if (status.SetupSteps.Any())
+        {
+            instructions += "\n\n## État actuel\n";
+            foreach (var step in status.SetupSteps)
+            {
+                instructions += $"- {step}\n";
+            }
+        }
+
+        return instructions;
+    }
+
+    private async Task<List<string>> GetWirelessInterfacesAsync()
+    {
+        var interfaces = new List<string>();
+        
+        try
+        {
+            // Utiliser iw pour lister les interfaces sans fil
+            var result = await ExecuteCommandAsync("iw", "dev");
+            
+            var lines = result.Split('\n');
+            foreach (var line in lines)
+            {
+                if (line.Contains("Interface"))
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        interfaces.Add(parts[1]);
+                    }
+                }
+            }
+
+            // Fallback: chercher dans /sys/class/net
+            if (!interfaces.Any() && Directory.Exists("/sys/class/net"))
+            {
+                foreach (var dir in Directory.GetDirectories("/sys/class/net"))
+                {
+                    var wirelessDir = Path.Combine(dir, "wireless");
+                    if (Directory.Exists(wirelessDir))
+                    {
+                        interfaces.Add(Path.GetFileName(dir));
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "WiFi: Erreur détection interfaces");
+        }
+
+        return interfaces;
+    }
+
+    public async Task<bool> StartAccessPointAsync()
+    {
+        if (!IsLinux)
+        {
+            _logger.LogWarning("WiFi: StartAccessPoint n'est supporté que sur Linux");
+            return false;
+        }
+
+        try
+        {
+            var status = await GetServiceStatusAsync();
+            
+            if (!status.IsHostapdInstalled)
+            {
+                _logger.LogError("WiFi: hostapd n'est pas installé");
+                return false;
+            }
+
+            if (!status.HasWirelessInterface)
+            {
+                _logger.LogError("WiFi: Aucune interface sans fil disponible");
+                return false;
+            }
+
+            // Générer la configuration hostapd
+            await GenerateHostapdConfigAsync();
+
+            // Configurer le fichier /etc/default/hostapd
+            await ConfigureHostapdDefaultAsync();
+
+            // Arrêter wpa_supplicant si actif (conflit avec hostapd)
+            await ExecuteCommandAsync("systemctl", "stop wpa_supplicant");
+
+            // Démarrer hostapd
+            var result = await ExecuteCommandAsync("systemctl", "start hostapd");
+            await Task.Delay(2000);
+
+            // Vérifier que le service est bien démarré
+            var checkStatus = await ExecuteCommandAsync("systemctl", "is-active hostapd");
+            var success = checkStatus.Trim() == "active";
+
+            if (success)
+            {
+                _config.Enabled = true;
+                SaveConfig();
+                _logger.LogInformation("WiFi: Point d'accès démarré avec SSID: {SSID}", _config.GlobalSSID);
+            }
+            else
+            {
+                // Récupérer les logs d'erreur
+                var logs = await ExecuteCommandAsync("journalctl", "-u hostapd -n 20 --no-pager");
+                _logger.LogError("WiFi: Échec démarrage hostapd. Logs:\n{Logs}", logs);
+            }
+
+            return success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Erreur démarrage point d'accès");
+            return false;
+        }
+    }
+
+    public async Task<bool> StopAccessPointAsync()
+    {
+        if (!IsLinux) return false;
+
+        try
+        {
+            await ExecuteCommandAsync("systemctl", "stop hostapd");
+            _config.Enabled = false;
+            SaveConfig();
+            _logger.LogInformation("WiFi: Point d'accès arrêté");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Erreur arrêt point d'accès");
+            return false;
+        }
+    }
+
+    private async Task ConfigureHostapdDefaultAsync()
+    {
+        var content = $"DAEMON_CONF=\"{HostapdConfigPath}\"";
+        
+        try
+        {
+            await File.WriteAllTextAsync(HostapdDefaultPath, content);
+            _logger.LogDebug("WiFi: Fichier /etc/default/hostapd configuré");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Impossible d'écrire dans {Path}", HostapdDefaultPath);
+        }
+    }
+
     public async Task UpdateConfigAsync(WiFiConfigDto dto)
     {
         _config.GlobalSSID = dto.GlobalSSID;
@@ -152,7 +475,7 @@ public class WiFiService : IWiFiService
         SaveConfig();
         await ApplyConfigAsync();
         
-        _logger.LogInformation("WiFi: Configuration mise à jour");
+        _logger.LogInformation("WiFi: Configuration mise à jour - SSID: {SSID}", _config.GlobalSSID);
     }
 
     public Task<WiFiBandConfig> GetBandConfigAsync(WiFiBand band)
@@ -198,10 +521,7 @@ public class WiFiService : IWiFiService
         config.MuMimo = dto.MuMimo;
         config.OFDMA = dto.OFDMA;
 
-        // Valider la largeur de canal selon la bande
         ValidateChannelWidth(config);
-        
-        // Calculer le débit max théorique
         config.MaxSpeed = CalculateMaxSpeed(config);
 
         SaveConfig();
@@ -215,19 +535,16 @@ public class WiFiService : IWiFiService
         switch (config.Band)
         {
             case WiFiBand.Band_2_4GHz:
-                // 2.4 GHz: max 40 MHz
                 if (config.ChannelWidth > ChannelWidth.Width_40MHz)
                     config.ChannelWidth = ChannelWidth.Width_40MHz;
                 break;
                 
             case WiFiBand.Band_5GHz:
-                // 5 GHz: max 160 MHz (avec DFS)
                 if (config.ChannelWidth > ChannelWidth.Width_160MHz)
                     config.ChannelWidth = ChannelWidth.Width_160MHz;
                 break;
                 
             case WiFiBand.Band_6GHz:
-                // 6 GHz: jusqu'à 320 MHz (WiFi 7)
                 if (config.MaxStandard != WiFiStandard.WiFi7_BE && 
                     config.ChannelWidth > ChannelWidth.Width_160MHz)
                     config.ChannelWidth = ChannelWidth.Width_160MHz;
@@ -237,7 +554,6 @@ public class WiFiService : IWiFiService
 
     private int CalculateMaxSpeed(WiFiBandConfig config)
     {
-        // Calcul simplifié basé sur WiFi 6 2x2 MIMO
         int baseSpeed = config.ChannelWidth switch
         {
             ChannelWidth.Width_20MHz => 287,
@@ -248,14 +564,13 @@ public class WiFiService : IWiFiService
             _ => 574
         };
 
-        // Ajustement selon le standard
         double multiplier = config.MaxStandard switch
         {
             WiFiStandard.WiFi4_N => 0.25,
             WiFiStandard.WiFi5_AC => 0.75,
             WiFiStandard.WiFi6_AX => 1.0,
             WiFiStandard.WiFi6E_AX => 1.0,
-            WiFiStandard.WiFi7_BE => 1.4, // WiFi 7 avec 4K-QAM
+            WiFiStandard.WiFi7_BE => 1.4,
             _ => 1.0
         };
 
@@ -279,14 +594,12 @@ public class WiFiService : IWiFiService
             var result = await ExecuteCommandAsync("hostapd_cli", "all_sta");
             if (string.IsNullOrEmpty(result)) return;
 
-            // Parser les clients (format hostapd)
-            // Ceci est une implémentation simplifiée
             var lines = result.Split('\n');
             string? currentMac = null;
             
             foreach (var line in lines)
             {
-                if (line.Contains(':') && line.Length == 17) // MAC address
+                if (line.Contains(':') && line.Length == 17)
                 {
                     currentMac = line.Trim().ToUpper();
                     if (!_clients.ContainsKey(currentMac))
@@ -355,12 +668,10 @@ public class WiFiService : IWiFiService
             MeshNodesOnline = _meshNodes.Values.Count(n => n.Status == MeshNodeStatus.Online)
         };
 
-        // Grouper par standard
         stats.ClientsByStandard = clientList
             .GroupBy(c => c.Standard)
             .ToDictionary(g => g.Key, g => g.Count());
 
-        // Grouper par canal
         stats.ClientsByChannel = clientList
             .GroupBy(c => c.Channel)
             .ToDictionary(g => g.Key, g => g.Count());
@@ -383,7 +694,6 @@ public class WiFiService : IWiFiService
                 Networks = new List<WiFiNetwork>()
             };
 
-            // Scanner les réseaux sur ce canal
             if (IsLinux)
             {
                 var networks = await ScanNetworksOnChannelAsync(band, channel);
@@ -394,7 +704,6 @@ public class WiFiService : IWiFiService
             }
             else
             {
-                // Simulation pour Windows/dev
                 var random = new Random(channel);
                 analysis.NetworkCount = random.Next(0, 8);
                 analysis.Utilization = random.Next(5, 70);
@@ -404,7 +713,6 @@ public class WiFiService : IWiFiService
             analyses.Add(analysis);
         }
 
-        // Marquer les canaux recommandés
         var minInterference = analyses.Min(a => a.InterferenceScore);
         foreach (var a in analyses.Where(a => a.InterferenceScore <= minInterference + 10 && !a.IsDFS))
         {
@@ -420,7 +728,7 @@ public class WiFiService : IWiFiService
         {
             WiFiBand.Band_2_4GHz => new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 },
             WiFiBand.Band_5GHz => new List<int> { 36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165 },
-            WiFiBand.Band_6GHz => Enumerable.Range(1, 59).Select(i => i * 4 + 1).ToList(), // 1, 5, 9, ... 233
+            WiFiBand.Band_6GHz => Enumerable.Range(1, 59).Select(i => i * 4 + 1).ToList(),
             _ => new List<int>()
         };
     }
@@ -428,7 +736,6 @@ public class WiFiService : IWiFiService
     private bool IsDFSChannel(WiFiBand band, int channel)
     {
         if (band != WiFiBand.Band_5GHz) return false;
-        // Canaux DFS en Europe: 52-64, 100-144
         return (channel >= 52 && channel <= 64) || (channel >= 100 && channel <= 144);
     }
 
@@ -438,9 +745,7 @@ public class WiFiService : IWiFiService
         
         try
         {
-            // Utiliser iw pour scanner
             var result = await ExecuteCommandAsync("iw", $"dev wlan0 scan freq {ChannelToFrequency(band, channel)}");
-            // Parser les résultats (implémentation simplifiée)
         }
         catch (Exception ex)
         {
@@ -466,7 +771,7 @@ public class WiFiService : IWiFiService
         if (!networks.Any()) return 0;
         
         var score = networks.Count * 10;
-        score += networks.Count(n => n.RSSI > -50) * 20; // Réseaux forts = plus d'interférence
+        score += networks.Count(n => n.RSSI > -50) * 20;
         score += networks.Count(n => n.ChannelWidth >= ChannelWidth.Width_80MHz) * 15;
         
         return Math.Min(100, score);
@@ -495,7 +800,6 @@ public class WiFiService : IWiFiService
         
         if (config.Enabled && string.IsNullOrEmpty(config.MeshKey))
         {
-            // Générer une clé Mesh si non définie
             config.MeshKey = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
         }
 
@@ -515,7 +819,6 @@ public class WiFiService : IWiFiService
 
     public Task<IEnumerable<MeshNode>> GetMeshNodesAsync()
     {
-        // Mettre à jour le statut des nœuds
         foreach (var node in _meshNodes.Values)
         {
             if (node.LastSeen < DateTime.UtcNow.AddMinutes(-2))
@@ -553,7 +856,6 @@ public class WiFiService : IWiFiService
             SaveConfig();
         }
 
-        // Tenter de connecter le nœud
         await TryConnectMeshNodeAsync(node);
 
         _logger.LogInformation("WiFi Mesh: Nœud ajouté {Name} ({Mac})", node.Name, node.MacAddress);
@@ -570,7 +872,6 @@ public class WiFiService : IWiFiService
                 SaveConfig();
             }
 
-            // Déconnecter le nœud
             await DisconnectMeshNodeAsync(node);
             
             _logger.LogInformation("WiFi Mesh: Nœud supprimé {Name}", node.Name);
@@ -585,10 +886,8 @@ public class WiFiService : IWiFiService
 
         foreach (var node in _meshNodes.Values.Where(n => n.Status == MeshNodeStatus.Online))
         {
-            // Évaluer la qualité du backhaul
             if (node.BackhaulQuality < 50 && node.BackhaulType == MeshBackhaul.WiFi)
             {
-                // Suggérer un meilleur parent ou passer en Ethernet si disponible
                 var betterParent = FindBetterParentNode(node);
                 if (betterParent != null)
                 {
@@ -599,7 +898,6 @@ public class WiFiService : IWiFiService
             }
         }
 
-        // Optimiser la sélection des canaux backhaul
         if (_config.Mesh.DedicatedBackhaulBand.HasValue)
         {
             var optimalChannel = await GetRecommendedChannelAsync(_config.Mesh.DedicatedBackhaulBand.Value);
@@ -625,7 +923,6 @@ public class WiFiService : IWiFiService
 
         try
         {
-            // Configurer 802.11s mesh
             await ExecuteCommandAsync("iw", $"dev wlan0 interface add mesh0 type mp");
             await ExecuteCommandAsync("iw", $"dev mesh0 mesh join {_config.Mesh?.MeshId}");
             _logger.LogInformation("WiFi Mesh: Activé");
@@ -653,8 +950,6 @@ public class WiFiService : IWiFiService
 
     private Task TryConnectMeshNodeAsync(MeshNode node)
     {
-        // Implémentation de la connexion d'un nœud mesh
-        // En production, cela utiliserait WPS ou un protocole propriétaire
         return Task.CompletedTask;
     }
 
@@ -701,7 +996,13 @@ public class WiFiService : IWiFiService
         try
         {
             await GenerateHostapdConfigAsync();
-            await ExecuteCommandAsync("systemctl", "reload hostapd");
+            
+            // Vérifier si hostapd est actif avant de recharger
+            var status = await ExecuteCommandAsync("systemctl", "is-active hostapd");
+            if (status.Trim() == "active")
+            {
+                await ExecuteCommandAsync("systemctl", "reload hostapd");
+            }
         }
         catch (Exception ex)
         {
@@ -717,39 +1018,80 @@ public class WiFiService : IWiFiService
 
     private async Task GenerateHostapdConfigAsync()
     {
-        // Générer la configuration hostapd
         var mainBand = _config.Bands.FirstOrDefault(b => b.Enabled && b.Band == WiFiBand.Band_5GHz)
                     ?? _config.Bands.FirstOrDefault(b => b.Enabled);
 
         if (mainBand == null) return;
 
-        var config = $@"interface=wlan0
+        // Trouver l'interface sans fil
+        var interfaces = await GetWirelessInterfacesAsync();
+        var wifiInterface = interfaces.FirstOrDefault() ?? "wlan0";
+
+        var hwMode = mainBand.Band == WiFiBand.Band_2_4GHz ? "g" : "a";
+        var channel = mainBand.Channel == 0 ? "1" : mainBand.Channel.ToString(); // Utiliser canal 1 par défaut au lieu de acs_survey
+        
+        // Sécurité WPA
+        var wpaKeyMgmt = mainBand.Security >= WiFiSecurity.WPA3_Personal ? "SAE" : "WPA-PSK";
+        var wpaPairwise = "CCMP";
+        var ieeeFlags = mainBand.Security >= WiFiSecurity.WPA3_Personal ? "ieee80211w=2" : "";
+
+        var config = $@"# Configuration générée par WebGuard
+interface={wifiInterface}
 driver=nl80211
-ssid={mainBand.SSID}
-hw_mode={(mainBand.Band == WiFiBand.Band_2_4GHz ? "g" : "a")}
-channel={(mainBand.Channel == 0 ? "acs_survey" : mainBand.Channel.ToString())}
+ssid={_config.GlobalSSID}
+hw_mode={hwMode}
+channel={channel}
 wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
-ignore_broadcast_ssid={((_config.HideSSID ? 1 : 0))}
+ignore_broadcast_ssid={(_config.HideSSID ? 1 : 0)}
+
+# Sécurité WPA
 wpa=2
-wpa_passphrase={mainBand.Password}
-wpa_key_mgmt={(mainBand.Security >= WiFiSecurity.WPA3_Personal ? "SAE" : "WPA-PSK")}
-wpa_pairwise=CCMP
+wpa_passphrase={_config.GlobalPassword}
+wpa_key_mgmt={wpaKeyMgmt}
+wpa_pairwise={wpaPairwise}
 rsn_pairwise=CCMP
+{ieeeFlags}
+
+# WiFi N (802.11n)
+ieee80211n=1
+ht_capab=[HT40+][SHORT-GI-20][SHORT-GI-40]
+
+# WiFi AC (802.11ac) - pour 5GHz
+{(mainBand.Band != WiFiBand.Band_2_4GHz ? "ieee80211ac=1" : "")}
 
 # WiFi 6 (802.11ax)
-ieee80211ax={(mainBand.MaxStandard >= WiFiStandard.WiFi6_AX ? 1 : 0)}
+{(mainBand.MaxStandard >= WiFiStandard.WiFi6_AX ? $@"ieee80211ax=1
 he_su_beamformer={(mainBand.Beamforming ? 1 : 0)}
-he_mu_beamformer={(mainBand.MuMimo ? 1 : 0)}
+he_mu_beamformer={(mainBand.MuMimo ? 1 : 0)}" : "")}
 
-# Fast Roaming
-ieee80211r={(_config.FastRoaming ? 1 : 0)}
+# Fast Roaming (802.11r)
+{(_config.FastRoaming ? @"ieee80211r=1
 ft_over_ds=0
-mobility_domain=a1b2
+mobility_domain=a1b2" : "")}
+
+# Régulation pays (important!)
+country_code=FR
+ieee80211d=1
 ";
 
-        await File.WriteAllTextAsync("/etc/hostapd/hostapd.conf", config);
+        try
+        {
+            // Créer le répertoire si nécessaire
+            var dir = Path.GetDirectoryName(HostapdConfigPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            await File.WriteAllTextAsync(HostapdConfigPath, config);
+            _logger.LogInformation("WiFi: Configuration hostapd générée pour interface {Interface}", wifiInterface);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Impossible d'écrire la configuration hostapd");
+        }
     }
 
     private async Task<string> ExecuteCommandAsync(string command, string arguments)
@@ -771,7 +1113,13 @@ mobility_domain=a1b2
 
             process.Start();
             var output = await process.StandardOutput.ReadToEndAsync();
+            var error = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
+
+            if (!string.IsNullOrEmpty(error) && process.ExitCode != 0)
+            {
+                _logger.LogDebug("WiFi: Erreur commande {Command}: {Error}", command, error);
+            }
 
             return output;
         }
@@ -791,7 +1139,6 @@ mobility_domain=a1b2
                 var json = File.ReadAllText(ConfigPath);
                 _config = JsonSerializer.Deserialize<WiFiConfig>(json) ?? new WiFiConfig();
                 
-                // Charger les nœuds Mesh
                 if (_config.Mesh?.Nodes != null)
                 {
                     foreach (var node in _config.Mesh.Nodes)

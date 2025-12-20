@@ -18,6 +18,82 @@ public class WiFiController : ControllerBase
     }
 
     // ==========================================
+    // STATUT ET GESTION DU SERVICE
+    // ==========================================
+
+    /// <summary>
+    /// Obtenir le statut détaillé du service WiFi
+    /// </summary>
+    [HttpGet("status")]
+    public async Task<ActionResult<WiFiServiceStatus>> GetServiceStatus()
+    {
+        var status = await _wifiService.GetServiceStatusAsync();
+        return Ok(status);
+    }
+
+    /// <summary>
+    /// Démarrer le point d'accès WiFi
+    /// </summary>
+    [HttpPost("start")]
+    public async Task<ActionResult> StartAccessPoint()
+    {
+        try
+        {
+            var success = await _wifiService.StartAccessPointAsync();
+            if (success)
+            {
+                return Ok(new { message = "Point d'accès WiFi démarré avec succès" });
+            }
+            else
+            {
+                var status = await _wifiService.GetServiceStatusAsync();
+                return BadRequest(new { 
+                    message = "Impossible de démarrer le point d'accès WiFi",
+                    steps = status.SetupSteps,
+                    error = status.ErrorMessage
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur démarrage point d'accès WiFi");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Arrêter le point d'accès WiFi
+    /// </summary>
+    [HttpPost("stop")]
+    public async Task<ActionResult> StopAccessPoint()
+    {
+        try
+        {
+            var success = await _wifiService.StopAccessPointAsync();
+            if (success)
+            {
+                return Ok(new { message = "Point d'accès WiFi arrêté" });
+            }
+            return BadRequest(new { message = "Impossible d'arrêter le point d'accès WiFi" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur arrêt point d'accès WiFi");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Obtenir les instructions de configuration complètes
+    /// </summary>
+    [HttpGet("setup-instructions")]
+    public async Task<ActionResult> GetSetupInstructions()
+    {
+        var instructions = await _wifiService.GetSetupInstructionsAsync();
+        return Ok(new { instructions });
+    }
+
+    // ==========================================
     // CONFIGURATION GLOBALE
     // ==========================================
 
@@ -487,14 +563,21 @@ public class WiFiController : ControllerBase
         var config = _wifiService.GetConfig();
         var stats = await _wifiService.GetStatsAsync();
         var meshConfig = _wifiService.GetMeshConfig();
+        var status = await _wifiService.GetServiceStatusAsync();
 
         return Ok(new
         {
             Enabled = config.Enabled,
+            Running = status.IsHostapdRunning,
             SSID = config.GlobalSSID,
             Security = config.GlobalSecurity.ToString(),
             SmartConnect = config.SmartConnect,
             GuestEnabled = config.GuestNetworkEnabled,
+            WirelessInterface = status.WirelessInterface,
+            HasWirelessInterface = status.HasWirelessInterface,
+            IsHostapdInstalled = status.IsHostapdInstalled,
+            SetupRequired = status.SetupSteps.Any(),
+            SetupSteps = status.SetupSteps,
             Bands = config.Bands.Select(b => new
             {
                 b.Band,

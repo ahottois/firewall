@@ -1346,6 +1346,12 @@ class FirewallApp {
 
     async loadWiFi() {
         try {
+            // D'abord vérifier le statut du service
+            const status = await this.api('wifi/status').catch(() => ({}));
+            
+            // Afficher les instructions de configuration si nécessaire
+            this.displayWiFiStatus(status);
+
             const [config, stats] = await Promise.all([
                 this.api('wifi/config').catch(() => ({})),
                 this.api('wifi/stats').catch(() => ({}))
@@ -1354,8 +1360,17 @@ class FirewallApp {
             // Mettre à jour les stats
             const statusCard = document.getElementById('wifi-status-card');
             const statusText = document.getElementById('wifi-status-text');
-            if (statusText) statusText.textContent = config.enabled ? 'Actif' : 'Inactif';
-            if (statusCard) statusCard.className = `stat-card ${config.enabled ? 'success' : 'danger'}`;
+            
+            if (status.isHostapdRunning) {
+                if (statusText) statusText.textContent = 'Actif';
+                if (statusCard) statusCard.className = 'stat-card success';
+            } else if (status.hasWirelessInterface) {
+                if (statusText) statusText.textContent = 'Prêt';
+                if (statusCard) statusCard.className = 'stat-card warning';
+            } else {
+                if (statusText) statusText.textContent = 'Non disponible';
+                if (statusCard) statusCard.className = 'stat-card danger';
+            }
             
             const totalClients = document.getElementById('wifi-clients-total');
             if (totalClients) totalClients.textContent = stats.totalClients || 0;
@@ -1416,545 +1431,114 @@ class FirewallApp {
         } catch (error) {
             console.error('Error loading WiFi:', error);
         }
-    }
+    },
 
-    updateBandsUI(bands) {
-        const bandMap = { 24: 'Band_2_4GHz', 50: 'Band_5GHz', 60: 'Band_6GHz' };
-        
-        bands.forEach(band => {
-            const bandId = band.band === 'Band_2_4GHz' || band.band === 24 ? '24' :
-                          band.band === 'Band_5GHz' || band.band === 50 ? '50' : '60';
-            
-            const enabledEl = document.getElementById(`band-${bandId}-enabled`);
-            if (enabledEl) enabledEl.checked = band.enabled;
+    displayWiFiStatus(status) {
+        // Supprimer l'ancien panneau de statut s'il existe
+        const existingPanel = document.getElementById('wifi-status-panel');
+        if (existingPanel) existingPanel.remove();
 
-            const clientsEl = document.getElementById(`band-${bandId}-clients`);
-            if (clientsEl) clientsEl.textContent = band.connectedClients || 0;
+        // Si pas d'interface sans fil ou hostapd non installé, afficher les instructions
+        if (!status.hasWirelessInterface || !status.isHostapdInstalled || status.setupSteps?.length > 0) {
+            const wifiPage = document.getElementById('wifi-page');
+            if (!wifiPage) return;
 
-            const speedEl = document.getElementById(`band-${bandId}-speed`);
-            if (speedEl) speedEl.textContent = band.maxSpeed || 0;
-
-            const channelEl = document.getElementById(`band-${bandId}-channel`);
-            if (channelEl) channelEl.textContent = band.channel === 0 ? 'Auto' : band.channel;
-
-            const standardEl = document.getElementById(`band-${bandId}-standard`);
-            if (standardEl) {
-                const standardNames = {
-                    4: 'WiFi 4', 5: 'WiFi 5', 6: 'WiFi 6', 61: 'WiFi 6E', 7: 'WiFi 7'
-                };
-                standardEl.textContent = standardNames[band.maxStandard] || 'WiFi 6';
-            }
-        });
-    }
-
-    async saveWiFiConfig() {
-        const config = {
-            globalSSID: document.getElementById('wifi-ssid')?.value,
-            globalPassword: document.getElementById('wifi-password')?.value || undefined,
-            globalSecurity: parseInt(document.getElementById('wifi-security')?.value) || 4,
-            enabled: document.getElementById('wifi-enabled')?.checked ?? true,
-            hideSSID: document.getElementById('wifi-hide-ssid')?.checked ?? false,
-            smartConnect: document.getElementById('wifi-smart-connect')?.checked ?? true,
-            fastRoaming: document.getElementById('wifi-fast-roaming')?.checked ?? true,
-            guestNetworkEnabled: document.getElementById('guest-enabled')?.checked ?? false,
-            guestSSID: document.getElementById('guest-ssid')?.value,
-            guestPassword: document.getElementById('guest-password')?.value || undefined,
-            guestBandwidthLimit: parseInt(document.getElementById('guest-bandwidth')?.value) || 50
-        };
-
-        try {
-            await this.api('wifi/config', {
-                method: 'POST',
-                body: JSON.stringify(config)
-            });
-            this.showToast({ title: 'Succès', message: 'Configuration WiFi enregistrée', severity: 0 });
-            this.loadWiFi();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async toggleWiFi() {
-        const enabled = document.getElementById('wifi-enabled')?.checked;
-        await this.saveWiFiConfig();
-    }
-
-    async toggleBand(bandId) {
-        const bandMap = { '24': 24, '50': 50, '60': 60 };
-        const band = bandMap[bandId];
-        const enabled = document.getElementById(`band-${bandId}-enabled`)?.checked;
-
-        try {
-            await this.api(`wifi/bands/${band}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    band: band,
-                    enabled: enabled,
-                    useGlobalSSID: true,
-                    channel: 0,
-                    channelWidth: bandId === '24' ? 40 : 80,
-                    txPower: 100,
-                    bandSteering: true,
-                    beamforming: true,
-                    muMimo: true,
-                    ofdma: true
-                })
-            });
-            this.showToast({ title: 'Succès', message: `Bande ${bandId === '24' ? '2.4' : bandId === '50' ? '5' : '6'} GHz ${enabled ? 'activée' : 'désactivée'}`, severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    showBandConfig(bandId) {
-        const bandNames = { '24': '2.4 GHz', '50': '5 GHz', '60': '6 GHz' };
-        const bandMap = { '24': 24, '50': 50, '60': 60 };
-        
-        document.getElementById('modal-title').innerHTML = `<i class="fas fa-broadcast-tower"></i> Configuration ${bandNames[bandId]}`;
-        document.getElementById('modal-body').innerHTML = `
-            <div class="form-group">
-                <label>Canal (0 = Auto)</label>
-                <select id="band-channel-select" class="form-control">
-                    <option value="0">Auto</option>
-                    ${this.getChannelOptions(bandId)}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Largeur de canal</label>
-                <select id="band-width-select" class="form-control">
-                    <option value="20">20 MHz</option>
-                    <option value="40" ${bandId === '24' ? 'selected' : ''}>40 MHz</option>
-                    ${bandId !== '24' ? '<option value="80" selected>80 MHz</option>' : ''}
-                    ${bandId !== '24' ? '<option value="160">160 MHz</option>' : ''}
-                    ${bandId === '60' ? '<option value="320">320 MHz (WiFi 7)</option>' : ''}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Puissance de transmission: <span id="tx-power-value">100</span>%</label>
-                <input type="range" id="band-tx-power" class="form-range" min="10" max="100" value="100" 
-                       oninput="document.getElementById('tx-power-value').textContent = this.value">
-            </div>
-            <div class="form-group">
-                <label>Standard WiFi maximum</label>
-                <select id="band-standard-select" class="form-control">
-                    ${bandId === '24' ? '<option value="4">WiFi 4 (N)</option>' : ''}
-                    ${bandId === '50' ? '<option value="5">WiFi 5 (AC)</option>' : ''}
-                    <option value="6" selected>WiFi 6 (AX)</option>
-                    ${bandId === '60' ? '<option value="61">WiFi 6E (AX)</option>' : ''}
-                    <option value="7">WiFi 7 (BE)</option>
-                </select>
-            </div>
-            <h4 style="margin-top: 20px;">Fonctionnalités avancées</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="band-beamforming" checked>
-                        Beamforming
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="band-mumimo" checked>
-                        MU-MIMO
-                    </label>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="band-ofdma" checked>
-                        OFDMA (WiFi 6+)
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="band-steering" checked>
-                        Band Steering
-                    </label>
-                </div>
-            </div>
-        `;
-        document.getElementById('modal-footer').innerHTML = `
-            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
-            <button class="btn btn-primary" onclick="app.saveBandConfig('${bandId}')">
-                <i class="fas fa-save"></i> Enregistrer
-            </button>
-        `;
-        document.getElementById('modal').classList.add('active');
-    }
-
-    getChannelOptions(bandId) {
-        if (bandId === '24') {
-            return [1,2,3,4,5,6,7,8,9,10,11].map(c => 
-                `<option value="${c}" ${c === 1 || c === 6 || c === 11 ? 'style="font-weight:bold;"' : ''}>${c}${c === 1 || c === 6 || c === 11 ? ' (Recommandé)' : ''}</option>`
-            ).join('');
-        } else if (bandId === '50') {
-            const channels = [36,40,44,48,52,56,60,64,100,104,108,112,116,120,124,128,132,136,140,144,149,153,157,161,165];
-            return channels.map(c => {
-                const isDFS = c >= 52 && c <= 144;
-                return `<option value="${c}">${c}${isDFS ? ' (DFS)' : ''}</option>`;
-            }).join('');
-        } else {
-            const channels = [];
-            for (let i = 1; i <= 233; i += 4) channels.push(i);
-            return channels.slice(0, 20).map(c => `<option value="${c}">${c}</option>`).join('');
-        }
-    }
-
-    async saveBandConfig(bandId) {
-        const bandMap = { '24': 24, '50': 50, '60': 60 };
-        const config = {
-            band: bandMap[bandId],
-            enabled: document.getElementById(`band-${bandId}-enabled`)?.checked ?? true,
-            useGlobalSSID: true,
-            channel: parseInt(document.getElementById('band-channel-select')?.value) || 0,
-            channelWidth: parseInt(document.getElementById('band-width-select')?.value) || 80,
-            txPower: parseInt(document.getElementById('band-tx-power')?.value) || 100,
-            security: parseInt(document.getElementById('wifi-security')?.value) || 4,
-            bandSteering: document.getElementById('band-steering')?.checked ?? true,
-            beamforming: document.getElementById('band-beamforming')?.checked ?? true,
-            muMimo: document.getElementById('band-mumimo')?.checked ?? true,
-            ofdma: document.getElementById('band-ofdma')?.checked ?? true
-        };
-
-        try {
-            await this.api(`wifi/bands/${bandMap[bandId]}`, {
-                method: 'PUT',
-                body: JSON.stringify(config)
-            });
-            document.getElementById('modal').classList.remove('active');
-            this.showToast({ title: 'Succès', message: 'Configuration de la bande enregistrée', severity: 0 });
-            this.loadWiFi();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async loadWiFiClients() {
-        try {
-            const clients = await this.api('wifi/clients');
-            const tbody = document.getElementById('wifi-clients-table');
-            if (!tbody) return;
-
-            if (!clients || !clients.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun client connecté</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = clients.map(client => {
-                const signalClass = client.rssi > -50 ? 'success' : client.rssi > -70 ? 'warning' : 'danger';
-                const bandName = client.band === 24 || client.band === 'Band_2_4GHz' ? '2.4 GHz' :
-                                client.band === 50 || client.band === 'Band_5GHz' ? '5 GHz' : '6 GHz';
-                const standardName = { 4: 'WiFi 4', 5: 'WiFi 5', 6: 'WiFi 6', 61: 'WiFi 6E', 7: 'WiFi 7' }[client.standard] || '-';
-                
-                return `
-                    <tr>
-                        <td>
-                            <div class="device-info">
-                                <strong>${this.escapeHtml(client.hostname || client.macAddress)}</strong>
-                                <small>${this.escapeHtml(client.ipAddress || '-')}</small>
+            const panelHtml = `
+                <div id="wifi-status-panel" class="card" style="margin-bottom: 20px; border-left: 4px solid ${status.hasWirelessInterface ? 'var(--warning)' : 'var(--danger)'};">
+                    <div class="card-header">
+                        <h3><i class="fas fa-info-circle"></i> Configuration requise</h3>
+                        <div class="header-actions">
+                            ${status.hasWirelessInterface && status.isHostapdInstalled && !status.isHostapdRunning ? `
+                                <button class="btn btn-success" onclick="app.startWiFiAccessPoint()">
+                                    <i class="fas fa-play"></i> Démarrer le WiFi
+                                </button>
+                            ` : ''}
+                            ${status.isHostapdRunning ? `
+                                <button class="btn btn-warning" onclick="app.stopWiFiAccessPoint()">
+                                    <i class="fas fa-stop"></i> Arrêter le WiFi
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-secondary" onclick="app.showWiFiSetupInstructions()">
+                                <i class="fas fa-book"></i> Guide complet
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
+                            <div class="status-check ${status.hasWirelessInterface ? 'success' : 'error'}">
+                                <i class="fas fa-${status.hasWirelessInterface ? 'check-circle' : 'times-circle'}"></i>
+                                Interface sans fil: ${status.wirelessInterface || 'Non détectée'}
                             </div>
-                        </td>
-                        <td><span class="badge">${bandName}</span></td>
-                        <td>
-                            <span class="signal-indicator ${signalClass}">
-                                <i class="fas fa-signal"></i> ${client.rssi} dBm
-                            </span>
-                        </td>
-                        <td>${client.txRate || 0} / ${client.rxRate || 0} Mbps</td>
-                        <td><span class="badge">${standardName}</span></td>
-                        <td>${client.meshNodeId ? this.escapeHtml(client.meshNodeId) : 'Principal'}</td>
-                        <td>${this.formatDuration(client.connectionTime)}</td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (error) {
-            console.error('Error loading WiFi clients:', error);
-        }
-    }
-
-    formatDuration(seconds) {
-        if (!seconds) return '-';
-        if (seconds < 60) return `${seconds}s`;
-        if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-        return `${Math.floor(seconds / 86400)}j`;
-    }
-
-    async refreshWiFiClients() {
-        await this.loadWiFiClients();
-        this.showToast({ title: 'Actualisation', message: 'Liste des clients mise à jour', severity: 0 });
-    }
-
-    // Mesh
-    async toggleMesh() {
-        const enabled = document.getElementById('mesh-enabled')?.checked;
-        
-        try {
-            await this.api('wifi/mesh/config', {
-                method: 'POST',
-                body: JSON.stringify({
-                    enabled: enabled,
-                    meshId: 'NetGuard-Mesh',
-                    role: 0, // Controller
-                    preferredBackhaul: 0, // Auto
-                    allowDaisyChain: true,
-                    maxHops: 2,
-                    autoOptimization: true
-                })
-            });
-            
-            if (enabled) {
-                await this.loadMeshTopology();
-            } else {
-                document.getElementById('mesh-empty').style.display = 'block';
-                document.getElementById('mesh-nodes-list').style.display = 'none';
-            }
-            
-            this.showToast({ title: 'Mesh', message: enabled ? 'Mode Mesh activé' : 'Mode Mesh désactivé', severity: 0 });
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async loadMeshTopology() {
-        try {
-            const [topology, nodes] = await Promise.all([
-                this.api('wifi/mesh/topology').catch(() => ({})),
-                this.api('wifi/mesh/nodes').catch(() => [])
-            ]);
-
-            const emptyEl = document.getElementById('mesh-empty');
-            const listEl = document.getElementById('mesh-nodes-list');
-
-            if (!nodes || nodes.length === 0) {
-                if (emptyEl) emptyEl.style.display = 'block';
-                if (listEl) listEl.style.display = 'none';
-                return;
-            }
-
-            if (emptyEl) emptyEl.style.display = 'none';
-            if (listEl) {
-                listEl.style.display = 'grid';
-                listEl.innerHTML = nodes.map(node => this.createMeshNodeCard(node)).join('');
-            }
-        } catch (error) {
-            console.error('Error loading mesh topology:', error);
-        }
-    }
-
-    createMeshNodeCard(node) {
-        const statusClass = node.status === 1 || node.status === 'Online' ? 'online' : 'offline';
-        const statusText = node.status === 1 || node.status === 'Online' ? 'En ligne' : 'Hors ligne';
-        const backhaulIcon = node.backhaulType === 1 || node.backhaulType === 'Ethernet' ? 'fa-ethernet' : 'fa-wifi';
-        const roleText = node.role === 0 || node.role === 'Controller' ? 'Contrôleur' : 'Satellite';
-
-        return `
-            <div class="mesh-node-card ${statusClass}">
-                <div class="mesh-node-header">
-                    <i class="fas ${node.role === 0 ? 'fa-server' : 'fa-satellite'}"></i>
-                    <div>
-                        <h4>${this.escapeHtml(node.name || 'Nœud')}</h4>
-                        <span class="mesh-role">${roleText}</span>
-                    </div>
-                    <span class="status-badge ${statusClass}">${statusText}</span>
-                </div>
-                <div class="mesh-node-info">
-                    <div class="mesh-stat">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <span>${this.escapeHtml(node.location || 'Non défini')}</span>
-                    </div>
-                    <div class="mesh-stat">
-                        <i class="fas fa-network-wired"></i>
-                        <span>${this.escapeHtml(node.ipAddress || '-')}</span>
-                    </div>
-                    <div class="mesh-stat">
-                        <i class="fas ${backhaulIcon}"></i>
-                        <span>${node.backhaulSpeed || 0} Mbps</span>
-                    </div>
-                    <div class="mesh-stat">
-                        <i class="fas fa-users"></i>
-                        <span>${node.connectedClients || 0} clients</span>
-                    </div>
-                </div>
-                <div class="mesh-backhaul-quality">
-                    <span>Qualité backhaul:</span>
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${node.backhaulQuality || 0}%; background: ${node.backhaulQuality > 70 ? 'var(--success)' : node.backhaulQuality > 40 ? 'var(--warning)' : 'var(--danger)'}"></div>
-                    </div>
-                    <span>${node.backhaulQuality || 0}%</span>
-                </div>
-                ${node.role !== 0 ? `
-                    <button class="btn btn-sm btn-danger" onclick="app.removeMeshNode('${node.id}')">
-                        <i class="fas fa-trash"></i> Supprimer
-                    </button>
-                ` : ''}
-            </div>
-        `;
-    }
-
-    showAddMeshNodeModal() {
-        document.getElementById('modal-title').innerHTML = '<i class="fas fa-satellite"></i> Ajouter un nœud Mesh';
-        document.getElementById('modal-body').innerHTML = `
-            <p class="text-muted">Ajoutez un nouveau satellite pour étendre la couverture WiFi</p>
-            <div class="form-group">
-                <label>Adresse MAC du nœud</label>
-                <input type="text" id="mesh-node-mac" class="form-control" placeholder="AA:BB:CC:DD:EE:FF">
-            </div>
-            <div class="form-group">
-                <label>Nom</label>
-                <input type="text" id="mesh-node-name" class="form-control" placeholder="Satellite Salon">
-            </div>
-            <div class="form-group">
-                <label>Emplacement</label>
-                <input type="text" id="mesh-node-location" class="form-control" placeholder="Salon, Étage, etc.">
-            </div>
-        `;
-        document.getElementById('modal-footer').innerHTML = `
-            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
-            <button class="btn btn-primary" onclick="app.addMeshNode()">
-                <i class="fas fa-plus"></i> Ajouter
-            </button>
-        `;
-        document.getElementById('modal').classList.add('active');
-    }
-
-    async addMeshNode() {
-        const request = {
-            macAddress: document.getElementById('mesh-node-mac')?.value,
-            name: document.getElementById('mesh-node-name')?.value,
-            location: document.getElementById('mesh-node-location')?.value
-        };
-
-        try {
-            await this.api('wifi/mesh/nodes', {
-                method: 'POST',
-                body: JSON.stringify(request)
-            });
-            document.getElementById('modal').classList.remove('active');
-            this.showToast({ title: 'Succès', message: 'Nœud Mesh ajouté', severity: 0 });
-            this.loadMeshTopology();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async removeMeshNode(nodeId) {
-        if (!confirm('Supprimer ce nœud Mesh ?')) return;
-
-        try {
-            await this.api(`wifi/mesh/nodes/${nodeId}`, { method: 'DELETE' });
-            this.showToast({ title: 'Succès', message: 'Nœud supprimé', severity: 0 });
-            this.loadMeshTopology();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async optimizeMesh() {
-        try {
-            await this.api('wifi/mesh/optimize', { method: 'POST' });
-            this.showToast({ title: 'Mesh', message: 'Optimisation en cours...', severity: 0 });
-            setTimeout(() => this.loadMeshTopology(), 3000);
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async toggleGuestNetwork() {
-        await this.saveWiFiConfig();
-    }
-
-    async scanWiFiChannels() {
-        const bandId = document.getElementById('channel-scan-band')?.value || '50';
-        const bandMap = { '24': 24, '50': 50, '60': 60 };
-        const container = document.getElementById('channel-analysis');
-        
-        if (container) {
-            container.innerHTML = '<p class="text-muted"><i class="fas fa-spinner fa-spin"></i> Analyse en cours...</p>';
-        }
-
-        try {
-            const analysis = await this.api(`wifi/channels/scan/${bandMap[bandId]}`);
-            
-            if (container && analysis && analysis.length) {
-                container.innerHTML = analysis.map(ch => {
-                    const utilizationClass = ch.utilization < 30 ? 'success' : ch.utilization < 60 ? 'warning' : 'danger';
-                    return `
-                        <div class="channel-bar ${ch.isRecommended ? 'recommended' : ''} ${ch.isDFS ? 'dfs' : ''}">
-                            <div class="channel-fill" style="height: ${ch.utilization}%; background: var(--${utilizationClass})"></div>
-                            <div class="channel-label">
-                                <span class="channel-number">${ch.channel}</span>
-                                <span class="channel-networks">${ch.networkCount} réseaux</span>
-                                ${ch.isRecommended ? '<i class="fas fa-star" title="Recommandé"></i>' : ''}
-                                ${ch.isDFS ? '<i class="fas fa-radar" title="Canal DFS"></i>' : ''}
+                            <div class="status-check ${status.isHostapdInstalled ? 'success' : 'error'}">
+                                <i class="fas fa-${status.isHostapdInstalled ? 'check-circle' : 'times-circle'}"></i>
+                                hostapd: ${status.isHostapdInstalled ? 'Installé' : 'Non installé'}
+                            </div>
+                            <div class="status-check ${status.isHostapdRunning ? 'success' : 'warning'}">
+                                <i class="fas fa-${status.isHostapdRunning ? 'check-circle' : 'exclamation-circle'}"></i>
+                                Point d'accès: ${status.isHostapdRunning ? 'Actif' : 'Inactif'}
                             </div>
                         </div>
-                    `;
-                }).join('');
-            }
+                        ${status.setupSteps?.length > 0 ? `
+                            <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                                <h4 style="margin-bottom: 10px;"><i class="fas fa-tasks"></i> Étapes à suivre:</h4>
+                                <ul style="margin: 0; padding-left: 20px;">
+                                    ${status.setupSteps.map(step => `<li style="margin-bottom: 5px;">${this.escapeHtml(step)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                        ${status.errorMessage ? `
+                            <div class="alert alert-danger" style="margin-top: 15px;">
+                                <i class="fas fa-exclamation-triangle"></i> ${this.escapeHtml(status.errorMessage)}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Insérer au début de la page WiFi
+            wifiPage.insertAdjacentHTML('afterbegin', panelHtml);
+        }
+    },
+
+    async startWiFiAccessPoint() {
+        try {
+            this.showToast({ title: 'WiFi', message: 'Démarrage du point d\'accès...', severity: 0 });
+            const result = await this.api('wifi/start', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Point d\'accès WiFi démarré', severity: 0 });
+            await this.loadWiFi();
         } catch (error) {
-            if (container) {
-                container.innerHTML = `<p class="text-danger">Erreur: ${this.escapeHtml(error.message)}</p>`;
-            }
+            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de démarrer le WiFi', severity: 2 });
+            await this.loadWiFi(); // Recharger pour afficher les instructions
         }
-    }
+    },
 
-    navigateTo(page) {
-        // Update nav
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.page === page);
-        });
-
-        // Update pages
-        document.querySelectorAll('.page').forEach(p => {
-            p.classList.toggle('active', p.id === `${page}-page`);
-        });
-
-        // Update title - Titres uniformisés en français
-        const titles = {
-            dashboard: 'Tableau de bord',
-            devices: 'Appareils',
-            agents: 'Agents',
-            cameras: 'Cameras',
-            alerts: 'Journaux',
-            traffic: 'Trafic reseau',
-            pihole: 'Pi-hole',
-            dhcp: 'Serveur DHCP',
-            wifi: 'WiFi Multi-Bandes',
-            protocols: 'Protocoles Réseau',
-            setup: 'Installation',
-            sniffer: 'Analyse de paquets',
-            router: 'Regles de securite',
-            settings: 'Parametres',
-            admin: 'Administration',
-            parental: 'Controle parental',
-            reports: 'Rapports'
-        };
-        document.getElementById('page-title').textContent = titles[page] || page;
-
-        this.currentPage = page;
-
-        // Load page data
-        switch (page) {
-            case 'dashboard': this.loadDashboard(); break;
-            case 'devices': this.loadDevices(); break;
-            case 'agents': this.loadAgents(); break;
-            case 'alerts': this.loadAlerts(); break;
-            case 'pihole': this.loadPihole(); break;
-            case 'parental': this.loadParental(); break;
-            case 'cameras': this.loadCameras(); break;
-            case 'traffic': this.loadTraffic(); break;
-            case 'dhcp': this.loadDhcp(); break;
-            case 'wifi': this.loadWiFi(); break;
-            case 'protocols': this.loadProtocols(); break;
-            case 'sniffer': this.loadSniffer(); break;
-            case 'router': this.loadRouter(); break;
-            case 'settings': this.loadSettings(); break;
-            case 'admin': this.loadAdmin(); break;
+    async stopWiFiAccessPoint() {
+        try {
+            await this.api('wifi/stop', { method: 'POST' });
+            this.showToast({ title: 'WiFi', message: 'Point d\'accès arrêté', severity: 0 });
+            await this.loadWiFi();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
         }
-    }
-}
+    },
 
-// Instanciation de l'application au chargement de la page
-const app = new FirewallApp();
+    async showWiFiSetupInstructions() {
+        try {
+            const result = await this.api('wifi/setup-instructions');
+            
+            document.getElementById('modal-title').innerHTML = '<i class="fas fa-wifi"></i> Configuration du Point d\'Accès WiFi';
+            document.getElementById('modal-body').innerHTML = `
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <pre style="white-space: pre-wrap; background: var(--bg-secondary); padding: 15px; border-radius: 8px; font-size: 0.9rem;">${this.escapeHtml(result.instructions)}</pre>
+                </div>
+            `;
+            document.getElementById('modal-footer').innerHTML = `
+                <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Fermer</button>
+            `;
+            document.getElementById('modal').classList.add('active');
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: 'Impossible de charger les instructions', severity: 2 });
+        }
+    },
+
+    // ...existing code for updateBandsUI, saveWiFiConfig, etc...
