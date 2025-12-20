@@ -12,17 +12,20 @@ public class ComplianceController : ControllerBase
     private readonly IIso27001Service _iso27001Service;
     private readonly IIso15408Service _iso15408Service;
     private readonly IComplianceAuditService _auditService;
+    private readonly IRealComplianceService _realComplianceService;
 
     public ComplianceController(
         ILogger<ComplianceController> logger,
         IIso27001Service iso27001Service,
         IIso15408Service iso15408Service,
-        IComplianceAuditService auditService)
+        IComplianceAuditService auditService,
+        IRealComplianceService realComplianceService)
     {
         _logger = logger;
         _iso27001Service = iso27001Service;
         _iso15408Service = iso15408Service;
         _auditService = auditService;
+        _realComplianceService = realComplianceService;
     }
 
     #region Dashboard
@@ -34,6 +37,40 @@ public class ComplianceController : ControllerBase
     public ActionResult<ComplianceDashboard> GetDashboard()
     {
         return Ok(_auditService.GetDashboard());
+    }
+
+    #endregion
+
+    #region Real Compliance Checks (Vérifications automatiques)
+
+    /// <summary>
+    /// Exécuter toutes les vérifications automatiques de conformité
+    /// </summary>
+    [HttpGet("checks")]
+    public async Task<ActionResult<RealComplianceSummary>> RunAllChecks()
+    {
+        var summary = await _realComplianceService.GetRealComplianceSummaryAsync();
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// Vérifier un contrôle spécifique
+    /// </summary>
+    [HttpGet("checks/{controlId}")]
+    public async Task<ActionResult<ComplianceCheckResult>> CheckControl(string controlId)
+    {
+        var result = await _realComplianceService.CheckControlAsync(controlId);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Obtenir le résumé de conformité réelle (sans ré-exécuter les checks)
+    /// </summary>
+    [HttpPost("checks/run")]
+    public async Task<ActionResult<List<ComplianceCheckResult>>> RunChecks()
+    {
+        var results = await _realComplianceService.RunAllChecksAsync();
+        return Ok(results);
     }
 
     #endregion

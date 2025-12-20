@@ -6,6 +6,7 @@ let currentTab = 'dashboard';
 let iso27001Controls = [];
 let iso15408Data = {};
 let editingRiskId = null;
+let realComplianceResults = null;
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,14 +42,20 @@ function initTabs() {
 // Dashboard
 async function loadDashboard() {
     try {
-        const response = await fetch(`${API_BASE}/dashboard`);
-        const data = await response.json();
+        // Charger le dashboard ET les vérifications automatiques en parallèle
+        const [data, realChecks] = await Promise.all([
+            fetch(`${API_BASE}/dashboard`).then(r => r.json()),
+            fetch(`${API_BASE}/checks`).then(r => r.json()).catch(() => null)
+        ]);
         
-        // ISO 27001 Score
-        updateProgressRing('iso27001-ring', data.iso27001.compliancePercentage);
+        realComplianceResults = realChecks;
+        
+        // ISO 27001 Score - utiliser le score réel si disponible
+        const realScore = realChecks ? realChecks.compliancePercentage : data.iso27001.compliancePercentage;
+        updateProgressRing('iso27001-ring', realScore);
         const score27001 = document.getElementById('iso27001-score');
-        score27001.textContent = `${data.iso27001.compliancePercentage}%`;
-        score27001.className = `score-value ${getScoreClass(data.iso27001.compliancePercentage)}`;
+        score27001.textContent = `${realScore.toFixed(1)}%`;
+        score27001.className = `score-value ${getScoreClass(realScore)}`;
         
         // ISO 15408 Score
         const avgScore = (data.iso15408.functionalCompliancePercentage + data.iso15408.assuranceCompliancePercentage) / 2;
@@ -57,6 +64,11 @@ async function loadDashboard() {
         score15408.textContent = `${avgScore.toFixed(1)}%`;
         score15408.className = `score-value ${getScoreClass(avgScore)}`;
         document.getElementById('eal-badge').textContent = `EAL${data.iso15408.targetEal}`;
+        
+        // Afficher les vérifications automatiques
+        if (realChecks) {
+            renderRealComplianceChecks(realChecks);
+        }
         
         // Tâches prioritaires
         const tasksList = document.getElementById('upcoming-tasks');
@@ -109,8 +121,510 @@ async function loadDashboard() {
     }
 }
 
+// Afficher les vérifications de conformité réelles
+function renderRealComplianceChecks(data) {
+    const container = document.getElementById('real-compliance-checks');
+    if (!container) return;
+    
+    const statusIcons = {
+        'Compliant': '?',
+        'PartiallyCompliant': '??',
+        'NonCompliant': '?',
+        'NotVerifiable': '?',
+        'Error': '??'
+    };
+    
+    const statusColors = {
+        'Compliant': 'var(--success-color)',
+        'PartiallyCompliant': 'var(--warning-color)',
+        'NonCompliant': 'var(--danger-color)',
+        'NotVerifiable': 'var(--text-secondary)',
+        'Error': 'var(--danger-color)'
+    };
+    
+    // Grouper par statut
+    const byStatus = {
+        'NonCompliant': [],
+        'PartiallyCompliant': [],
+        'Compliant': [],
+        'NotVerifiable': [],
+        'Error': []
+    };
+    
+    data.checkResults.forEach(r => {
+        if (byStatus[r.status]) {
+            byStatus[r.status].push(r);
+        }
+    });
+    
+    let html = `
+        <div class="compliance-summary-bar">
+            <div class="summary-stat compliant">
+                <span class="stat-number">${data.compliant}</span>
+                <span class="stat-label">Conforme</span>
+            </div>
+            <div class="summary-stat partial">
+                <span class="stat-number">${data.partiallyCompliant}</span>
+                <span class="stat-label">Partiel</span>
+            </div>
+            <div class="summary-stat non-compliant">
+                <span class="stat-number">${data.nonCompliant}</span>
+                <span class="stat-label">Non conforme</span>
+            </div>
+            <div class="summary-stat not-verifiable">
+                <span class="stat-number">${data.notVerifiable}</span>
+                <span class="stat-label">N/A</span>
+            </div>
+        </div>
+        <div class="compliance-checks-grid">
+    `;
+    
+    // Afficher d'abord les non-conformes, puis les partiels, puis les conformes
+    [...byStatus['NonCompliant'], ...byStatus['PartiallyCompliant'], ...byStatus['Compliant'], ...byStatus['NotVerifiable']].forEach(check => {
+        html += `
+            <div class="compliance-check-card ${check.status.toLowerCase()}" onclick="showCheckDetails('${check.controlId}')">
+                <div class="check-header">
+                    <span class="check-icon">${statusIcons[check.status] || '?'}</span>
+                    <span class="check-id">${check.controlId}</span>
+                </div>
+                <div class="check-title">${check.controlTitle}</div>
+                <div class="check-message">${check.message}</div>
+                ${check.recommendation ? `<div class="check-recommendation"><strong>?</strong> ${check.recommendation}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    // Ajouter la date de vérification
+    html += `<div class="check-timestamp">Dernière vérification: ${formatDate(data.checkedAt)}</div>`;
+    
+    container.innerHTML = html;
+}
+
+// Afficher les détails d'un contrôle
+async function showCheckDetails(controlId) {
+    try {
+        const result = await fetch(`${API_BASE}/checks/${controlId}`).then(r => r.json());
+        
+        let detailsHtml = '<div class="check-details-grid">';
+        
+        for (const [key, value] of Object.entries(result.details || {})) {
+            detailsHtml += `
+                <div class="detail-item">
+                    <span class="detail-key">${formatDetailKey(key)}</span>
+                    <span class="detail-value">${formatDetailValue(value)}</span>
+                </div>
+            `;
+        }
+        
+        detailsHtml += '</div>';
+        
+        // Créer le modal
+        const existingModal = document.getElementById('check-details-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'check-details-modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="document.getElementById('check-details-modal').remove();">&times;</span>
+                <h2>${getStatusEmoji(result.status)} ${result.controlId} - ${result.controlTitle}</h2>
+                <div class="check-status-badge ${result.status.toLowerCase()}">${getStatusLabel(result.status)}</div>
+                <p class="check-detail-message">${result.message}</p>
+                ${result.recommendation ? `<div class="recommendation-box"><strong>Recommandation:</strong> ${result.recommendation}</div>` : ''}
+                <h3>Détails de la vérification</h3>
+                ${detailsHtml}
+                <div class="check-time">Vérifié le: ${formatDate(result.checkedAt)}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.onclick = function(e) {
+            if (e.target === modal) modal.remove();
+        };
+    } catch (error) {
+        console.error('Erreur chargement détails:', error);
+    }
+}
+
+function formatDetailKey(key) {
+    return key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+}
+
+function formatDetailValue(value) {
+    if (typeof value === 'boolean') {
+        return value ? '? Oui' : '? Non';
+    }
+    if (Array.isArray(value)) {
+        return value.join(', ') || '-';
+    }
+    if (typeof value === 'object') {
+        return JSON.stringify(value, null, 2);
+    }
+    return value ?? '-';
+}
+
+function getStatusEmoji(status) {
+    const emojis = {
+        'Compliant': '?',
+        'PartiallyCompliant': '??',
+        'NonCompliant': '?',
+        'NotVerifiable': '?',
+        'Error': '??'
+    };
+    return emojis[status] || '?';
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        'Compliant': 'Conforme',
+        'PartiallyCompliant': 'Partiellement conforme',
+        'NonCompliant': 'Non conforme',
+        'NotVerifiable': 'Non vérifiable',
+        'Error': 'Erreur'
+    };
+    return labels[status] || status;
+}
+
+// Forcer la re-vérification
+async function runComplianceChecks() {
+    const container = document.getElementById('real-compliance-checks');
+    if (container) {
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Vérification en cours...</div>';
+    }
+    
+    try {
+        const results = await fetch(`${API_BASE}/checks/run`, { method: 'POST' }).then(r => r.json());
+        realComplianceResults = { checkResults: results };
+        
+        // Recalculer le résumé
+        const summary = {
+            totalChecks: results.length,
+            compliant: results.filter(r => r.status === 'Compliant').length,
+            partiallyCompliant: results.filter(r => r.status === 'PartiallyCompliant').length,
+            nonCompliant: results.filter(r => r.status === 'NonCompliant').length,
+            notVerifiable: results.filter(r => r.status === 'NotVerifiable').length,
+            errors: results.filter(r => r.status === 'Error').length,
+            checkResults: results,
+            checkedAt: new Date().toISOString()
+        };
+        summary.compliancePercentage = summary.totalChecks > 0 ?
+            ((summary.compliant + summary.partiallyCompliant * 0.5) / summary.totalChecks * 100) : 0;
+        
+        renderRealComplianceChecks(summary);
+        showNotification('Vérification terminée', 'success');
+    } catch (error) {
+        console.error('Erreur vérification:', error);
+        if (container) {
+            container.innerHTML = '<div class="error">Erreur lors de la vérification</div>';
+        }
+        showNotification('Erreur lors de la vérification', 'error');
+    }
+}
+
+// Dashboard
+async function loadDashboard() {
+    try {
+        // Charger le dashboard ET les vérifications automatiques en parallèle
+        const [data, realChecks] = await Promise.all([
+            fetch(`${API_BASE}/dashboard`).then(r => r.json()),
+            fetch(`${API_BASE}/checks`).then(r => r.json()).catch(() => null)
+        ]);
+        
+        realComplianceResults = realChecks;
+        
+        // ISO 27001 Score - utiliser le score réel si disponible
+        const realScore = realChecks ? realChecks.compliancePercentage : data.iso27001.compliancePercentage;
+        updateProgressRing('iso27001-ring', realScore);
+        const score27001 = document.getElementById('iso27001-score');
+        score27001.textContent = `${realScore.toFixed(1)}%`;
+        score27001.className = `score-value ${getScoreClass(realScore)}`;
+        
+        // ISO 15408 Score
+        const avgScore = (data.iso15408.functionalCompliancePercentage + data.iso15408.assuranceCompliancePercentage) / 2;
+        updateProgressRing('iso15408-ring', avgScore);
+        const score15408 = document.getElementById('iso15408-score');
+        score15408.textContent = `${avgScore.toFixed(1)}%`;
+        score15408.className = `score-value ${getScoreClass(avgScore)}`;
+        document.getElementById('eal-badge').textContent = `EAL${data.iso15408.targetEal}`;
+        
+        // Afficher les vérifications automatiques
+        if (realChecks) {
+            renderRealComplianceChecks(realChecks);
+        }
+        
+        // Tâches prioritaires
+        const tasksList = document.getElementById('upcoming-tasks');
+        if (data.upcomingTasks.length > 0) {
+            tasksList.innerHTML = data.upcomingTasks.map(task => `
+                <li class="task-item">
+                    <span class="task-priority ${task.priority.toLowerCase()}"></span>
+                    <div>
+                        <strong>${task.taskType}</strong><br>
+                        <small>${task.description}</small><br>
+                        <small class="text-muted">Échéance: ${formatDate(task.dueDate)}</small>
+                    </div>
+                </li>
+            `).join('');
+        } else {
+            tasksList.innerHTML = '<li class="task-item">Aucune tâche prioritaire</li>';
+        }
+        
+        // Risques majeurs
+        const risksDiv = document.getElementById('top-risks');
+        if (data.topRisks.length > 0) {
+            risksDiv.innerHTML = data.topRisks.map(risk => `
+                <div class="finding-card ${risk.riskLevel.toLowerCase()}">
+                    <strong>${risk.assetName}</strong>
+                    <p>${risk.threatDescription}</p>
+                    <small>Score: ${risk.riskScore} | ${risk.status}</small>
+                </div>
+            `).join('');
+        } else {
+            risksDiv.innerHTML = '<p>Aucun risque majeur identifié</p>';
+        }
+        
+        // Constatations ouvertes
+        const findingsDiv = document.getElementById('open-findings');
+        if (data.openFindings.length > 0) {
+            findingsDiv.innerHTML = data.openFindings.map(finding => `
+                <div class="finding-card ${finding.severity.toLowerCase()}">
+                    <strong>[${finding.controlId}] ${getSeverityLabel(finding.severity)}</strong>
+                    <p>${finding.description}</p>
+                    ${finding.recommendation ? `<small><em>Recommandation: ${finding.recommendation}</em></small>` : ''}
+
+                </div>
+            `).join('');
+        } else {
+            findingsDiv.innerHTML = '<p class="success">? Aucune constatation ouverte</p>';
+        }
+        
+    } catch (error) {
+        console.error('Erreur chargement dashboard:', error);
+    }
+}
+
+// Afficher les vérifications de conformité réelles
+function renderRealComplianceChecks(data) {
+    const container = document.getElementById('real-compliance-checks');
+    if (!container) return;
+    
+    const statusIcons = {
+        'Compliant': '?',
+        'PartiallyCompliant': '??',
+        'NonCompliant': '?',
+        'NotVerifiable': '?',
+        'Error': '??'
+    };
+    
+    const statusColors = {
+        'Compliant': 'var(--success-color)',
+        'PartiallyCompliant': 'var(--warning-color)',
+        'NonCompliant': 'var(--danger-color)',
+        'NotVerifiable': 'var(--text-secondary)',
+        'Error': 'var(--danger-color)'
+    };
+    
+    // Grouper par statut
+    const byStatus = {
+        'NonCompliant': [],
+        'PartiallyCompliant': [],
+        'Compliant': [],
+        'NotVerifiable': [],
+        'Error': []
+    };
+    
+    data.checkResults.forEach(r => {
+        if (byStatus[r.status]) {
+            byStatus[r.status].push(r);
+        }
+    });
+    
+    let html = `
+        <div class="compliance-summary-bar">
+            <div class="summary-stat compliant">
+                <span class="stat-number">${data.compliant}</span>
+                <span class="stat-label">Conforme</span>
+            </div>
+            <div class="summary-stat partial">
+                <span class="stat-number">${data.partiallyCompliant}</span>
+                <span class="stat-label">Partiel</span>
+            </div>
+            <div class="summary-stat non-compliant">
+                <span class="stat-number">${data.nonCompliant}</span>
+                <span class="stat-label">Non conforme</span>
+            </div>
+            <div class="summary-stat not-verifiable">
+                <span class="stat-number">${data.notVerifiable}</span>
+                <span class="stat-label">N/A</span>
+            </div>
+        </div>
+        <div class="compliance-checks-grid">
+    `;
+    
+    // Afficher d'abord les non-conformes, puis les partiels, puis les conformes
+    [...byStatus['NonCompliant'], ...byStatus['PartiallyCompliant'], ...byStatus['Compliant'], ...byStatus['NotVerifiable']].forEach(check => {
+        html += `
+            <div class="compliance-check-card ${check.status.toLowerCase()}" onclick="showCheckDetails('${check.controlId}')">
+                <div class="check-header">
+                    <span class="check-icon">${statusIcons[check.status] || '?'}</span>
+                    <span class="check-id">${check.controlId}</span>
+                </div>
+                <div class="check-title">${check.controlTitle}</div>
+                <div class="check-message">${check.message}</div>
+                ${check.recommendation ? `<div class="check-recommendation"><strong>?</strong> ${check.recommendation}</div>` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    // Ajouter la date de vérification
+    html += `<div class="check-timestamp">Dernière vérification: ${formatDate(data.checkedAt)}</div>`;
+    
+    container.innerHTML = html;
+}
+
+// Afficher les détails d'un contrôle
+async function showCheckDetails(controlId) {
+    try {
+        const result = await fetch(`${API_BASE}/checks/${controlId}`).then(r => r.json());
+        
+        let detailsHtml = '<div class="check-details-grid">';
+        
+        for (const [key, value] of Object.entries(result.details || {})) {
+            detailsHtml += `
+                <div class="detail-item">
+                    <span class="detail-key">${formatDetailKey(key)}</span>
+                    <span class="detail-value">${formatDetailValue(value)}</span>
+                </div>
+            `;
+        }
+        
+        detailsHtml += '</div>';
+        
+        // Créer le modal
+        const existingModal = document.getElementById('check-details-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'check-details-modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close" onclick="document.getElementById('check-details-modal').remove();">&times;</span>
+                <h2>${getStatusEmoji(result.status)} ${result.controlId} - ${result.controlTitle}</h2>
+                <div class="check-status-badge ${result.status.toLowerCase()}">${getStatusLabel(result.status)}</div>
+                <p class="check-detail-message">${result.message}</p>
+                ${result.recommendation ? `<div class="recommendation-box"><strong>Recommandation:</strong> ${result.recommendation}</div>` : ''}
+                <h3>Détails de la vérification</h3>
+                ${detailsHtml}
+                <div class="check-time">Vérifié le: ${formatDate(result.checkedAt)}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        modal.onclick = function(e) {
+            if (e.target === modal) modal.remove();
+        };
+    } catch (error) {
+        console.error('Erreur chargement détails:', error);
+    }
+}
+
+function formatDetailKey(key) {
+    return key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+}
+
+function formatDetailValue(value) {
+    if (typeof value === 'boolean') {
+        return value ? '? Oui' : '? Non';
+    }
+    if (Array.isArray(value)) {
+        return value.join(', ') || '-';
+    }
+    if (typeof value === 'object') {
+        return JSON.stringify(value, null, 2);
+    }
+    return value ?? '-';
+}
+
+function getStatusEmoji(status) {
+    const emojis = {
+        'Compliant': '?',
+        'PartiallyCompliant': '??',
+        'NonCompliant': '?',
+        'NotVerifiable': '?',
+        'Error': '??'
+    };
+    return emojis[status] || '?';
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        'Compliant': 'Conforme',
+        'PartiallyCompliant': 'Partiellement conforme',
+        'NonCompliant': 'Non conforme',
+        'NotVerifiable': 'Non vérifiable',
+        'Error': 'Erreur'
+    };
+    return labels[status] || status;
+}
+
+// Forcer la re-vérification
+async function runComplianceChecks() {
+    const container = document.getElementById('real-compliance-checks');
+    if (container) {
+        container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Vérification en cours...</div>';
+    }
+    
+    try {
+        const results = await fetch(`${API_BASE}/checks/run`, { method: 'POST' }).then(r => r.json());
+        realComplianceResults = { checkResults: results };
+        
+        // Recalculer le résumé
+        const summary = {
+            totalChecks: results.length,
+            compliant: results.filter(r => r.status === 'Compliant').length,
+            partiallyCompliant: results.filter(r => r.status === 'PartiallyCompliant').length,
+            nonCompliant: results.filter(r => r.status === 'NonCompliant').length,
+            notVerifiable: results.filter(r => r.status === 'NotVerifiable').length,
+            errors: results.filter(r => r.status === 'Error').length,
+            checkResults: results,
+            checkedAt: new Date().toISOString()
+        };
+        summary.compliancePercentage = summary.totalChecks > 0 ?
+            ((summary.compliant + summary.partiallyCompliant * 0.5) / summary.totalChecks * 100) : 0;
+        
+        renderRealComplianceChecks(summary);
+        showNotification('Vérification terminée', 'success');
+    } catch (error) {
+        console.error('Erreur vérification:', error);
+        if (container) {
+            container.innerHTML = '<div class="error">Erreur lors de la vérification</div>';
+        }
+        showNotification('Erreur lors de la vérification', 'error');
+    }
+}
+
+// …existing code for updateProgressRing, getScoreClass, loadIso27001Controls, etc...
+
 function updateProgressRing(id, percentage) {
     const circle = document.getElementById(id);
+    if (!circle) return;
+    
     const circumference = 2 * Math.PI * 65;
     circle.style.strokeDasharray = circumference;
     circle.style.strokeDashoffset = circumference - (percentage / 100) * circumference;
@@ -139,6 +653,11 @@ async function loadIso27001Controls() {
         const response = await fetch(url);
         iso27001Controls = await response.json();
         
+        // Charger aussi les vérifications automatiques pour ce groupe
+        if (!realComplianceResults) {
+            realComplianceResults = await fetch(`${API_BASE}/checks`).then(r => r.json()).catch(() => null);
+        }
+        
         renderIso27001Controls();
     } catch (error) {
         console.error('Erreur chargement contrôles ISO 27001:', error);
@@ -164,6 +683,14 @@ function renderIso27001Controls() {
         'A.8': 'A.8 - Contrôles technologiques'
     };
     
+    // Créer une map des vérifications automatiques
+    const autoChecks = {};
+    if (realComplianceResults && realComplianceResults.checkResults) {
+        realComplianceResults.checkResults.forEach(c => {
+            autoChecks[c.controlId] = c;
+        });
+    }
+    
     let html = '';
     for (const [category, controls] of Object.entries(grouped)) {
         const implemented = controls.filter(c => c.status === 3 || c.status === 4).length;
@@ -180,15 +707,27 @@ function renderIso27001Controls() {
                         <tr>
                             <th>ID</th>
                             <th>Titre</th>
-                            <th>Statut</th>
+                            <th>Vérification Auto</th>
+                            <th>Statut Manuel</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${controls.map(control => `
+                        ${controls.map(control => {
+                            const autoCheck = autoChecks[control.id];
+                            return `
                             <tr>
                                 <td><strong>${control.id}</strong></td>
                                 <td title="${control.description}">${control.title}</td>
+                                <td>
+                                    ${autoCheck ? `
+                                        <span class="auto-check-badge ${autoCheck.status.toLowerCase()}" 
+                                              onclick="showCheckDetails('${control.id}')" 
+                                              title="${autoCheck.message}">
+                                            ${getStatusEmoji(autoCheck.status)} ${getStatusLabel(autoCheck.status)}
+                                        </span>
+                                    ` : '<span class="auto-check-badge not-verifiable">Manuel requis</span>'}
+                                </td>
                                 <td>${getStatusBadge(control.status)}</td>
                                 <td>
                                     <select onchange="updateControlStatus('${control.id}', this.value)" style="padding:4px;">
@@ -200,8 +739,7 @@ function renderIso27001Controls() {
                                     </select>
                                 </td>
                             </tr>
-                        `).join('')}
-
+                        `}).join('')}
                     </tbody>
                 </table>
             </div>
@@ -409,7 +947,6 @@ async function saveRisk(event) {
     
     try {
         if (editingRiskId) {
-            // Mode édition
             await fetch(`${API_BASE}/risks/${editingRiskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -417,7 +954,6 @@ async function saveRisk(event) {
             });
             showNotification('Risque mis à jour', 'success');
         } else {
-            // Mode création
             await fetch(`${API_BASE}/risks`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -434,7 +970,6 @@ async function saveRisk(event) {
     }
 }
 
-// Réinitialiser le formulaire de risque
 function resetRiskForm() {
     editingRiskId = null;
     document.getElementById('risk-form').reset();
@@ -454,7 +989,6 @@ async function deleteRisk(id) {
     }
 }
 
-// Éditer un risque existant
 async function editRisk(id) {
     try {
         const response = await fetch(`${API_BASE}/risks/${id}`);
@@ -462,7 +996,6 @@ async function editRisk(id) {
         
         const risk = await response.json();
         
-        // Remplir le formulaire avec les données existantes
         document.getElementById('risk-asset').value = risk.assetName || '';
         document.getElementById('risk-asset-type').value = risk.assetType || 0;
         document.getElementById('risk-threat').value = risk.threatDescription || '';
@@ -471,14 +1004,11 @@ async function editRisk(id) {
         document.getElementById('risk-impact').value = risk.impact || 1;
         document.getElementById('risk-treatment').value = risk.treatment || 0;
         
-        // Stocker l'ID pour la mise à jour
         editingRiskId = id;
         
-        // Changer le titre du modal
         const modalTitle = document.querySelector('#risk-modal h2');
         if (modalTitle) modalTitle.textContent = 'Modifier le risque';
         
-        // Afficher le modal
         document.getElementById('risk-modal').style.display = 'block';
     } catch (error) {
         console.error('Erreur chargement risque:', error);
@@ -736,7 +1266,6 @@ function formatDate(dateString) {
 }
 
 function showNotification(message, type = 'info') {
-    // Créer la notification
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.innerHTML = `
@@ -760,11 +1289,9 @@ function showNotification(message, type = 'info') {
     
     document.body.appendChild(notification);
     
-    // Auto-fermeture
     setTimeout(() => notification.remove(), 5000);
 }
 
-// Fermer les modals en cliquant dehors
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
         event.target.style.display = 'none';
