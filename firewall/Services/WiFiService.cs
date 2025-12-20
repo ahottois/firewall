@@ -24,6 +24,10 @@ public interface IWiFiService
     Task<WiFiServiceStatus> GetServiceStatusAsync();
     Task<string> GetSetupInstructionsAsync();
     
+    // Installation automatique
+    Task<WiFiInstallationResult> InstallHostapdAsync();
+    Task<WiFiInstallationResult> ConfigureAccessPointAsync();
+    
     // Mesh
     MeshConfig? GetMeshConfig();
     Task UpdateMeshConfigAsync(MeshConfig config);
@@ -47,6 +51,15 @@ public class WiFiServiceStatus
     public int ConnectedClients { get; set; }
     public string? ErrorMessage { get; set; }
     public List<string> SetupSteps { get; set; } = new();
+}
+
+public class WiFiInstallationResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+    public List<string> Steps { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
+    public string? Logs { get; set; }
 }
 
 public class WiFiService : IWiFiService
@@ -1166,6 +1179,323 @@ ieee80211d=1
         catch (Exception ex)
         {
             _logger.LogError(ex, "WiFi: Erreur sauvegarde config");
+        }
+    }
+
+    // ==========================================
+    // INSTALLATION AUTOMATIQUE
+    // ==========================================
+
+    public async Task<WiFiInstallationResult> InstallHostapdAsync()
+    {
+        var result = new WiFiInstallationResult();
+        var logs = new List<string>();
+
+        if (!IsLinux)
+        {
+            result.Success = false;
+            result.Message = "L'installation automatique n'est supportée que sur Linux";
+            return result;
+        }
+
+        try
+        {
+            // Étape 1: Vérifier si hostapd est déjà installé
+            logs.Add("?? Vérification de hostapd...");
+            var hostapdCheck = await ExecuteCommandAsync("which", "hostapd");
+            
+            if (!string.IsNullOrWhiteSpace(hostapdCheck))
+            {
+                logs.Add("? hostapd est déjà installé");
+                result.Steps.Add("hostapd déjà installé");
+            }
+            else
+            {
+                // Installer hostapd
+                logs.Add("?? Mise à jour des paquets...");
+                result.Steps.Add("Mise à jour apt");
+                var updateResult = await ExecuteCommandAsync("apt-get", "update -y");
+                logs.Add(updateResult);
+
+                logs.Add("?? Installation de hostapd et dnsmasq...");
+                result.Steps.Add("Installation hostapd + dnsmasq");
+                var installResult = await ExecuteCommandAsync("apt-get", "install -y hostapd dnsmasq");
+                logs.Add(installResult);
+
+                // Vérifier l'installation
+                hostapdCheck = await ExecuteCommandAsync("which", "hostapd");
+                if (string.IsNullOrWhiteSpace(hostapdCheck))
+                {
+                    result.Success = false;
+                    result.Message = "Échec de l'installation de hostapd";
+                    result.Errors.Add("hostapd n'a pas été installé correctement");
+                    result.Logs = string.Join("\n", logs);
+                    return result;
+                }
+                logs.Add("? hostapd installé avec succès");
+            }
+
+            // Étape 2: Démasquer et activer le service hostapd
+            logs.Add("?? Configuration du service hostapd...");
+            result.Steps.Add("Démasquage du service");
+            await ExecuteCommandAsync("systemctl", "unmask hostapd");
+            
+            logs.Add("?? Activation du démarrage automatique...");
+            result.Steps.Add("Activation du service");
+            await ExecuteCommandAsync("systemctl", "enable hostapd");
+            await ExecuteCommandAsync("systemctl", "enable dnsmasq");
+            logs.Add("? Services activés");
+
+            // Étape 3: Configurer le routage IP
+            logs.Add("?? Configuration du routage IP...");
+            result.Steps.Add("Activation IP forwarding");
+            await ExecuteCommandAsync("sysctl", "-w net.ipv4.ip_forward=1");
+            
+            // Rendre permanent
+            var sysctlContent = await File.ReadAllTextAsync("/etc/sysctl.conf").ConfigureAwait(false);
+            if (!sysctlContent.Contains("net.ipv4.ip_forward=1"))
+            {
+                await File.AppendAllTextAsync("/etc/sysctl.conf", "\nnet.ipv4.ip_forward=1\n");
+                logs.Add("? IP forwarding activé de manière permanente");
+            }
+
+            // Étape 4: Vérifier l'interface sans fil
+            logs.Add("?? Détection de l'interface sans fil...");
+            result.Steps.Add("Détection interface WiFi");
+            var interfaces = await GetWirelessInterfacesAsync();
+            
+            if (!interfaces.Any())
+            {
+                logs.Add("?? Aucune interface sans fil détectée");
+                result.Errors.Add("Aucune interface sans fil trouvée. Vérifiez votre carte WiFi.");
+            }
+            else
+            {
+                var wifiInterface = interfaces.First();
+                logs.Add($"? Interface trouvée: {wifiInterface}");
+                result.Steps.Add($"Interface détectée: {wifiInterface}");
+            }
+
+            result.Success = true;
+            result.Message = "Installation terminée avec succès. Vous pouvez maintenant configurer le point d'accès.";
+            result.Logs = string.Join("\n", logs);
+
+            _logger.LogInformation("WiFi: Installation automatique terminée avec succès");
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = $"Erreur lors de l'installation: {ex.Message}";
+            result.Errors.Add(ex.Message);
+            result.Logs = string.Join("\n", logs);
+            _logger.LogError(ex, "WiFi: Erreur installation automatique");
+        }
+
+        return result;
+    }
+
+    public async Task<WiFiInstallationResult> ConfigureAccessPointAsync()
+    {
+        var result = new WiFiInstallationResult();
+        var logs = new List<string>();
+
+        if (!IsLinux)
+        {
+            result.Success = false;
+            result.Message = "La configuration automatique n'est supportée que sur Linux";
+            return result;
+        }
+
+        try
+        {
+            // Vérifier que hostapd est installé
+            var hostapdCheck = await ExecuteCommandAsync("which", "hostapd");
+            if (string.IsNullOrWhiteSpace(hostapdCheck))
+            {
+                result.Success = false;
+                result.Message = "hostapd n'est pas installé. Cliquez d'abord sur 'Installer les prérequis'.";
+                return result;
+            }
+
+            // Trouver l'interface sans fil
+            var interfaces = await GetWirelessInterfacesAsync();
+            if (!interfaces.Any())
+            {
+                result.Success = false;
+                result.Message = "Aucune interface sans fil détectée";
+                return result;
+            }
+
+            var wifiInterface = interfaces.First();
+            logs.Add($"?? Configuration de l'interface {wifiInterface}...");
+            result.Steps.Add($"Interface: {wifiInterface}");
+
+            // Étape 1: Configurer l'adresse IP statique pour l'interface WiFi
+            logs.Add("?? Configuration de l'adresse IP statique...");
+            result.Steps.Add("Configuration IP statique");
+            
+            var dhcpcdConfig = $@"
+# Configuration du point d'accès WiFi - WebGuard
+interface {wifiInterface}
+    static ip_address=192.168.4.1/24
+    nohook wpa_supplicant
+";
+            await AppendToFileIfNotExistsAsync("/etc/dhcpcd.conf", dhcpcdConfig, "192.168.4.1");
+            logs.Add("? IP statique configurée: 192.168.4.1");
+
+            // Étape 2: Configurer dnsmasq pour le DHCP
+            logs.Add("?? Configuration du serveur DHCP (dnsmasq)...");
+            result.Steps.Add("Configuration DHCP");
+            
+            var dnsmasqConfig = $@"# Configuration du point d'accès WiFi - WebGuard
+interface={wifiInterface}
+dhcp-range=192.168.4.2,192.168.4.50,255.255.255.0,24h
+address=/gw/192.168.4.1
+";
+            // Sauvegarder et remplacer la config dnsmasq
+            if (File.Exists("/etc/dnsmasq.conf"))
+            {
+                File.Copy("/etc/dnsmasq.conf", "/etc/dnsmasq.conf.backup", true);
+            }
+            await File.WriteAllTextAsync("/etc/dnsmasq.conf", dnsmasqConfig);
+            logs.Add("? DHCP configuré (192.168.4.2 - 192.168.4.50)");
+
+            // Étape 3: Configurer hostapd
+            logs.Add("?? Génération de la configuration hostapd...");
+            result.Steps.Add("Configuration hostapd");
+            await GenerateHostapdConfigAsync();
+            await ConfigureHostapdDefaultAsync();
+            logs.Add($"? SSID: {_config.GlobalSSID}");
+
+            // Étape 4: Configurer le NAT (partage Internet)
+            logs.Add("?? Configuration du NAT...");
+            result.Steps.Add("Configuration NAT");
+            
+            // Trouver l'interface WAN (eth0 ou similaire)
+            var wanInterface = await FindWanInterfaceAsync();
+            if (!string.IsNullOrEmpty(wanInterface))
+            {
+                // Configurer iptables
+                await ExecuteCommandAsync("iptables", $"-t nat -A POSTROUTING -o {wanInterface} -j MASQUERADE");
+                await ExecuteCommandAsync("iptables", $"-A FORWARD -i {wanInterface} -o {wifiInterface} -m state --state RELATED,ESTABLISHED -j ACCEPT");
+                await ExecuteCommandAsync("iptables", $"-A FORWARD -i {wifiInterface} -o {wanInterface} -j ACCEPT");
+                
+                // Sauvegarder les règles
+                await ExecuteCommandAsync("sh", "-c 'iptables-save > /etc/iptables.ipv4.nat'");
+                logs.Add($"? NAT configuré: {wifiInterface} -> {wanInterface}");
+            }
+            else
+            {
+                logs.Add("?? Interface WAN non trouvée. Le NAT devra être configuré manuellement.");
+            }
+
+            // Étape 5: Arrêter wpa_supplicant et démarrer les services
+            logs.Add("?? Démarrage des services...");
+            result.Steps.Add("Démarrage des services");
+            
+            await ExecuteCommandAsync("systemctl", "stop wpa_supplicant");
+            await ExecuteCommandAsync("systemctl", "restart dhcpcd");
+            await Task.Delay(1000);
+            await ExecuteCommandAsync("systemctl", "restart dnsmasq");
+            await Task.Delay(1000);
+            await ExecuteCommandAsync("systemctl", "restart hostapd");
+            await Task.Delay(2000);
+
+            // Vérifier que hostapd est bien démarré
+            var serviceStatus = await ExecuteCommandAsync("systemctl", "is-active hostapd");
+            if (serviceStatus.Trim() == "active")
+            {
+                logs.Add("? Point d'accès WiFi démarré avec succès!");
+                result.Success = true;
+                result.Message = $"Point d'accès configuré et actif!\n\nSSID: {_config.GlobalSSID}\nIP: 192.168.4.1\nPlage DHCP: 192.168.4.2-50";
+                
+                _config.Enabled = true;
+                SaveConfig();
+            }
+            else
+            {
+                // Récupérer les logs d'erreur
+                var errorLogs = await ExecuteCommandAsync("journalctl", "-u hostapd -n 30 --no-pager");
+                logs.Add("? Échec du démarrage de hostapd:");
+                logs.Add(errorLogs);
+                result.Success = false;
+                result.Message = "Échec du démarrage du point d'accès. Consultez les logs pour plus de détails.";
+                result.Errors.Add(errorLogs);
+            }
+
+            result.Logs = string.Join("\n", logs);
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.Message = $"Erreur lors de la configuration: {ex.Message}";
+            result.Errors.Add(ex.Message);
+            result.Logs = string.Join("\n", logs);
+            _logger.LogError(ex, "WiFi: Erreur configuration automatique");
+        }
+
+        return result;
+    }
+
+    private async Task AppendToFileIfNotExistsAsync(string path, string content, string checkString)
+    {
+        try
+        {
+            var existingContent = File.Exists(path) ? await File.ReadAllTextAsync(path) : "";
+            if (!existingContent.Contains(checkString))
+            {
+                await File.AppendAllTextAsync(path, content);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Erreur écriture fichier {Path}", path);
+        }
+    }
+
+    private async Task<string?> FindWanInterfaceAsync()
+    {
+        try
+        {
+            // Chercher l'interface avec une route par défaut
+            var routeOutput = await ExecuteCommandAsync("ip", "route show default");
+            if (!string.IsNullOrEmpty(routeOutput))
+            {
+                // Format: "default via X.X.X.X dev eth0 ..."
+                var parts = routeOutput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var devIndex = Array.IndexOf(parts, "dev");
+                if (devIndex >= 0 && devIndex + 1 < parts.Length)
+                {
+                    var wanIface = parts[devIndex + 1];
+                    // Ne pas retourner l'interface WiFi
+                    var wifiInterfaces = await GetWirelessInterfacesAsync();
+                    if (!wifiInterfaces.Contains(wanIface))
+                    {
+                        return wanIface;
+                    }
+                }
+            }
+
+            // Fallback: chercher eth0, enp*, ens*
+            var interfaces = Directory.GetDirectories("/sys/class/net")
+                .Select(Path.GetFileName)
+                .Where(n => n != null && (n.StartsWith("eth") || n.StartsWith("enp") || n.StartsWith("ens")))
+                .FirstOrDefault();
+
+            return interfaces;
+        }
+        catch
+        {
+            return "eth0"; // Fallback
+        }
+    }
+
+    private static async Task FileCopyAsync(string source, string dest, bool overwrite)
+    {
+        if (File.Exists(source))
+        {
+            var content = await File.ReadAllBytesAsync(source);
+            await File.WriteAllBytesAsync(dest, content);
         }
     }
 }

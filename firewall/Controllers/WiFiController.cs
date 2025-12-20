@@ -93,6 +93,64 @@ public class WiFiController : ControllerBase
         return Ok(new { instructions });
     }
 
+    /// <summary>
+    /// Installer automatiquement hostapd et les dépendances
+    /// </summary>
+    [HttpPost("install")]
+    public async Task<ActionResult<WiFiInstallationResult>> InstallHostapd()
+    {
+        try
+        {
+            _logger.LogInformation("WiFi: Démarrage de l'installation automatique");
+            var result = await _wifiService.InstallHostapdAsync();
+            
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur installation WiFi");
+            return BadRequest(new WiFiInstallationResult 
+            { 
+                Success = false, 
+                Message = ex.Message,
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
+    /// <summary>
+    /// Configurer automatiquement le point d'accès WiFi
+    /// </summary>
+    [HttpPost("configure")]
+    public async Task<ActionResult<WiFiInstallationResult>> ConfigureAccessPoint()
+    {
+        try
+        {
+            _logger.LogInformation("WiFi: Démarrage de la configuration automatique");
+            var result = await _wifiService.ConfigureAccessPointAsync();
+            
+            if (result.Success)
+            {
+                return Ok(result);
+            }
+            return BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur configuration WiFi");
+            return BadRequest(new WiFiInstallationResult 
+            { 
+                Success = false, 
+                Message = ex.Message,
+                Errors = new List<string> { ex.Message }
+            });
+        }
+    }
+
     // ==========================================
     // CONFIGURATION GLOBALE
     // ==========================================

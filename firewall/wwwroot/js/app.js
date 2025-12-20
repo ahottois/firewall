@@ -1433,6 +1433,113 @@ class FirewallApp {
         }
     }
 
+    // ==========================================
+    // WIFI INSTALLATION AUTOMATIQUE
+    // ==========================================
+
+    async installWiFiPrerequisites() {
+        const statusPanel = document.getElementById('wifi-status-panel');
+        
+        try {
+            // Afficher un indicateur de progression
+            this.showToast({ title: 'Installation', message: 'Installation des prérequis en cours...', severity: 0 });
+            
+            // Désactiver les boutons pendant l'installation
+            const buttons = statusPanel?.querySelectorAll('button');
+            buttons?.forEach(btn => btn.disabled = true);
+
+            const result = await this.api('wifi/install', { method: 'POST' });
+            
+            if (result.success) {
+                this.showToast({ title: 'Succès', message: result.message, severity: 0 });
+                
+                // Afficher les logs dans un modal
+                if (result.logs) {
+                    this.showInstallationLogs('Installation WiFi', result.logs, result.steps);
+                }
+            } else {
+                this.showToast({ title: 'Erreur', message: result.message, severity: 2 });
+                if (result.logs) {
+                    this.showInstallationLogs('Erreur d\'installation', result.logs, result.steps, result.errors);
+                }
+            }
+
+            // Recharger la page WiFi
+            await this.loadWiFi();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message || 'Erreur lors de l\'installation', severity: 2 });
+        } finally {
+            const buttons = statusPanel?.querySelectorAll('button');
+            buttons?.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    async configureWiFiAccessPoint() {
+        const statusPanel = document.getElementById('wifi-status-panel');
+        
+        try {
+            this.showToast({ title: 'Configuration', message: 'Configuration automatique en cours...', severity: 0 });
+            
+            const buttons = statusPanel?.querySelectorAll('button');
+            buttons?.forEach(btn => btn.disabled = true);
+
+            const result = await this.api('wifi/configure', { method: 'POST' });
+            
+            if (result.success) {
+                this.showToast({ title: 'Succès', message: result.message, severity: 0 });
+                if (result.logs) {
+                    this.showInstallationLogs('Configuration WiFi', result.logs, result.steps);
+                }
+            } else {
+                this.showToast({ title: 'Erreur', message: result.message, severity: 2 });
+                if (result.logs) {
+                    this.showInstallationLogs('Erreur de configuration', result.logs, result.steps, result.errors);
+                }
+            }
+
+            await this.loadWiFi();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message || 'Erreur lors de la configuration', severity: 2 });
+        } finally {
+            const buttons = statusPanel?.querySelectorAll('button');
+            buttons?.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    showInstallationLogs(title, logs, steps, errors = []) {
+        const stepsHtml = steps?.length ? `
+            <div style="margin-bottom: 15px;">
+                <h4>Étapes effectuées:</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    ${steps.map(step => `<li style="color: var(--success);"><i class="fas fa-check"></i> ${this.escapeHtml(step)}</li>`).join('')}
+                </ul>
+            </div>
+        ` : '';
+
+        const errorsHtml = errors?.length ? `
+            <div style="margin-bottom: 15px; padding: 10px; background: rgba(255,0,0,0.1); border-radius: 8px;">
+                <h4 style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> Erreurs:</h4>
+                <ul style="margin: 0; padding-left: 20px; color: var(--danger);">
+                    ${errors.map(err => `<li>${this.escapeHtml(err)}</li>`).join('')}
+                </ul>
+            </div>
+        ` : '';
+
+        document.getElementById('modal-title').innerHTML = `<i class="fas fa-terminal"></i> ${this.escapeHtml(title)}`;
+        document.getElementById('modal-body').innerHTML = `
+            ${stepsHtml}
+            ${errorsHtml}
+            <div style="max-height: 400px; overflow-y: auto;">
+                <h4>Logs:</h4>
+                <pre style="white-space: pre-wrap; background: var(--bg-primary); padding: 15px; border-radius: 8px; font-size: 0.85rem; font-family: monospace;">${this.escapeHtml(logs || 'Aucun log disponible')}</pre>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Fermer</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
     displayWiFiStatus(status) {
         // Supprimer l'ancien panneau de statut s'il existe
         const existingPanel = document.getElementById('wifi-status-panel');
@@ -1447,21 +1554,6 @@ class FirewallApp {
                 <div id="wifi-status-panel" class="card" style="margin-bottom: 20px; border-left: 4px solid ${status.hasWirelessInterface ? 'var(--warning)' : 'var(--danger)'};">
                     <div class="card-header">
                         <h3><i class="fas fa-info-circle"></i> Configuration requise</h3>
-                        <div class="header-actions">
-                            ${status.hasWirelessInterface && status.isHostapdInstalled && !status.isHostapdRunning ? `
-                                <button class="btn btn-success" onclick="app.startWiFiAccessPoint()">
-                                    <i class="fas fa-play"></i> Démarrer le WiFi
-                                </button>
-                            ` : ''}
-                            ${status.isHostapdRunning ? `
-                                <button class="btn btn-warning" onclick="app.stopWiFiAccessPoint()">
-                                    <i class="fas fa-stop"></i> Arrêter le WiFi
-                                </button>
-                            ` : ''}
-                            <button class="btn btn-secondary" onclick="app.showWiFiSetupInstructions()">
-                                <i class="fas fa-book"></i> Guide complet
-                            </button>
-                        </div>
                     </div>
                     <div class="card-body">
                         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 15px;">
@@ -1478,66 +1570,51 @@ class FirewallApp {
                                 Point d'accès: ${status.isHostapdRunning ? 'Actif' : 'Inactif'}
                             </div>
                         </div>
+                        
                         ${status.setupSteps?.length > 0 ? `
-                            <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                                 <h4 style="margin-bottom: 10px;"><i class="fas fa-tasks"></i> Étapes à suivre:</h4>
                                 <ul style="margin: 0; padding-left: 20px;">
                                     ${status.setupSteps.map(step => `<li style="margin-bottom: 5px;">${this.escapeHtml(step)}</li>`).join('')}
                                 </ul>
                             </div>
                         ` : ''}
+                        
                         ${status.errorMessage ? `
-                            <div class="alert alert-danger" style="margin-top: 15px;">
+                            <div class="alert alert-danger" style="margin-bottom: 15px;">
                                 <i class="fas fa-exclamation-triangle"></i> ${this.escapeHtml(status.errorMessage)}
                             </div>
                         ` : ''}
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            ${!status.isHostapdInstalled ? `
+                                <button class="btn btn-primary" onclick="app.installWiFiPrerequisites()">
+                                    <i class="fas fa-download"></i> Installer les prérequis
+                                </button>
+                            ` : ''}
+                            ${status.isHostapdInstalled && !status.isHostapdRunning && status.hasWirelessInterface ? `
+                                <button class="btn btn-success" onclick="app.configureWiFiAccessPoint()">
+                                    <i class="fas fa-magic"></i> Configurer automatiquement
+                                </button>
+                                <button class="btn btn-primary" onclick="app.startWiFiAccessPoint()">
+                                    <i class="fas fa-play"></i> Démarrer le WiFi
+                                </button>
+                            ` : ''}
+                            ${status.isHostapdRunning ? `
+                                <button class="btn btn-warning" onclick="app.stopWiFiAccessPoint()">
+                                    <i class="fas fa-stop"></i> Arrêter le WiFi
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-secondary" onclick="app.showWiFiSetupInstructions()">
+                                <i class="fas fa-book"></i> Guide manuel
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
 
             // Insérer au début de la page WiFi
             wifiPage.insertAdjacentHTML('afterbegin', panelHtml);
-        }
-    }
-
-    async startWiFiAccessPoint() {
-        try {
-            this.showToast({ title: 'WiFi', message: 'Démarrage du point d\'accès...', severity: 0 });
-            const result = await this.api('wifi/start', { method: 'POST' });
-            this.showToast({ title: 'Succès', message: 'Point d\'accès WiFi démarré', severity: 0 });
-            await this.loadWiFi();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message || 'Impossible de démarrer le WiFi', severity: 2 });
-            await this.loadWiFi();
-        }
-    }
-
-    async stopWiFiAccessPoint() {
-        try {
-            await this.api('wifi/stop', { method: 'POST' });
-            this.showToast({ title: 'WiFi', message: 'Point d\'accès arrêté', severity: 0 });
-            await this.loadWiFi();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
-        }
-    }
-
-    async showWiFiSetupInstructions() {
-        try {
-            const result = await this.api('wifi/setup-instructions');
-            
-            document.getElementById('modal-title').innerHTML = '<i class="fas fa-wifi"></i> Configuration du Point d\'Accès WiFi';
-            document.getElementById('modal-body').innerHTML = `
-                <div style="max-height: 500px; overflow-y: auto;">
-                    <pre style="white-space: pre-wrap; background: var(--bg-secondary); padding: 15px; border-radius: 8px; font-size: 0.9rem;">${this.escapeHtml(result.instructions)}</pre>
-                </div>
-            `;
-            document.getElementById('modal-footer').innerHTML = `
-                <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Fermer</button>
-            `;
-            document.getElementById('modal').classList.add('active');
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: 'Impossible de charger les instructions', severity: 2 });
         }
     }
 
