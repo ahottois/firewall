@@ -28,6 +28,9 @@ public interface IWiFiService
     Task<WiFiInstallationResult> InstallHostapdAsync();
     Task<WiFiInstallationResult> ConfigureAccessPointAsync();
     
+    // Diagnostic
+    Task<WiFiDiagnosticResult> DiagnoseWiFiAsync();
+    
     // Mesh
     MeshConfig? GetMeshConfig();
     Task UpdateMeshConfigAsync(MeshConfig config);
@@ -60,6 +63,19 @@ public class WiFiInstallationResult
     public List<string> Steps { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public string? Logs { get; set; }
+}
+
+public class WiFiDiagnosticResult
+{
+    public bool HasWirelessHardware { get; set; }
+    public List<string> DetectedInterfaces { get; set; } = new();
+    public List<string> UsbDevices { get; set; } = new();
+    public List<string> PciDevices { get; set; } = new();
+    public List<string> LoadedDrivers { get; set; } = new();
+    public string? IwDevOutput { get; set; }
+    public string? IwconfigOutput { get; set; }
+    public string? ProcWireless { get; set; }
+    public List<string> Recommendations { get; set; } = new();
 }
 
 public class WiFiService : IWiFiService
@@ -322,38 +338,167 @@ Une fois ces étapes terminées, vous pourrez configurer le SSID et le mot de pass
         
         try
         {
-            // Utiliser iw pour lister les interfaces sans fil
-            var result = await ExecuteCommandAsync("iw", "dev");
-            
-            var lines = result.Split('\n');
-            foreach (var line in lines)
+            _logger.LogDebug("WiFi: Detection des interfaces sans fil...");
+
+            // Methode 1: Utiliser iw pour lister les interfaces sans fil
+            var iwResult = await ExecuteCommandAsync("iw", "dev");
+            if (!string.IsNullOrEmpty(iwResult))
             {
-                if (line.Contains("Interface"))
+                var lines = iwResult.Split('\n');
+                foreach (var line in lines)
                 {
-                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 2)
+                    if (line.Contains("Interface"))
                     {
-                        interfaces.Add(parts[1]);
+                        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 2)
+                        {
+                            var iface = parts[1].Trim();
+                            if (!interfaces.Contains(iface))
+                            {
+                                interfaces.Add(iface);
+                                _logger.LogDebug("WiFi: Interface trouvee via iw: {Interface}", iface);
+                            }
+                        }
                     }
                 }
             }
 
-            // Fallback: chercher dans /sys/class/net
-            if (!interfaces.Any() && Directory.Exists("/sys/class/net"))
+            // Methode 2: Chercher dans /sys/class/net/*/wireless
+            if (Directory.Exists("/sys/class/net"))
             {
                 foreach (var dir in Directory.GetDirectories("/sys/class/net"))
                 {
                     var wirelessDir = Path.Combine(dir, "wireless");
                     if (Directory.Exists(wirelessDir))
                     {
-                        interfaces.Add(Path.GetFileName(dir));
+                        var ifaceName = Path.GetFileName(dir);
+                        if (!string.IsNullOrEmpty(ifaceName) && !interfaces.Contains(ifaceName))
+                        {
+                            interfaces.Add(ifaceName);
+                            _logger.LogDebug("WiFi: Interface trouvee via /sys/class/net: {Interface}", ifaceName);
+                        }
                     }
                 }
+            }
+
+            // Methode 3: Chercher les interfaces commencant par wl* (wlan0, wlp2s0, etc.)
+            if (Directory.Exists("/sys/class/net"))
+            {
+                foreach (var dir in Directory.GetDirectories("/sys/class/net"))
+                {
+                    var ifaceName = Path.GetFileName(dir);
+                    if (!string.IsNullOrEmpty(ifaceName) && 
+                        (ifaceName.StartsWith("wl") || ifaceName.StartsWith("wifi") || ifaceName.StartsWith("ath")) &&
+                        !interfaces.Contains(ifaceName))
+                    {
+                        // Verifier que c'est bien une interface reseau valide
+                        var operstate = Path.Combine(dir, "operstate");
+                        if (File.Exists(operstate))
+                        {
+                            interfaces.Add(ifaceName);
+                            _logger.LogDebug("WiFi: Interface trouvee via pattern wl*/wifi*: {Interface}", ifaceName);
+                        }
+                    }
+                }
+            }
+
+            // Methode 4: Utiliser iwconfig (fallback)
+            if (!interfaces.Any())
+            {
+                var iwconfigResult = await ExecuteCommandAsync("iwconfig", "2>&1");
+                if (!string.IsNullOrEmpty(iwconfigResult))
+                {
+                    var lines = iwconfigResult.Split('\n');
+                    foreach (var line in lines)
+                    {
+                        // iwconfig affiche "wlan0     IEEE 802.11..." ou "wlan0     no wireless extensions."
+                        if (!line.StartsWith(" ") && !line.StartsWith("\t") && line.Contains("IEEE 802.11"))
+                        {
+                            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length > 0)
+                            {
+                                var iface = parts[0].Trim();
+                                if (!interfaces.Contains(iface))
+                                {
+                                    interfaces.Add(iface);
+                                    _logger.LogDebug("WiFi: Interface trouvee via iwconfig: {Interface}", iface);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Methode 5: Utiliser ip link et chercher les interfaces de type wireless
+            if (!interfaces.Any())
+            {
+                var ipLinkResult = await ExecuteCommandAsync("ip", "link show");
+                if (!string.IsNullOrEmpty(ipLinkResult))
+                {
+                    var lines = ipLinkResult.Split('\n');
+                    foreach (var line in lines)
+                    {
+                        // Format: "2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> ..."
+                        if (line.Contains(": wl") || line.Contains(": wifi") || line.Contains(": ath"))
+                        {
+                            var match = System.Text.RegularExpressions.Regex.Match(line, @"^\d+:\s+(\w+):");
+                            if (match.Success)
+                            {
+                                var iface = match.Groups[1].Value;
+                                if (!interfaces.Contains(iface))
+                                {
+                                    interfaces.Add(iface);
+                                    _logger.LogDebug("WiFi: Interface trouvee via ip link: {Interface}", iface);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Methode 6: Lister les drivers WiFi charges via /proc/net/wireless
+            if (!interfaces.Any() && File.Exists("/proc/net/wireless"))
+            {
+                var procWireless = await File.ReadAllTextAsync("/proc/net/wireless");
+                var lines = procWireless.Split('\n');
+                foreach (var line in lines.Skip(2)) // Skip header lines
+                {
+                    if (!string.IsNullOrWhiteSpace(line))
+                    {
+                        var parts = line.Split(':', StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length > 0)
+                        {
+                            var iface = parts[0].Trim();
+                            if (!interfaces.Contains(iface))
+                            {
+                                interfaces.Add(iface);
+                                _logger.LogDebug("WiFi: Interface trouvee via /proc/net/wireless: {Interface}", iface);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Logger le resultat final
+            if (interfaces.Any())
+            {
+                _logger.LogInformation("WiFi: {Count} interface(s) sans fil detectee(s): {Interfaces}", 
+                    interfaces.Count, string.Join(", ", interfaces));
+            }
+            else
+            {
+                _logger.LogWarning("WiFi: Aucune interface sans fil detectee");
+                
+                // Afficher des informations de debug
+                var lsusb = await ExecuteCommandAsync("lsusb", "");
+                var lspci = await ExecuteCommandAsync("lspci", "-k | grep -A2 -i network");
+                _logger.LogDebug("WiFi Debug - lsusb:\n{Lsusb}", lsusb);
+                _logger.LogDebug("WiFi Debug - lspci:\n{Lspci}", lspci);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "WiFi: Erreur détection interfaces");
+            _logger.LogError(ex, "WiFi: Erreur detection interfaces");
         }
 
         return interfaces;
@@ -1180,6 +1325,134 @@ ieee80211d=1
         {
             _logger.LogError(ex, "WiFi: Erreur sauvegarde config");
         }
+    }
+
+    // ==========================================
+    // DIAGNOSTIC WIFI
+    // ==========================================
+
+    public async Task<WiFiDiagnosticResult> DiagnoseWiFiAsync()
+    {
+        var result = new WiFiDiagnosticResult();
+
+        if (!IsLinux)
+        {
+            result.Recommendations.Add("Le diagnostic WiFi n'est disponible que sur Linux");
+            return result;
+        }
+
+        try
+        {
+            // Detecter les interfaces
+            result.DetectedInterfaces = await GetWirelessInterfacesAsync();
+            result.HasWirelessHardware = result.DetectedInterfaces.Any();
+
+            // lsusb - peripheriques USB
+            var lsusb = await ExecuteCommandAsync("lsusb", "");
+            if (!string.IsNullOrEmpty(lsusb))
+            {
+                var lines = lsusb.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    var lower = line.ToLower();
+                    if (lower.Contains("wireless") || lower.Contains("wifi") || 
+                        lower.Contains("wlan") || lower.Contains("802.11") ||
+                        lower.Contains("ralink") || lower.Contains("realtek") ||
+                        lower.Contains("atheros") || lower.Contains("mediatek") ||
+                        lower.Contains("broadcom"))
+                    {
+                        result.UsbDevices.Add(line.Trim());
+                    }
+                }
+            }
+
+            // lspci - cartes PCI
+            var lspci = await ExecuteCommandAsync("lspci", "");
+            if (!string.IsNullOrEmpty(lspci))
+            {
+                var lines = lspci.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    var lower = line.ToLower();
+                    if (lower.Contains("wireless") || lower.Contains("wifi") || 
+                        lower.Contains("network") || lower.Contains("802.11"))
+                    {
+                        result.PciDevices.Add(line.Trim());
+                    }
+                }
+            }
+
+            // Drivers charges
+            var lsmod = await ExecuteCommandAsync("lsmod", "");
+            if (!string.IsNullOrEmpty(lsmod))
+            {
+                var wifiDrivers = new[] { "ath", "rtl", "iwl", "brcm", "mt7", "rt2", "rt3", "rt5", "carl", "mac80211", "cfg80211" };
+                var lines = lsmod.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var line in lines)
+                {
+                    var moduleName = line.Split(' ')[0].ToLower();
+                    if (wifiDrivers.Any(d => moduleName.StartsWith(d)))
+                    {
+                        result.LoadedDrivers.Add(line.Split(' ')[0]);
+                    }
+                }
+            }
+
+            // Output de iw dev
+            result.IwDevOutput = await ExecuteCommandAsync("iw", "dev");
+
+            // Output de iwconfig
+            result.IwconfigOutput = await ExecuteCommandAsync("iwconfig", "2>&1");
+
+            // /proc/net/wireless
+            if (File.Exists("/proc/net/wireless"))
+            {
+                result.ProcWireless = await File.ReadAllTextAsync("/proc/net/wireless");
+            }
+
+            // Generer des recommandations
+            if (!result.HasWirelessHardware)
+            {
+                if (!result.UsbDevices.Any() && !result.PciDevices.Any())
+                {
+                    result.Recommendations.Add("Aucun materiel WiFi detecte. Connectez une cle WiFi USB ou installez une carte WiFi PCI.");
+                }
+                else
+                {
+                    result.Recommendations.Add("Materiel WiFi detecte mais pas d'interface active.");
+                    
+                    if (!result.LoadedDrivers.Any())
+                    {
+                        result.Recommendations.Add("Aucun driver WiFi charge. Installez le driver correspondant a votre materiel.");
+                        result.Recommendations.Add("Commande: sudo apt install firmware-linux-nonfree");
+                    }
+                    else
+                    {
+                        result.Recommendations.Add("Driver charge mais interface non detectee. Essayez de recharger le driver:");
+                        result.Recommendations.Add($"Commande: sudo modprobe -r {result.LoadedDrivers.FirstOrDefault()} && sudo modprobe {result.LoadedDrivers.FirstOrDefault()}");
+                    }
+                }
+
+                // Verifier si iw est installe
+                var iwCheck = await ExecuteCommandAsync("which", "iw");
+                if (string.IsNullOrWhiteSpace(iwCheck))
+                {
+                    result.Recommendations.Add("L'outil 'iw' n'est pas installe. Installez-le: sudo apt install iw");
+                }
+            }
+            else
+            {
+                result.Recommendations.Add($"Interface(s) WiFi detectee(s): {string.Join(", ", result.DetectedInterfaces)}");
+                result.Recommendations.Add("Votre carte WiFi est compatible!");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "WiFi: Erreur diagnostic");
+            result.Recommendations.Add($"Erreur lors du diagnostic: {ex.Message}");
+        }
+
+        return result;
     }
 
     // ==========================================

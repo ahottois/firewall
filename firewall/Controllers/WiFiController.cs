@@ -151,6 +151,25 @@ public class WiFiController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Diagnostiquer les problèmes de détection WiFi
+    /// </summary>
+    [HttpGet("diagnose")]
+    public async Task<ActionResult<WiFiDiagnosticResult>> DiagnoseWiFi()
+    {
+        try
+        {
+            _logger.LogInformation("WiFi: Demarrage du diagnostic");
+            var result = await _wifiService.DiagnoseWiFiAsync();
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erreur diagnostic WiFi");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     // ==========================================
     // CONFIGURATION GLOBALE
     // ==========================================
