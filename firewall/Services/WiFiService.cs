@@ -174,14 +174,14 @@ public class WiFiService : IWiFiService
 
         if (!IsLinux)
         {
-            status.ErrorMessage = "La création de point d'accès WiFi n'est supportée que sur Linux";
-            status.SetupSteps.Add("Déployez WebGuard sur un système Linux avec une carte WiFi compatible");
+            status.ErrorMessage = "La creation de point d'acces WiFi n'est supportee que sur Linux";
+            status.SetupSteps.Add("Deployez WebGuard sur un systeme Linux avec une carte WiFi compatible");
             return status;
         }
 
         try
         {
-            // Vérifier si hostapd est installé
+            // Verifier si hostapd est installe
             var hostapdCheck = await ExecuteCommandAsync("which", "hostapd");
             status.IsHostapdInstalled = !string.IsNullOrWhiteSpace(hostapdCheck);
 
@@ -190,7 +190,7 @@ public class WiFiService : IWiFiService
                 status.SetupSteps.Add("Installer hostapd: sudo apt install hostapd");
             }
 
-            // Vérifier si hostapd est en cours d'exécution
+            // Verifier si hostapd est en cours d'execution
             var serviceStatus = await ExecuteCommandAsync("systemctl", "is-active hostapd");
             status.IsHostapdRunning = serviceStatus.Trim() == "active";
 
@@ -201,20 +201,20 @@ public class WiFiService : IWiFiService
 
             if (!status.HasWirelessInterface)
             {
-                status.SetupSteps.Add("Aucune interface sans fil détectée. Vérifiez que votre carte WiFi est compatible.");
-                status.SetupSteps.Add("Commande pour vérifier: iw dev");
+                status.SetupSteps.Add("Aucune interface sans fil detectee. Verifiez que votre carte WiFi est compatible.");
+                status.SetupSteps.Add("Commande pour verifier: iw dev");
             }
             else
             {
-                // Vérifier si l'interface supporte le mode AP
+                // Verifier si l'interface supporte le mode AP
                 var phyInfo = await ExecuteCommandAsync("iw", $"phy phy0 info");
                 if (!phyInfo.Contains("* AP"))
                 {
-                    status.SetupSteps.Add($"L'interface {status.WirelessInterface} ne supporte pas le mode AP (point d'accès)");
+                    status.SetupSteps.Add($"L'interface {status.WirelessInterface} ne supporte pas le mode AP (point d'acces)");
                 }
             }
 
-            // Récupérer le SSID actuel si hostapd est actif
+            // Recuperer le SSID actuel si hostapd est actif
             if (status.IsHostapdRunning)
             {
                 status.CurrentSSID = _config.GlobalSSID;
@@ -224,22 +224,22 @@ public class WiFiService : IWiFiService
                 status.ConnectedClients = clients.Count();
             }
 
-            // Instructions de configuration si nécessaire
+            // Instructions de configuration si necessaire
             if (!status.IsHostapdInstalled)
             {
                 status.SetupSteps.Add("1. Installer hostapd: sudo apt update && sudo apt install hostapd");
-                status.SetupSteps.Add("2. Démasquer le service: sudo systemctl unmask hostapd");
+                status.SetupSteps.Add("2. Demasquer le service: sudo systemctl unmask hostapd");
                 status.SetupSteps.Add("3. Activer le service: sudo systemctl enable hostapd");
             }
             else if (!status.IsHostapdRunning && status.HasWirelessInterface)
             {
-                status.SetupSteps.Add("hostapd est installé mais pas en cours d'exécution.");
-                status.SetupSteps.Add("Cliquez sur 'Démarrer le point d'accès' pour l'activer.");
+                status.SetupSteps.Add("hostapd est installe mais pas en cours d'execution.");
+                status.SetupSteps.Add("Cliquez sur 'Demarrer le point d'acces' pour l'activer.");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "WiFi: Erreur vérification status");
+            _logger.LogError(ex, "WiFi: Erreur verification status");
             status.ErrorMessage = ex.Message;
         }
 
