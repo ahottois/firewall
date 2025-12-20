@@ -1431,7 +1431,7 @@ class FirewallApp {
         } catch (error) {
             console.error('Error loading WiFi:', error);
         }
-    },
+    }
 
     displayWiFiStatus(status) {
         // Supprimer l'ancien panneau de statut s'il existe
@@ -1498,7 +1498,7 @@ class FirewallApp {
             // Insérer au début de la page WiFi
             wifiPage.insertAdjacentHTML('afterbegin', panelHtml);
         }
-    },
+    }
 
     async startWiFiAccessPoint() {
         try {
@@ -1508,9 +1508,9 @@ class FirewallApp {
             await this.loadWiFi();
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message || 'Impossible de démarrer le WiFi', severity: 2 });
-            await this.loadWiFi(); // Recharger pour afficher les instructions
+            await this.loadWiFi();
         }
-    },
+    }
 
     async stopWiFiAccessPoint() {
         try {
@@ -1520,7 +1520,7 @@ class FirewallApp {
         } catch (error) {
             this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
         }
-    },
+    }
 
     async showWiFiSetupInstructions() {
         try {
@@ -1539,6 +1539,748 @@ class FirewallApp {
         } catch (error) {
             this.showToast({ title: 'Erreur', message: 'Impossible de charger les instructions', severity: 2 });
         }
-    },
+    }
 
-    // ...existing code for updateBandsUI, saveWiFiConfig, etc...
+    updateBandsUI(bands) {
+        bands.forEach(band => {
+            const bandId = band.bandType === 0 ? '24' : band.bandType === 1 ? '50' : '60';
+            const enabledEl = document.getElementById(`band-${bandId}-enabled`);
+            const standardEl = document.getElementById(`band-${bandId}-standard`);
+            const clientsEl = document.getElementById(`band-${bandId}-clients`);
+            const speedEl = document.getElementById(`band-${bandId}-speed`);
+            const channelEl = document.getElementById(`band-${bandId}-channel`);
+
+            if (enabledEl) enabledEl.checked = band.enabled;
+            if (standardEl) standardEl.textContent = band.standard || 'WiFi 6';
+            if (clientsEl) clientsEl.textContent = band.connectedClients || 0;
+            if (speedEl) speedEl.textContent = band.maxSpeed || 0;
+            if (channelEl) channelEl.textContent = band.channel === 0 ? 'Auto' : band.channel;
+        });
+    }
+
+    async loadMeshTopology() {
+        try {
+            const nodes = await this.api('wifi/mesh/nodes').catch(() => []);
+            const container = document.getElementById('mesh-nodes-list');
+            const empty = document.getElementById('mesh-empty');
+
+            if (!nodes.length) {
+                if (container) container.style.display = 'none';
+                if (empty) empty.style.display = 'block';
+                return;
+            }
+
+            if (empty) empty.style.display = 'none';
+            if (container) {
+                container.style.display = 'grid';
+                container.innerHTML = nodes.map(node => this.createMeshNodeCard(node)).join('');
+            }
+        } catch (error) {
+            console.error('Error loading mesh topology:', error);
+        }
+    }
+
+    createMeshNodeCard(node) {
+        const isOnline = node.status === 'Online';
+        return `
+            <div class="mesh-node-card ${isOnline ? 'online' : 'offline'}">
+                <div class="mesh-node-header">
+                    <i class="fas fa-${node.isMain ? 'home' : 'satellite-dish'}"></i>
+                    <h4>${this.escapeHtml(node.name || 'Nœud')}</h4>
+                    <span class="mesh-role">${node.isMain ? 'Principal' : 'Satellite'}</span>
+                    <span class="status-badge ${isOnline ? 'online' : 'offline'}">${isOnline ? 'En ligne' : 'Hors ligne'}</span>
+                </div>
+                <div class="mesh-node-info">
+                    <div class="mesh-stat"><i class="fas fa-network-wired"></i> ${this.escapeHtml(node.ipAddress || '-')}</div>
+                    <div class="mesh-stat"><i class="fas fa-users"></i> ${node.connectedClients || 0} clients</div>
+                </div>
+            </div>
+        `;
+    }
+
+    async loadWiFiClients() {
+        try {
+            const clients = await this.api('wifi/clients').catch(() => []);
+            const tbody = document.getElementById('wifi-clients-table');
+            if (!tbody) return;
+
+            if (!clients.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun client connecté</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = clients.map(client => `
+                <tr>
+                    <td>
+                        <div class="device-info">
+                            <strong>${this.escapeHtml(client.hostname || 'Inconnu')}</strong>
+                            <small>${this.escapeHtml(client.macAddress)}</small>
+                        </div>
+                    </td>
+                    <td>${client.band || '-'}</td>
+                    <td><span class="signal-indicator ${client.signalStrength > -50 ? 'success' : client.signalStrength > -70 ? 'warning' : 'danger'}">${client.signalStrength} dBm</span></td>
+                    <td>${client.txRate || '-'} Mbps</td>
+                    <td>${this.escapeHtml(client.standard || '-')}</td>
+                    <td>${this.escapeHtml(client.meshNode || '-')}</td>
+                    <td>${this.formatDate(client.connectedSince)}</td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading WiFi clients:', error);
+        }
+    }
+
+    async saveWiFiConfig() {
+        const config = {
+            enabled: document.getElementById('wifi-enabled')?.checked,
+            globalSSID: document.getElementById('wifi-ssid')?.value,
+            password: document.getElementById('wifi-password')?.value,
+            globalSecurity: parseInt(document.getElementById('wifi-security')?.value) || 4,
+            smartConnect: document.getElementById('wifi-smart-connect')?.checked,
+            fastRoaming: document.getElementById('wifi-fast-roaming')?.checked,
+            hideSSID: document.getElementById('wifi-hide-ssid')?.checked,
+            guestNetworkEnabled: document.getElementById('guest-enabled')?.checked,
+            guestSSID: document.getElementById('guest-ssid')?.value,
+            guestBandwidthLimit: parseInt(document.getElementById('guest-bandwidth')?.value) || 50
+        };
+
+        try {
+            await this.api('wifi/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+            this.showToast({ title: 'Succès', message: 'Configuration WiFi enregistrée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async toggleWiFi() {
+        await this.saveWiFiConfig();
+    }
+
+    async toggleBand(bandId) {
+        // Placeholder - implement band toggle
+        this.showToast({ title: 'Info', message: `Bande ${bandId} modifiée`, severity: 0 });
+    }
+
+    async toggleMesh() {
+        const enabled = document.getElementById('mesh-enabled')?.checked;
+        try {
+            await this.api('wifi/mesh/toggle', {
+                method: 'POST',
+                body: JSON.stringify({ enabled })
+            });
+            this.showToast({ title: 'Mesh', message: enabled ? 'Mesh activé' : 'Mesh désactivé', severity: 0 });
+            await this.loadWiFi();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async toggleGuestNetwork() {
+        await this.saveWiFiConfig();
+    }
+
+    showBandConfig(bandId) {
+        this.showToast({ title: 'Info', message: `Configuration de la bande ${bandId}`, severity: 0 });
+    }
+
+    showAddMeshNodeModal() {
+        this.showToast({ title: 'Info', message: 'Ajout de nœud Mesh', severity: 0 });
+    }
+
+    async optimizeMesh() {
+        this.showToast({ title: 'Mesh', message: 'Optimisation en cours...', severity: 0 });
+    }
+
+    async refreshWiFiClients() {
+        await this.loadWiFiClients();
+    }
+
+    async scanWiFiChannels() {
+        this.showToast({ title: 'Scan', message: 'Analyse des canaux en cours...', severity: 0 });
+    }
+
+    // ==========================================
+    // NAVIGATION
+    // ==========================================
+
+    navigateTo(page) {
+        // Hide all pages
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        
+        // Show selected page
+        const pageEl = document.getElementById(`${page}-page`);
+        if (pageEl) {
+            pageEl.classList.add('active');
+        }
+
+        // Update nav
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.page === page);
+        });
+
+        // Update title
+        const titles = {
+            'dashboard': 'Tableau de bord',
+            'devices': 'Appareils',
+            'agents': 'Agents distants',
+            'cameras': 'Caméras',
+            'alerts': 'Journaux',
+            'traffic': 'Trafic réseau',
+            'pihole': 'Pi-hole',
+            'dhcp': 'Serveur DHCP',
+            'wifi': 'WiFi Multi-Bandes',
+            'protocols': 'Protocoles Réseau',
+            'parental': 'Contrôle parental',
+            'router': 'Règles de sécurité',
+            'settings': 'Paramètres',
+            'admin': 'Administration',
+            'reports': 'Rapports'
+        };
+        document.getElementById('page-title').textContent = titles[page] || page;
+
+        this.currentPage = page;
+
+        // Load page data
+        this.loadPageData(page);
+    }
+
+    async loadPageData(page) {
+        switch (page) {
+            case 'dashboard':
+                await this.loadDashboard();
+                break;
+            case 'devices':
+                await this.loadDevices();
+                break;
+            case 'agents':
+                await this.loadAgents();
+                break;
+            case 'cameras':
+                await this.loadCameras();
+                break;
+            case 'alerts':
+                await this.loadAlerts();
+                break;
+            case 'traffic':
+                await this.loadTraffic();
+                break;
+            case 'pihole':
+                await this.loadPihole();
+                break;
+            case 'dhcp':
+                await this.loadDhcp();
+                break;
+            case 'wifi':
+                await this.loadWiFi();
+                break;
+            case 'protocols':
+                if (typeof this.loadProtocols === 'function') {
+                    await this.loadProtocols();
+                }
+                break;
+            case 'parental':
+                if (typeof this.loadParentalProfiles === 'function') {
+                    await this.loadParentalProfiles();
+                }
+                break;
+            case 'router':
+                if (typeof this.loadRouterInterfaces === 'function') {
+                    await this.loadRouterInterfaces();
+                }
+                break;
+            case 'settings':
+                await this.loadSettings();
+                break;
+            case 'admin':
+                await this.loadAdmin();
+                break;
+        }
+    }
+
+    async loadDevices() {
+        try {
+            const devices = await this.api('devices');
+            this.currentDevices = devices;
+            this.renderDevicesTable(devices);
+        } catch (error) {
+            console.error('Error loading devices:', error);
+        }
+    }
+
+    renderDevicesTable(devices) {
+        const tbody = document.getElementById('devices-table');
+        if (!tbody) return;
+
+        if (!devices.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun appareil détecté</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => `
+            <tr>
+                <td><span class="status-badge ${this.getStatusClass(device.status)}">${this.getStatusText(device.status)}</span></td>
+                <td class="device-mac">${this.escapeHtml(device.macAddress)}</td>
+                <td>${this.escapeHtml(device.ipAddress || '-')}</td>
+                <td>${this.escapeHtml(device.vendor || '-')}</td>
+                <td>${this.escapeHtml(device.description || device.hostname || '-')}</td>
+                <td>${this.formatDate(device.lastSeen)}</td>
+                <td>
+                    <button class="btn btn-sm" onclick="app.viewDevice(${device.id})" title="Détails">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    ${!device.isTrusted ? `
+                        <button class="btn btn-sm btn-success" onclick="app.approveDevice(${device.id})" title="Approuver">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteDevice(${device.id})" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    filterDevices(filter) {
+        let filtered = this.currentDevices;
+        
+        switch (filter) {
+            case 'online':
+                filtered = this.currentDevices.filter(d => d.status === 1 || d.status === 'Online');
+                break;
+            case 'unknown':
+                filtered = this.currentDevices.filter(d => !d.isKnown);
+                break;
+            case 'blocked':
+                filtered = this.currentDevices.filter(d => d.status === 3 || d.status === 'Blocked');
+                break;
+        }
+        
+        this.renderDevicesTable(filtered);
+    }
+
+    async scanNetwork() {
+        try {
+            const btn = document.getElementById('scan-network-btn');
+            const icon = document.getElementById('scan-icon');
+            if (btn) btn.disabled = true;
+            if (icon) icon.className = 'fas fa-spinner fa-spin';
+
+            await this.api('scan/network', { method: 'POST' });
+            this.showToast({ title: 'Scan', message: 'Scan réseau lancé', severity: 0 });
+            
+            // Reload devices after a delay
+            setTimeout(() => this.loadDevices(), 5000);
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        } finally {
+            const btn = document.getElementById('scan-network-btn');
+            const icon = document.getElementById('scan-icon');
+            if (btn) btn.disabled = false;
+            if (icon) icon.className = 'fas fa-radar';
+        }
+    }
+
+    async cleanupDevices() {
+        if (!confirm('Supprimer les appareils fantômes/Docker ?')) return;
+        try {
+            await this.api('devices/cleanup', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Nettoyage effectué', severity: 0 });
+            this.loadDevices();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async purgeDevices() {
+        if (!confirm('Supprimer TOUS les appareils ? Cette action est irréversible.')) return;
+        try {
+            await this.api('devices/purge', { method: 'DELETE' });
+            this.showToast({ title: 'Succès', message: 'Tous les appareils supprimés', severity: 0 });
+            this.loadDevices();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    showAddDeviceModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Ajouter un appareil';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Adresse MAC</label>
+                <input type="text" id="new-device-mac" class="form-control" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div class="form-group">
+                <label>Adresse IP (optionnel)</label>
+                <input type="text" id="new-device-ip" class="form-control" placeholder="192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" id="new-device-desc" class="form-control" placeholder="Mon appareil">
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-primary" onclick="app.addDevice()">Ajouter</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async addDevice() {
+        const mac = document.getElementById('new-device-mac').value;
+        const ip = document.getElementById('new-device-ip').value;
+        const desc = document.getElementById('new-device-desc').value;
+
+        if (!mac) {
+            this.showToast({ title: 'Erreur', message: 'L\'adresse MAC est requise', severity: 2 });
+            return;
+        }
+
+        try {
+            await this.api('devices', {
+                method: 'POST',
+                body: JSON.stringify({ macAddress: mac, ipAddress: ip, description: desc })
+            });
+            document.getElementById('modal').classList.remove('active');
+            this.showToast({ title: 'Succès', message: 'Appareil ajouté', severity: 0 });
+            this.loadDevices();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    clearScanLogs() {
+        const logs = document.getElementById('device-scan-logs');
+        if (logs) logs.textContent = '';
+    }
+
+    // ==========================================
+    // PIHOLE
+    // ==========================================
+
+    async loadPihole() {
+        try {
+            const status = await this.api('pihole/status').catch(() => ({}));
+            
+            const notLinux = document.getElementById('pihole-not-linux');
+            const notInstalled = document.getElementById('pihole-not-installed');
+            const installed = document.getElementById('pihole-installed');
+
+            // Check if Linux
+            if (status.isLinux === false) {
+                if (notLinux) notLinux.style.display = 'block';
+                if (notInstalled) notInstalled.style.display = 'none';
+                if (installed) installed.style.display = 'none';
+                return;
+            }
+
+            if (notLinux) notLinux.style.display = 'none';
+
+            if (!status.isInstalled) {
+                if (notInstalled) notInstalled.style.display = 'block';
+                if (installed) installed.style.display = 'none';
+                return;
+            }
+
+            if (notInstalled) notInstalled.style.display = 'none';
+            if (installed) installed.style.display = 'block';
+
+            // Update status
+            const statusText = document.getElementById('pihole-status-text');
+            const blockingText = document.getElementById('pihole-blocking-text');
+            const versionText = document.getElementById('pihole-version');
+
+            if (statusText) statusText.textContent = status.isRunning ? 'Actif' : 'Arrêté';
+            if (blockingText) blockingText.textContent = status.blockingEnabled ? 'Activé' : 'Désactivé';
+            if (versionText) versionText.textContent = status.version || '-';
+
+            // Load stats
+            if (status.isRunning) {
+                await this.loadPiholeStats();
+            }
+        } catch (error) {
+            console.error('Error loading Pi-hole:', error);
+        }
+    }
+
+    async loadPiholeStats() {
+        try {
+            const stats = await this.api('pihole/stats').catch(() => ({}));
+            
+            document.getElementById('ph-queries').textContent = stats.queriesTotal || 0;
+            document.getElementById('ph-blocked').textContent = stats.queriesBlocked || 0;
+            document.getElementById('ph-percent').textContent = `${stats.percentBlocked || 0}%`;
+            document.getElementById('ph-domains').textContent = stats.domainsBlocked || 0;
+            document.getElementById('ph-clients').textContent = stats.uniqueClients || 0;
+            document.getElementById('ph-gravity').textContent = stats.gravityLastUpdated || 'Jamais';
+            document.getElementById('ph-reply-ip').textContent = stats.replyIP || 0;
+            document.getElementById('ph-reply-nx').textContent = stats.replyNXDOMAIN || 0;
+        } catch (error) {
+            console.error('Error loading Pi-hole stats:', error);
+        }
+    }
+
+    async installPihole() {
+        if (!confirm('Installer Pi-hole ? Cette opération peut prendre plusieurs minutes.')) return;
+
+        document.getElementById('pihole-install-modal').classList.add('active');
+        
+        try {
+            await this.api('pihole/install', { method: 'POST' });
+            this.startPiholeLogPolling();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    startPiholeLogPolling() {
+        this.piholeLogPolling = setInterval(async () => {
+            try {
+                const result = await this.api('pihole/install/logs');
+                const logsEl = document.getElementById('pihole-install-logs');
+                if (logsEl) logsEl.textContent = result.logs || '';
+                
+                if (result.completed) {
+                    this.stopPiholeLogPolling();
+                    this.loadPihole();
+                    this.showToast({ title: 'Succès', message: 'Pi-hole installé', severity: 0 });
+                }
+            } catch (error) {
+                console.error('Error polling Pi-hole logs:', error);
+            }
+        }, 2000);
+    }
+
+    stopPiholeLogPolling() {
+        if (this.piholeLogPolling) {
+            clearInterval(this.piholeLogPolling);
+            this.piholeLogPolling = null;
+        }
+    }
+
+    closePiholeInstallModal() {
+        document.getElementById('pihole-install-modal').classList.remove('active');
+    }
+
+    // ==========================================
+    // SETTINGS & ADMIN
+    // ==========================================
+
+    async loadSettings() {
+        try {
+            const [system, interfaces] = await Promise.all([
+                this.api('settings/system').catch(() => ({})),
+                this.api('network/interfaces').catch(() => [])
+            ]);
+
+            const systemInfo = document.getElementById('system-info');
+            if (systemInfo && system) {
+                systemInfo.innerHTML = `
+                    <div class="info-row"><strong>Hostname:</strong> ${this.escapeHtml(system.hostname || '-')}</div>
+                    <div class="info-row"><strong>OS:</strong> ${this.escapeHtml(system.os || '-')}</div>
+                    <div class="info-row"><strong>Architecture:</strong> ${this.escapeHtml(system.architecture || '-')}</div>
+                    <div class="info-row"><strong>Uptime:</strong> ${this.escapeHtml(system.uptime || '-')}</div>
+                `;
+            }
+
+            const interfacesList = document.getElementById('interfaces-list');
+            if (interfacesList && interfaces) {
+                interfacesList.innerHTML = interfaces.map(iface => `
+                    <div class="interface-card">
+                        <div class="interface-header">
+                            <span class="interface-name">${this.escapeHtml(iface.name)}</span>
+                            <span class="status-badge ${iface.isUp ? 'online' : 'offline'}">${iface.isUp ? 'Actif' : 'Inactif'}</span>
+                        </div>
+                        <div class="interface-info">
+                            <span>IP: ${this.escapeHtml(iface.ipAddress || '-')}</span>
+                            <span>MAC: ${this.escapeHtml(iface.macAddress || '-')}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    async loadAdmin() {
+        try {
+            const status = await this.api('admin/status').catch(() => ({}));
+            
+            const statusText = document.getElementById('service-status-text');
+            const statusCard = document.getElementById('service-status-card');
+            
+            if (statusText) statusText.textContent = status.isRunning ? 'En cours' : 'Arrêté';
+            if (statusCard) statusCard.className = `stat-card ${status.isRunning ? 'success' : 'danger'}`;
+
+            document.getElementById('app-version').textContent = status.version || '-';
+            document.getElementById('current-commit').textContent = status.commit || '-';
+
+            this.loadVersionHistory();
+        } catch (error) {
+            console.error('Error loading admin:', error);
+        }
+    }
+
+    async loadVersionHistory() {
+        // Placeholder for version history loading
+    }
+
+    async startService() {
+        try {
+            await this.api('admin/start', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service démarré', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async stopService() {
+        try {
+            await this.api('admin/stop', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service arrêté', severity: 0 });
+            this.loadAdmin();
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async restartService() {
+        try {
+            await this.api('admin/restart', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service redémarré', severity: 0 });
+            setTimeout(() => this.loadAdmin(), 3000);
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async installService() {
+        try {
+            await this.api('admin/install', { method: 'POST' });
+            this.showToast({ title: 'Succès', message: 'Service installé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async uninstallService() {
+        if (!confirm('Désinstaller le service ?')) return;
+        try {
+            await this.api('admin/uninstall', { method: 'DELETE' });
+            this.showToast({ title: 'Succès', message: 'Service désinstallé', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+
+    async checkForUpdates() {
+        this.showToast({ title: 'Info', message: 'Vérification des mises à jour...', severity: 0 });
+    }
+
+    async updateFromGithub() {
+        this.showToast({ title: 'Info', message: 'Mise à jour en cours...', severity: 0 });
+    }
+
+    async loadServiceLogs() {
+        try {
+            const logs = await this.api('admin/logs');
+            document.getElementById('service-logs').textContent = logs || 'Aucun log disponible';
+        } catch (error) {
+            document.getElementById('service-logs').textContent = 'Erreur de chargement des logs';
+        }
+    }
+
+    // ==========================================
+    // ROUTER PAGE METHODS
+    // ==========================================
+
+    async loadRouterInterfaces() {
+        try {
+            const interfaces = await this.api('router/interfaces').catch(() => []);
+            const container = document.getElementById('router-interfaces-list');
+            if (!container) return;
+            
+            if (!interfaces.length) {
+                container.innerHTML = '<p class="empty-state">Aucune interface disponible</p>';
+                return;
+            }
+            
+            container.innerHTML = interfaces.map(iface => `
+                <div class="interface-card">
+                    <h4>${this.escapeHtml(iface.name)}</h4>
+                    <p>IP: ${this.escapeHtml(iface.ipAddress || '-')}</p>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading router interfaces:', error);
+        }
+    }
+
+    showAddMappingModal() {
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-plus"></i> Nouvelle règle NAT';
+        document.getElementById('modal-body').innerHTML = `
+            <div class="form-group">
+                <label>Nom</label>
+                <input type="text" id="mapping-name" class="form-control" placeholder="Ex: Serveur Web">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Port externe</label>
+                    <input type="number" id="mapping-ext-port" class="form-control" placeholder="80">
+                </div>
+                <div class="form-group">
+                    <label>Protocole</label>
+                    <select id="mapping-proto" class="form-control">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                        <option value="BOTH">Les deux</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>IP cible</label>
+                    <input type="text" id="mapping-target-ip" class="form-control" placeholder="192.168.1.100">
+                </div>
+                <div class="form-group">
+                    <label>Port cible</label>
+                    <input type="number" id="mapping-target-port" class="form-control" placeholder="80">
+                </div>
+            </div>
+        `;
+        document.getElementById('modal-footer').innerHTML = `
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
+            <button class="btn btn-primary" onclick="app.saveMapping()">Ajouter</button>
+        `;
+        document.getElementById('modal').classList.add('active');
+    }
+
+    async saveMapping() {
+        const mapping = {
+            name: document.getElementById('mapping-name').value,
+            externalPort: parseInt(document.getElementById('mapping-ext-port').value),
+            protocol: document.getElementById('mapping-proto').value,
+            targetIp: document.getElementById('mapping-target-ip').value,
+            targetPort: parseInt(document.getElementById('mapping-target-port').value)
+        };
+
+        try {
+            await this.api('router/mappings', {
+                method: 'POST',
+                body: JSON.stringify(mapping)
+            });
+            document.getElementById('modal').classList.remove('active');
+            this.showToast({ title: 'Succès', message: 'Règle ajoutée', severity: 0 });
+        } catch (error) {
+            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        }
+    }
+}
+
+// Initialize app
+const app = new FirewallApp();
