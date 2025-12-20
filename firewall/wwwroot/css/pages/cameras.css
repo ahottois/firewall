@@ -1,0 +1,103 @@
+/* ==========================================
+   CAMERAS PAGE
+   ========================================== */
+.cameras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--card-gap);
+}
+
+.camera-card {
+    background: var(--bg-card);
+    border-radius: var(--card-border-radius);
+    overflow: hidden;
+    border: var(--card-border);
+    transition: all var(--transition-fast);
+}
+
+.camera-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.camera-card.vulnerable {
+    border-color: var(--danger);
+    box-shadow: 0 0 15px var(--danger-light);
+}
+
+.camera-card.secured { border-color: var(--success); }
+
+.camera-preview {
+    height: 180px;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+}
+
+.camera-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+.camera-preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-secondary);
+}
+
+.camera-preview-placeholder span { font-size: 3rem; margin-bottom: 10px; }
+
+.camera-status-overlay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+}
+
+.camera-status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+}
+
+.camera-status-badge.online { background: var(--success); color: var(--bg-primary); }
+.camera-status-badge.offline { background: var(--danger); color: white; }
+.camera-status-badge.vulnerable { background: var(--danger); color: white; animation: blink 1s infinite; }
+
+@keyframes blink { 50% { opacity: 0.5; } }
+
+.camera-info { padding: var(--card-padding-body); }
+.camera-name { font-weight: var(--font-weight-semibold); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.camera-address { font-family: monospace; font-size: var(--font-size-small); color: var(--text-secondary); margin-bottom: var(--spacing-md); }
+.camera-meta { display: flex; gap: 15px; font-size: var(--font-size-small); color: var(--text-secondary); margin-bottom: var(--spacing-md); }
+
+.camera-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    margin-top: var(--spacing-md);
+}
+
+.camera-password-status {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-small);
+    margin-bottom: var(--spacing-md);
+}
+
+.camera-password-status.default {
+    background: var(--danger-light);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+
+.camera-password-status.custom {
+    background: var(--success-light);
+    color: var(--success);
+    border: 1px solid var(--success);
+}

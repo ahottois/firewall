@@ -1,0 +1,133 @@
+/* ==========================================
+   AGENTS PAGE
+   ========================================== */
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--card-gap);
+}
+
+.agent-card {
+    background: var(--bg-card);
+    border-radius: var(--card-border-radius);
+    border: var(--card-border);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.agent-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+.agent-card .card-header {
+    padding: var(--card-padding-header);
+    background: linear-gradient(135deg, var(--primary-light) 0%, rgba(124, 58, 237, 0.05) 100%);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 56px;
+}
+
+.agent-card .card-header h4 {
+    font-size: 1.1rem;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.agent-card .card-header h4::before {
+    content: '\f233';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: var(--primary);
+    font-size: 1rem;
+}
+
+.agent-card .card-body {
+    padding: var(--card-padding-body);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.agent-card .card-body p {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--font-size-body);
+    color: var(--text-secondary);
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    margin: 0;
+}
+
+.agent-card .card-body p:last-child { border-bottom: none; }
+.agent-card .card-body p i { width: 20px; text-align: center; font-size: 1rem; }
+.agent-card .card-body p i.fa-network-wired { color: var(--info); }
+.agent-card .card-body p i.fa-linux { color: var(--warning); }
+.agent-card .card-body p i.fa-windows { color: #00a4ef; }
+.agent-card .card-body p i.fa-apple { color: var(--text-secondary); }
+.agent-card .card-body p i.fa-microchip { color: var(--accent-secondary); }
+.agent-card .card-body p i.fa-memory { color: var(--success); }
+
+.agent-card .card-footer {
+    padding: var(--card-padding-footer);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
+.agent-card .card-footer .btn { flex: 1; max-width: 120px; }
+
+.agent-card.online { border-left: 4px solid var(--success); }
+.agent-card.offline { border-left: 4px solid var(--danger); opacity: 0.85; }
+.agent-card.warning { border-left: 4px solid var(--warning); }
+
+/* Agent Metrics */
+.agent-metric { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-md) 0; }
+.agent-metric-label { display: flex; align-items: center; gap: 10px; color: var(--text-secondary); min-width: 60px; }
+.agent-metric-value { font-weight: var(--font-weight-semibold); font-family: 'Consolas', 'Monaco', monospace; min-width: 50px; text-align: right; }
+
+.agent-metric-bar {
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+    flex: 1;
+    margin: 0 var(--spacing-lg);
+}
+
+.agent-metric-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.agent-metric-bar-fill.cpu { background: var(--accent-secondary); }
+.agent-metric-bar-fill.memory { background: var(--success); }
+.agent-metric-bar-fill.disk { background: var(--warning); }
+
+/* Agent Details */
+.detail-row {
+    padding: 6px 0;
+    font-size: var(--font-size-body);
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.detail-row strong { color: var(--text-primary); font-weight: var(--font-weight-medium); min-width: 120px; }
+
+.detail-card {
+    background: var(--bg-secondary);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+}
+
+.detail-card h4 { margin-bottom: var(--spacing-lg); padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--border-color); }

@@ -1,0 +1,24 @@
+/* ==========================================
+   BADGES
+   ========================================== */
+.badge, .status-badge {
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-badge.online { background: var(--success-light); color: var(--success); }
+.status-badge.offline { background: var(--danger-light); color: var(--danger); }
+.status-badge.unknown { background: var(--warning-light); color: var(--warning); }
+.status-badge.blocked { background: var(--danger-light); color: var(--danger); font-weight: var(--font-weight-bold); }
+
+.severity-badge {
+    padding: 4px 10px;
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-semibold);
+}

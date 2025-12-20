@@ -1,0 +1,50 @@
+/* ==========================================
+   TABLES
+   ========================================== */
+.data-table { width: 100%; border-collapse: collapse; }
+
+.data-table th,
+.data-table td {
+    padding: var(--table-padding-y) var(--table-padding-x);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background: var(--table-header-bg);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-label);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.data-table tbody tr {
+    background: var(--bg-primary);
+    transition: background var(--transition-fast);
+}
+
+.data-table tbody tr:nth-child(even) { background: var(--table-row-alt); }
+.data-table tbody tr:hover { background: var(--bg-hover); }
+.data-table tbody tr.unread { background: var(--primary-light); }
+.data-table td:last-child { text-align: right; }
+
+.data-table .action-buttons {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.table-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+}
+
+/* Sortable Tables */
+.sortable-table th.sortable { cursor: pointer; user-select: none; }
+.sortable-table th.sortable:hover { background: var(--bg-hover); }
+.sortable-table th.sortable i { margin-left: 8px; opacity: 0.4; }
+.sortable-table th.sortable.asc i,
+.sortable-table th.sortable.desc i { opacity: 1; color: var(--primary); }

@@ -4,6 +4,7 @@ using NetworkFirewall.Data;
 using NetworkFirewall.Hubs;
 using NetworkFirewall.Models;
 using NetworkFirewall.Services;
+using NetworkFirewall.Services.Compliance;
 using NetworkFirewall.Services.Firewall;
 using System.Text.Json.Serialization;
 
@@ -113,6 +114,12 @@ builder.Services.AddSingleton<IIso27001Service, Iso27001Service>();
 builder.Services.AddSingleton<IIso15408Service, Iso15408Service>();
 builder.Services.AddSingleton<IComplianceAuditService, ComplianceAuditService>();
 
+// Compliance Checkers (modulaires)
+builder.Services.AddSingleton<SystemComplianceChecker>();
+builder.Services.AddSingleton<NetworkComplianceChecker>();
+builder.Services.AddSingleton<SecurityComplianceChecker>();
+builder.Services.AddSingleton<OrganizationalComplianceChecker>();
+
 // Real Compliance Service (vérifications automatiques ISO)
 builder.Services.AddSingleton<IRealComplianceService, RealComplianceService>();
 
@@ -149,7 +156,6 @@ var staticFileOptions = new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        // Ajouter le charset UTF-8 pour les fichiers texte
         var contentType = ctx.Context.Response.ContentType;
         if (contentType != null && (
             contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ||
@@ -187,10 +193,8 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();
         _ = db.Alerts.FirstOrDefault();
         _ = db.Agents.FirstOrDefault();
-        // Vérifier aussi les nouveaux champs du modèle Device et SecurityLogs
         _ = db.Devices.Select(d => d.IsBlocked).FirstOrDefault();
         _ = db.SecurityLogs.FirstOrDefault();
-        // Vérifier les tables de contrôle parental
         _ = db.ChildProfiles.FirstOrDefault();
     }
     catch (Exception ex)

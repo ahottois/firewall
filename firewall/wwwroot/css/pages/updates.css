@@ -1,0 +1,235 @@
+/* ==========================================
+   VERSION TIMELINE & UPDATE HISTORY
+   ========================================== */
+.version-timeline { position: relative; padding-left: 30px; }
+.timeline-loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+
+.version-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+}
+
+.timeline-item {
+    position: relative;
+    padding: 15px 0;
+    padding-left: 25px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.timeline-item:last-child { border-bottom: none; }
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 22px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    z-index: 1;
+}
+
+.timeline-item.current::before {
+    background: var(--success);
+    border-color: var(--success);
+    box-shadow: 0 0 10px var(--success);
+}
+
+.timeline-item.current {
+    background: var(--success-light);
+    margin-left: -25px;
+    padding-left: 50px;
+    border-radius: var(--border-radius-md);
+}
+
+.timeline-item.latest::before { background: var(--primary); border-color: var(--primary); }
+
+.timeline-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.timeline-commit { display: flex; align-items: center; gap: 10px; }
+
+.commit-sha {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: var(--font-size-body);
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.commit-badges { display: flex; gap: 6px; }
+
+.commit-badge {
+    font-size: var(--font-size-small);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: var(--font-weight-semibold);
+}
+
+.commit-badge.current { background: var(--success); color: white; }
+.commit-badge.latest { background: var(--primary); color: var(--bg-primary); }
+.commit-badge.new { background: var(--warning); color: var(--bg-primary); }
+
+.timeline-date { font-size: var(--font-size-small); color: var(--text-muted); }
+.timeline-message { font-size: var(--font-size-body); color: var(--text-primary); margin-bottom: 8px; line-height: 1.4; }
+
+.timeline-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: var(--font-size-small);
+    color: var(--text-secondary);
+}
+
+.timeline-meta i { margin-right: 4px; opacity: 0.7; }
+
+/* Commit Types */
+.commit-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
+}
+
+.commit-type.feature { background: var(--success-light); color: var(--success); }
+.commit-type.fix { background: var(--danger-light); color: var(--danger); }
+.commit-type.refactor { background: var(--info-light); color: var(--info); }
+.commit-type.docs { background: var(--warning-light); color: var(--warning); }
+.commit-type.style { background: rgba(124, 58, 237, 0.15); color: var(--accent-secondary); }
+.commit-type.perf { background: var(--primary-light); color: var(--primary); }
+.commit-type.other { background: var(--bg-secondary); color: var(--text-secondary); }
+
+/* Changelog */
+.changelog-list { max-height: 300px; overflow-y: auto; }
+
+.changelog-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 8px;
+    border-left: 3px solid var(--primary);
+}
+
+.changelog-entry.feature { border-left-color: var(--success); }
+.changelog-entry.fix { border-left-color: var(--danger); }
+.changelog-entry .entry-sha { font-family: monospace; font-size: var(--font-size-small); color: var(--primary); min-width: 60px; }
+.changelog-entry .entry-message { flex: 1; font-size: var(--font-size-body); }
+.changelog-entry .entry-meta { font-size: var(--font-size-small); color: var(--text-muted); min-width: 120px; text-align: right; }
+
+/* Releases */
+.releases-list { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+
+.release-item { background: var(--bg-secondary); border-radius: var(--card-border-radius); border: var(--card-border); overflow: hidden; }
+
+.release-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.release-tag { display: flex; align-items: center; gap: 10px; }
+.release-tag-name { font-size: 1.2rem; font-weight: var(--font-weight-bold); color: var(--primary); }
+.release-tag-name i { margin-right: 8px; }
+
+.release-badge { padding: 4px 10px; border-radius: 12px; font-size: var(--font-size-small); font-weight: var(--font-weight-semibold); }
+.release-badge.stable { background: var(--success-light); color: var(--success); }
+.release-badge.prerelease { background: var(--warning-light); color: var(--warning); }
+
+.release-date { font-size: var(--font-size-small); color: var(--text-muted); }
+
+.release-body {
+    padding: var(--spacing-lg);
+    font-size: var(--font-size-body);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.release-body pre { background: var(--bg-primary); padding: var(--spacing-md); border-radius: var(--border-radius-sm); overflow-x: auto; }
+
+.release-footer {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Update Status */
+.update-status {
+    padding: var(--spacing-lg);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.update-status.available { background: var(--warning-light); border: 1px solid var(--warning); }
+.update-status.up-to-date { background: var(--success-light); border: 1px solid var(--success); }
+
+.update-info { flex: 1; }
+.update-info .update-title { font-weight: var(--font-weight-semibold); margin-bottom: 4px; }
+.update-info .update-details { font-size: var(--font-size-small); color: var(--text-secondary); }
+
+.show-more-btn {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-md);
+    text-align: center;
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-top: var(--spacing-md);
+}
+
+.show-more-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--primary); }
+
+/* Version Compare */
+.version-compare {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.version-box {
+    flex: 1;
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: var(--bg-card);
+    border-radius: var(--border-radius-sm);
+}
+
+.version-box.current { border: 2px solid var(--success); }
+.version-box.latest { border: 2px solid var(--primary); }
+.version-box .version-label { font-size: var(--font-size-small); color: var(--text-muted); display: block; margin-bottom: 4px; }
+.version-box .version-value { font-size: 1.2rem; font-weight: var(--font-weight-bold); font-family: monospace; }
+.version-arrow { font-size: 1.5rem; color: var(--primary); }
+
+.timeline-empty { text-align: center; padding: 40px; color: var(--text-secondary); }
+.timeline-empty i { font-size: 3rem; margin-bottom: var(--spacing-lg); opacity: 0.5; }

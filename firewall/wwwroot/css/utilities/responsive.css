@@ -1,0 +1,36 @@
+/* ==========================================
+   RESPONSIVE DESIGN
+   ========================================== */
+@media (max-width: 1200px) {
+    .dashboard-grid-bottom { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 992px) {
+    :root { --sidebar-width: 220px; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .traffic-overview-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+    .sidebar { width: 60px; overflow: hidden; }
+    
+    .sidebar .logo span:not(.logo-icon),
+    .sidebar .nav-item span:not(.nav-icon):not(.nav-badge),
+    .sidebar #capture-text { display: none; }
+    
+    .nav-item { justify-content: center; padding: 14px; }
+    .nav-icon { margin: 0; }
+    .main-content { margin-left: 60px; }
+    .page { padding: var(--spacing-lg); }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .modal-content { width: 95%; max-height: 90vh; }
+}
+
+@media (max-width: 576px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .header-actions { gap: var(--spacing-sm); }
+    .search-bar { display: none; }
+    .filter-bar { flex-direction: column; }
+    .cameras-grid, .parental-grid { grid-template-columns: 1fr; }
+    .top-bar h1 { font-size: 20px; }
+}

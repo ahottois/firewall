@@ -125,73 +125,583 @@ Object.assign(FirewallApp.prototype, {
         }
     },
 
+    // Niveau de difficulté actuel pour le formulaire NAT
+    natFormLevel: 'beginner',
+
     showAddNatRuleModal() {
-        document.getElementById('modal-title').innerHTML = '<i class="fas fa-exchange-alt"></i> Ajouter une règle NAT';
-        document.getElementById('modal-body').innerHTML = `
-            <div class="form-group">
-                <label>Nom</label>
-                <input type="text" id="nat-rule-name" class="form-control" placeholder="Ex: Redirection Web">
-            </div>
-            <div class="form-group">
-                <label>Type</label>
-                <select id="nat-rule-type" class="form-control">
-                    <option value="1">DNAT (Port Forwarding)</option>
-                    <option value="0">SNAT (Source NAT)</option>
-                    <option value="3">PAT</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Protocole</label>
-                <select id="nat-rule-protocol" class="form-control">
-                    <option value="tcp">TCP</option>
-                    <option value="udp">UDP</option>
-                    <option value="all">Tous</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Port externe</label>
-                    <input type="text" id="nat-rule-dest-port" class="form-control" placeholder="80">
-                </div>
-                <div class="form-group">
-                    <label>Adresse interne</label>
-                    <input type="text" id="nat-rule-trans-addr" class="form-control" placeholder="192.168.1.100">
-                </div>
-                <div class="form-group">
-                    <label>Port interne</label>
-                    <input type="text" id="nat-rule-trans-port" class="form-control" placeholder="8080">
-                </div>
-            </div>
-        `;
+        document.getElementById('modal-title').innerHTML = '<i class="fas fa-exchange-alt"></i> Créer une règle NAT (Redirection de port)';
+        document.getElementById('modal-body').innerHTML = this.generateNatFormContent();
         document.getElementById('modal-footer').innerHTML = `
             <button class="btn btn-secondary" onclick="document.getElementById('modal').classList.remove('active')">Annuler</button>
             <button class="btn btn-primary" onclick="app.addNatRule()">
-                <i class="fas fa-plus"></i> Ajouter
+                <i class="fas fa-plus"></i> Créer la règle
             </button>
         `;
         document.getElementById('modal').classList.add('active');
+        
+        // Initialiser la prévisualisation
+        this.updateNatPreview();
+    },
+
+    generateNatFormContent() {
+        return `
+            <!-- En-tête explicatif -->
+            <div class="help-container">
+                <div class="help-header">
+                    <i class="fas fa-lightbulb"></i>
+                    <h4>Qu'est-ce qu'une règle NAT ?</h4>
+                </div>
+                <div class="help-description">
+                    <strong>NAT</strong> (Network Address Translation) permet de <strong>rediriger le trafic</strong> d'Internet vers un appareil de votre réseau local.
+                    <br><br>
+                    <strong>Exemple simple :</strong> Vous avez un serveur de jeu à la maison. Vos amis veulent s'y connecter depuis Internet. 
+                    Sans règle NAT, c'est impossible car votre serveur est "caché" derrière votre box/routeur. 
+                    Une règle NAT dit : "Quand quelqu'un frappe à la porte 25565, redirige-le vers mon serveur Minecraft !"
+                </div>
+            </div>
+
+            <!-- Schéma visuel -->
+            <div class="visual-schema">
+                <div class="schema-box external">
+                    <div class="schema-box-icon"><i class="fas fa-globe"></i></div>
+                    <div class="schema-box-label">Internet</div>
+                    <div class="schema-box-value" id="schema-external">:80</div>
+                </div>
+                <div class="schema-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="schema-box firewall">
+                    <div class="schema-box-icon"><i class="fas fa-shield-alt"></i></div>
+                    <div class="schema-box-label">Votre Firewall</div>
+                    <div class="schema-box-value">NAT</div>
+                </div>
+                <div class="schema-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="schema-box internal">
+                    <div class="schema-box-icon"><i class="fas fa-server"></i></div>
+                    <div class="schema-box-label">Votre serveur</div>
+                    <div class="schema-box-value" id="schema-internal">192.168.1.100:8080</div>
+                </div>
+            </div>
+
+            <!-- Onglets niveau de difficulté -->
+            <div class="difficulty-tabs">
+                <button class="difficulty-tab beginner ${this.natFormLevel === 'beginner' ? 'active' : ''}" onclick="app.setNatFormLevel('beginner')">
+                    <i class="fas fa-baby"></i> Débutant
+                </button>
+                <button class="difficulty-tab intermediate ${this.natFormLevel === 'intermediate' ? 'active' : ''}" onclick="app.setNatFormLevel('intermediate')">
+                    <i class="fas fa-user"></i> Intermédiaire
+                </button>
+                <button class="difficulty-tab expert ${this.natFormLevel === 'expert' ? 'active' : ''}" onclick="app.setNatFormLevel('expert')">
+                    <i class="fas fa-user-ninja"></i> Expert
+                </button>
+            </div>
+
+            <!-- Formulaire principal -->
+            <div class="nat-form-fields">
+                
+                <!-- CHAMP 1: NOM -->
+                <div class="form-group field-help">
+                    <div class="label-with-help">
+                        <span class="label-text">?? Nom de la règle</span>
+                        <span class="label-badge required">Obligatoire</span>
+                    </div>
+                    <input type="text" id="nat-rule-name" class="form-control" 
+                           placeholder="Ex: Serveur Minecraft, Caméra salon, Site web..."
+                           oninput="app.updateNatPreview()">
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        Donnez un nom facile à retenir pour identifier cette règle plus tard.
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-tag"></i> À quoi sert le nom ?</div>
+                        <div class="help-tooltip-text">
+                            Le nom vous aide à vous souvenir pourquoi vous avez créé cette règle. 
+                            Choisissez quelque chose de descriptif !
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-check-circle"></i> Bons exemples</div>
+                            <div class="help-example-content">
+                                ? "Serveur Minecraft maison"<br>
+                                ? "Caméra de surveillance garage"<br>
+                                ? "Accès NAS depuis l'extérieur"<br>
+                                ? "Règle 1" (trop vague)
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon pulse-attention"></i>
+                </div>
+
+                <!-- CHAMP 2: TYPE DE RÈGLE -->
+                <div class="form-group field-help" id="nat-type-group" style="${this.natFormLevel === 'beginner' ? 'display:none;' : ''}">
+                    <div class="label-with-help">
+                        <span class="label-text">?? Type de redirection</span>
+                        <span class="label-badge recommended">Par défaut: DNAT</span>
+                    </div>
+                    <select id="nat-rule-type" class="form-control" onchange="app.updateNatPreview()">
+                        <option value="1" selected>DNAT (Redirection de port) - Le plus courant</option>
+                        <option value="0">SNAT (Changer l'adresse source)</option>
+                        <option value="3">PAT (Redirection avec changement de port)</option>
+                    </select>
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>DNAT</strong> = Redirige le trafic entrant vers votre réseau. C'est ce que vous voulez dans 95% des cas !
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-random"></i> Les différents types expliqués</div>
+                        <div class="help-tooltip-text">
+                            <strong>?? DNAT (Destination NAT)</strong><br>
+                            Redirige le trafic venant d'Internet vers un appareil de votre réseau.
+                            <br><br>
+                            <strong>?? SNAT (Source NAT)</strong><br>
+                            Change l'adresse source des paquets sortants (usage avancé).
+                            <br><br>
+                            <strong>?? PAT (Port Address Translation)</strong><br>
+                            Comme DNAT mais peut aussi changer le numéro de port.
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-lightbulb"></i> Quand utiliser quoi ?</div>
+                            <div class="help-example-content">
+                                <strong>DNAT:</strong> Serveur web, jeux, caméras<br>
+                                <strong>SNAT:</strong> VPN, connexions sortantes spéciales<br>
+                                <strong>PAT:</strong> Quand les ports interne/externe diffèrent
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon"></i>
+                </div>
+
+                <!-- CHAMP 3: PROTOCOLE -->
+                <div class="form-group field-help">
+                    <div class="label-with-help">
+                        <span class="label-text">?? Protocole</span>
+                        <span class="label-badge required">Obligatoire</span>
+                    </div>
+                    <select id="nat-rule-protocol" class="form-control" onchange="app.updateNatPreview()">
+                        <option value="tcp">TCP - Connexions fiables (web, email, jeux)</option>
+                        <option value="udp">UDP - Streaming, voix, certains jeux</option>
+                        <option value="both">TCP + UDP - Les deux (si vous ne savez pas)</option>
+                    </select>
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        Si vous ne savez pas, choisissez <strong>"TCP + UDP"</strong> pour être sûr que ça fonctionne.
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-network-wired"></i> TCP vs UDP - C'est quoi ?</div>
+                        <div class="help-tooltip-text">
+                            Imaginez deux façons d'envoyer un colis :<br><br>
+                            <strong>?? TCP</strong> = Courrier recommandé<br>
+                            Le destinataire confirme la réception. Plus lent mais sûr.<br><br>
+                            <strong>?? UDP</strong> = Carte postale<br>
+                            Envoi rapide sans confirmation. Plus rapide mais peut se perdre.
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-list"></i> Exemples concrets</div>
+                            <div class="help-example-content">
+                                <strong>TCP:</strong> Sites web (80, 443), SSH (22), Minecraft (25565)<br>
+                                <strong>UDP:</strong> DNS (53), VoIP, certains jeux (voix)<br>
+                                <strong>Les deux:</strong> Discord, certains jeux multijoueur
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon"></i>
+                </div>
+
+                <!-- CHAMP 4: PORT EXTERNE -->
+                <div class="form-group field-help">
+                    <div class="label-with-help">
+                        <span class="label-text">?? Port externe (d'entrée)</span>
+                        <span class="label-badge required">Obligatoire</span>
+                    </div>
+                    <input type="text" id="nat-rule-dest-port" class="form-control" 
+                           placeholder="Ex: 80, 25565, 8080..."
+                           oninput="app.updateNatPreview()">
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        C'est le "numéro de porte" par lequel les visiteurs d'Internet vont frapper.
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-door-open"></i> Qu'est-ce qu'un port ?</div>
+                        <div class="help-tooltip-text">
+                            Un <strong>port</strong> est comme un numéro de porte dans un immeuble.<br><br>
+                            Votre adresse IP = l'adresse de l'immeuble<br>
+                            Le port = le numéro d'appartement<br><br>
+                            Chaque service utilise une "porte" différente pour ne pas se mélanger !
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-bookmark"></i> Ports courants à connaître</div>
+                            <div class="help-example-content">
+                                <strong>80</strong> = Sites web (HTTP)<br>
+                                <strong>443</strong> = Sites web sécurisés (HTTPS)<br>
+                                <strong>22</strong> = SSH (accès distant sécurisé)<br>
+                                <strong>25565</strong> = Minecraft<br>
+                                <strong>3389</strong> = Bureau à distance Windows<br>
+                                <strong>8080</strong> = Serveur web alternatif
+                            </div>
+                            <div class="help-example-result">
+                                ?? <strong>Astuce:</strong> Utilisez un port > 1024 pour éviter les conflits avec les services système.
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon"></i>
+                </div>
+
+                <!-- CHAMP 5: ADRESSE IP INTERNE -->
+                <div class="form-group field-help">
+                    <div class="label-with-help">
+                        <span class="label-text">??? Adresse IP de l'appareil cible</span>
+                        <span class="label-badge required">Obligatoire</span>
+                    </div>
+                    <input type="text" id="nat-rule-trans-addr" class="form-control" 
+                           placeholder="Ex: 192.168.1.100"
+                           oninput="app.updateNatPreview()">
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        L'adresse IP locale de l'appareil qui doit recevoir les connexions (votre serveur, NAS, caméra...).
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-map-marker-alt"></i> Trouver l'adresse IP d'un appareil</div>
+                        <div class="help-tooltip-text">
+                            L'adresse IP est comme l'adresse postale de votre appareil sur le réseau.<br><br>
+                            Elle ressemble à : <code>192.168.X.Y</code> ou <code>10.0.X.Y</code>
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-search"></i> Comment la trouver ?</div>
+                            <div class="help-example-content">
+                                <strong>Windows:</strong> Tapez "ipconfig" dans l'invite de commandes<br>
+                                <strong>Mac/Linux:</strong> Tapez "ifconfig" ou "ip addr" dans le terminal<br>
+                                <strong>Téléphone:</strong> Paramètres WiFi > Détails de la connexion<br>
+                                <strong>Routeur:</strong> Liste des appareils connectés
+                            </div>
+                            <div class="help-example-result">
+                                ?? <strong>Important:</strong> Utilisez une IP fixe ou une réservation DHCP pour éviter que l'adresse change !
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon"></i>
+                </div>
+
+                <!-- CHAMP 6: PORT INTERNE -->
+                <div class="form-group field-help">
+                    <div class="label-with-help">
+                        <span class="label-text">?? Port interne (de destination)</span>
+                        <span class="label-badge optional">Optionnel</span>
+                    </div>
+                    <input type="text" id="nat-rule-trans-port" class="form-control" 
+                           placeholder="Laissez vide = même que le port externe"
+                           oninput="app.updateNatPreview()">
+                    <div class="field-description">
+                        <i class="fas fa-info-circle"></i>
+                        Le port sur lequel votre appareil écoute. Laissez vide si c'est le même que le port externe.
+                    </div>
+                    <div class="help-tooltip">
+                        <div class="help-tooltip-title"><i class="fas fa-exchange-alt"></i> Pourquoi un port différent ?</div>
+                        <div class="help-tooltip-text">
+                            Parfois, vous voulez que le port externe soit différent du port interne.<br><br>
+                            C'est utile pour :<br>
+                            - Cacher le vrai port de votre service<br>
+                            - Avoir plusieurs serveurs sur le même port externe<br>
+                            - Contourner des restrictions de fournisseur Internet
+                        </div>
+                        <div class="help-example">
+                            <div class="help-example-header"><i class="fas fa-lightbulb"></i> Exemple concret</div>
+                            <div class="help-example-content">
+                                Votre serveur web écoute sur le port <strong>8080</strong><br>
+                                Mais vous voulez y accéder via le port <strong>80</strong> (standard)<br><br>
+                                ? Port externe: 80<br>
+                                ? Port interne: 8080
+                            </div>
+                            <div class="help-example-result">
+                                <strong>Résultat:</strong> Les visiteurs tapent "monsite.com" (port 80 par défaut) et sont redirigés vers votre serveur sur 8080.
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-question-circle field-help-icon"></i>
+                </div>
+
+                <!-- Options avancées (cachées par défaut) -->
+                <div id="nat-advanced-options" style="${this.natFormLevel !== 'expert' ? 'display:none;' : ''}">
+                    <div class="help-accordion">
+                        <div class="help-accordion-header" onclick="this.parentElement.classList.toggle('open')">
+                            <span class="help-accordion-title">
+                                <i class="fas fa-cogs"></i> Options avancées
+                            </span>
+                            <i class="fas fa-chevron-down help-accordion-toggle"></i>
+                        </div>
+                        <div class="help-accordion-content">
+                            <div class="form-group">
+                                <label>Adresse source (filtrage)</label>
+                                <input type="text" id="nat-rule-source-addr" class="form-control" 
+                                       placeholder="Laisser vide = tout le monde">
+                                <div class="field-description">
+                                    <i class="fas fa-shield-alt"></i>
+                                    Limitez l'accès à certaines adresses IP seulement (sécurité renforcée).
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="nat-rule-log" checked>
+                                    Journaliser les connexions (recommandé)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prévisualisation en direct -->
+            <div class="live-preview">
+                <div class="live-preview-header">
+                    <i class="fas fa-eye"></i> Prévisualisation de votre règle
+                </div>
+                <div class="live-preview-content" id="nat-preview-content">
+                    Remplissez les champs ci-dessus pour voir la prévisualisation...
+                </div>
+            </div>
+
+            <!-- Exemples de configurations courantes -->
+            <div class="concept-card info" style="margin-top: 20px;">
+                <div class="concept-header">
+                    <div class="concept-icon"><i class="fas fa-book"></i></div>
+                    <div>
+                        <div class="concept-title">Configurations pré-faites</div>
+                        <div class="concept-subtitle">Cliquez pour pré-remplir le formulaire</div>
+                    </div>
+                </div>
+                <div class="concept-body">
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('minecraft')">
+                            <i class="fas fa-gamepad"></i> Minecraft
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('webserver')">
+                            <i class="fas fa-globe"></i> Serveur Web
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('ssh')">
+                            <i class="fas fa-terminal"></i> SSH
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('camera')">
+                            <i class="fas fa-video"></i> Caméra IP
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('nas')">
+                            <i class="fas fa-hdd"></i> NAS
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="app.applyNatPreset('rdp')">
+                            <i class="fas fa-desktop"></i> Bureau distant
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    setNatFormLevel(level) {
+        this.natFormLevel = level;
+        
+        // Mettre à jour les onglets
+        document.querySelectorAll('.difficulty-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.classList.contains(level)) {
+                tab.classList.add('active');
+            }
+        });
+
+        // Afficher/masquer les champs selon le niveau
+        const typeGroup = document.getElementById('nat-type-group');
+        const advancedOptions = document.getElementById('nat-advanced-options');
+
+        if (typeGroup) {
+            typeGroup.style.display = level === 'beginner' ? 'none' : 'block';
+        }
+        if (advancedOptions) {
+            advancedOptions.style.display = level === 'expert' ? 'block' : 'none';
+        }
+    },
+
+    updateNatPreview() {
+        const name = document.getElementById('nat-rule-name')?.value || 'Ma règle';
+        const protocol = document.getElementById('nat-rule-protocol')?.value || 'tcp';
+        const destPort = document.getElementById('nat-rule-dest-port')?.value || '???';
+        const transAddr = document.getElementById('nat-rule-trans-addr')?.value || '192.168.1.???';
+        const transPort = document.getElementById('nat-rule-trans-port')?.value || destPort;
+
+        // Mettre à jour le schéma
+        const schemaExternal = document.getElementById('schema-external');
+        const schemaInternal = document.getElementById('schema-internal');
+        if (schemaExternal) schemaExternal.textContent = `:${destPort}`;
+        if (schemaInternal) schemaInternal.textContent = `${transAddr}:${transPort}`;
+
+        // Mettre à jour la prévisualisation
+        const preview = document.getElementById('nat-preview-content');
+        if (preview) {
+            const protocolUpper = protocol === 'both' ? 'TCP + UDP' : protocol.toUpperCase();
+            preview.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>?? Nom:</strong> ${this.escapeHtml(name)}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>?? Protocole:</strong> ${protocolUpper}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>?? Quand quelqu'un se connecte sur:</strong> votre_ip_publique:<span style="color: var(--accent-primary);">${destPort}</span>
+                </div>
+                <div>
+                    <strong>?? Rediriger vers:</strong> <span style="color: var(--success);">${transAddr}:${transPort}</span>
+                </div>
+                ${destPort && transAddr ? `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); color: var(--text-secondary); font-size: 0.85rem;">
+                        <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                        La règle semble correcte et prête à être créée !
+                    </div>
+                ` : `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); color: var(--warning); font-size: 0.85rem;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Veuillez remplir tous les champs obligatoires.
+                    </div>
+                `}
+            `;
+        }
+    },
+
+    applyNatPreset(preset) {
+        const presets = {
+            minecraft: {
+                name: 'Serveur Minecraft',
+                protocol: 'tcp',
+                destPort: '25565',
+                transPort: '25565',
+                description: 'Port standard pour les serveurs Minecraft Java Edition'
+            },
+            webserver: {
+                name: 'Serveur Web HTTP',
+                protocol: 'tcp',
+                destPort: '80',
+                transPort: '80',
+                description: 'Port standard pour les sites web non sécurisés'
+            },
+            ssh: {
+                name: 'Accès SSH',
+                protocol: 'tcp',
+                destPort: '22',
+                transPort: '22',
+                description: 'Accès distant sécurisé en ligne de commande'
+            },
+            camera: {
+                name: 'Caméra IP',
+                protocol: 'tcp',
+                destPort: '8080',
+                transPort: '80',
+                description: 'Accès à une caméra de surveillance (port externe différent pour sécurité)'
+            },
+            nas: {
+                name: 'NAS - Interface Web',
+                protocol: 'tcp',
+                destPort: '5000',
+                transPort: '5000',
+                description: 'Port courant pour les interfaces web de NAS Synology'
+            },
+            rdp: {
+                name: 'Bureau à distance Windows',
+                protocol: 'tcp',
+                destPort: '3389',
+                transPort: '3389',
+                description: 'Remote Desktop Protocol pour contrôler un PC Windows à distance'
+            }
+        };
+
+        const config = presets[preset];
+        if (!config) return;
+
+        document.getElementById('nat-rule-name').value = config.name;
+        document.getElementById('nat-rule-protocol').value = config.protocol;
+        document.getElementById('nat-rule-dest-port').value = config.destPort;
+        document.getElementById('nat-rule-trans-port').value = config.transPort;
+
+        // Garder l'adresse IP si déjà remplie
+        const addrField = document.getElementById('nat-rule-trans-addr');
+        if (!addrField.value) {
+            addrField.placeholder = 'Entrez l\'IP de votre ' + config.name.toLowerCase();
+        }
+
+        this.updateNatPreview();
+        
+        this.showToast({ 
+            title: 'Configuration appliquée', 
+            message: `${config.name}: ${config.description}`, 
+            severity: 0 
+        });
     },
 
     async addNatRule() {
-        const rule = {
-            name: document.getElementById('nat-rule-name')?.value,
-            type: parseInt(document.getElementById('nat-rule-type')?.value) || 1,
-            protocol: document.getElementById('nat-rule-protocol')?.value || 'tcp',
-            destinationPort: document.getElementById('nat-rule-dest-port')?.value,
-            translatedAddress: document.getElementById('nat-rule-trans-addr')?.value,
-            translatedPort: document.getElementById('nat-rule-trans-port')?.value
-        };
+        const name = document.getElementById('nat-rule-name')?.value;
+        const destPort = document.getElementById('nat-rule-dest-port')?.value;
+        const transAddr = document.getElementById('nat-rule-trans-addr')?.value;
 
-        try {
-            await this.api('networkprotocols/nat/rules', {
-                method: 'POST',
-                body: JSON.stringify(rule)
-            });
-            document.getElementById('modal').classList.remove('active');
-            this.showToast({ title: 'Succès', message: 'Règle NAT ajoutée', severity: 0 });
-            this.loadNatRules();
-        } catch (error) {
-            this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+        // Validation
+        if (!name) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez donner un nom à votre règle', severity: 2 });
+            return;
+        }
+        if (!destPort) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez spécifier le port externe', severity: 2 });
+            return;
+        }
+        if (!transAddr) {
+            this.showToast({ title: 'Erreur', message: 'Veuillez entrer l\'adresse IP de destination', severity: 2 });
+            return;
+        }
+
+        const protocol = document.getElementById('nat-rule-protocol')?.value || 'tcp';
+        const transPort = document.getElementById('nat-rule-trans-port')?.value || destPort;
+
+        // Si "both" est sélectionné, créer deux règles
+        if (protocol === 'both') {
+            try {
+                await this.api('networkprotocols/nat/rules', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: `${name} (TCP)`,
+                        type: parseInt(document.getElementById('nat-rule-type')?.value) || 1,
+                        protocol: 'tcp',
+                        destinationPort: destPort,
+                        translatedAddress: transAddr,
+                        translatedPort: transPort
+                    })
+                });
+                await this.api('networkprotocols/nat/rules', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: `${name} (UDP)`,
+                        type: parseInt(document.getElementById('nat-rule-type')?.value) || 1,
+                        protocol: 'udp',
+                        destinationPort: destPort,
+                        translatedAddress: transAddr,
+                        translatedPort: transPort
+                    })
+                });
+                document.getElementById('modal').classList.remove('active');
+                this.showToast({ title: 'Succès', message: 'Règles NAT TCP et UDP créées !', severity: 0 });
+                this.loadNatRules();
+            } catch (error) {
+                this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+            }
+        } else {
+            const rule = {
+                name: name,
+                type: parseInt(document.getElementById('nat-rule-type')?.value) || 1,
+                protocol: protocol,
+                destinationPort: destPort,
+                translatedAddress: transAddr,
+                translatedPort: transPort
+            };
+
+            try {
+                await this.api('networkprotocols/nat/rules', {
+                    method: 'POST',
+                    body: JSON.stringify(rule)
+                });
+                document.getElementById('modal').classList.remove('active');
+                this.showToast({ title: 'Succès', message: 'Règle NAT créée avec succès !', severity: 0 });
+                this.loadNatRules();
+            } catch (error) {
+                this.showToast({ title: 'Erreur', message: error.message, severity: 2 });
+            }
         }
     },
 

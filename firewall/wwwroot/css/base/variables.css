@@ -1,0 +1,117 @@
+/* ==========================================
+   CSS VARIABLES & RESET
+   ========================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    /* Couleurs Primaires */
+    --primary: #0DD9FF;
+    --primary-hover: #0bc5e8;
+    --primary-light: rgba(13, 217, 255, 0.15);
+    
+    /* Couleurs de Fond */
+    --bg-primary: #0F172A;
+    --bg-secondary: #1A2341;
+    --bg-card: #1E293B;
+    --bg-hover: #334155;
+    --bg-table-alt: #1A2341;
+    
+    /* Couleurs de Texte */
+    --text-primary: #FFFFFF;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    
+    /* Couleurs de Statut */
+    --success: #22C55E;
+    --success-light: rgba(34, 197, 94, 0.15);
+    --warning: #F59E0B;
+    --warning-light: rgba(245, 158, 11, 0.15);
+    --danger: #EF4444;
+    --danger-light: rgba(239, 68, 68, 0.15);
+    --info: #0DD9FF;
+    --info-light: rgba(13, 217, 255, 0.15);
+    --neutral: #64748B;
+    
+    /* Bordures */
+    --border-color: #334155;
+    --border-radius-sm: 6px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    
+    /* Ombres */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    
+    /* Typographie */
+    --font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-size-page-title: 28px;
+    --font-size-section-title: 18px;
+    --font-size-subtitle: 14px;
+    --font-size-body: 14px;
+    --font-size-label: 12px;
+    --font-size-small: 12px;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    
+    /* Espacements */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-2xl: 24px;
+    --spacing-3xl: 32px;
+    
+    /* Boutons */
+    --btn-padding-x: 12px;
+    --btn-padding-y: 10px;
+    --btn-padding-x-sm: 10px;
+    --btn-padding-y-sm: 8px;
+    
+    /* Cartes */
+    --card-padding: 20px;
+    --card-padding-header: 16px 20px;
+    --card-padding-body: 20px;
+    --card-padding-footer: 16px 20px;
+    --card-border-radius: 8px;
+    --card-border: 1px solid #334155;
+    --card-gap: 24px;
+    
+    /* Stat Cards */
+    --stat-card-padding: 20px;
+    --stat-card-gap: 16px;
+    --stat-icon-size: 2rem;
+    --stat-value-size: 1.8rem;
+    
+    /* Tableaux */
+    --table-padding-x: 12px;
+    --table-padding-y: 10px;
+    --table-header-bg: #1A2341;
+    --table-row-alt: #0F172A;
+    
+    /* Modales */
+    --modal-padding: 24px;
+    --modal-width: 500px;
+    --modal-backdrop: rgba(0, 0, 0, 0.8);
+    
+    /* Layout */
+    --sidebar-width: 260px;
+    --header-height: 64px;
+    
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.25s ease;
+    --transition-slow: 0.4s ease;
+    
+    /* Legacy */
+    --accent-primary: var(--primary);
+    --accent-secondary: #7C3AED;
+    --accent-tertiary: #0DD9FF;
+}

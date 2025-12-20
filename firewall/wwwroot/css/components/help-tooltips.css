@@ -1,0 +1,525 @@
+/* ===========================================
+   HELP & TOOLTIPS - Styles pédagogiques
+   Pour rendre l'interface accessible à tous
+   =========================================== */
+
+/* Container d'aide générale */
+.help-container {
+    background: linear-gradient(135deg, rgba(13, 217, 255, 0.1), rgba(124, 58, 237, 0.1));
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.help-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    color: var(--accent-primary);
+}
+
+.help-header i {
+    font-size: 1.5em;
+}
+
+.help-header h4 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.help-description {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+/* Bulles d'aide sur les champs */
+.field-help {
+    position: relative;
+}
+
+.field-help-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-primary);
+    cursor: help;
+    font-size: 1rem;
+    z-index: 10;
+    transition: all 0.3s ease;
+}
+
+.field-help-icon:hover {
+    color: var(--accent-secondary);
+    transform: translateY(-50%) scale(1.2);
+}
+
+/* Tooltip pédagogique */
+.help-tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-primary);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.field-help:hover .help-tooltip,
+.help-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.help-tooltip::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--accent-primary);
+}
+
+.help-tooltip-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-primary);
+    font-weight: 600;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+}
+
+.help-tooltip-title i {
+    font-size: 1.1em;
+}
+
+.help-tooltip-text {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+/* Encadré d'exemple */
+.help-example {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--success);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+}
+
+.help-example-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--success);
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+}
+
+.help-example-content {
+    background: var(--bg-primary);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.help-example-result {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--success);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.help-example-result strong {
+    color: var(--success);
+}
+
+/* Carte explicative de concept */
+.concept-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--accent-primary);
+}
+
+.concept-card.warning {
+    border-left-color: var(--warning);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.concept-card.info {
+    border-left-color: var(--info);
+    background: rgba(13, 217, 255, 0.1);
+}
+
+.concept-card.success {
+    border-left-color: var(--success);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.concept-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.concept-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    background: var(--accent-primary);
+    color: white;
+}
+
+.concept-card.warning .concept-icon {
+    background: var(--warning);
+}
+
+.concept-card.info .concept-icon {
+    background: var(--info);
+}
+
+.concept-card.success .concept-icon {
+    background: var(--success);
+}
+
+.concept-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.concept-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.concept-body {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Schéma visuel simplifié */
+.visual-schema {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px;
+    background: var(--bg-primary);
+    border-radius: 12px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.schema-box {
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    padding: 15px 20px;
+    text-align: center;
+    min-width: 120px;
+}
+
+.schema-box.external {
+    border-color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.schema-box.firewall {
+    border-color: var(--accent-primary);
+    background: rgba(13, 217, 255, 0.1);
+}
+
+.schema-box.internal {
+    border-color: var(--success);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.schema-box-icon {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.schema-box.external .schema-box-icon { color: var(--danger); }
+.schema-box.firewall .schema-box-icon { color: var(--accent-primary); }
+.schema-box.internal .schema-box-icon { color: var(--success); }
+
+.schema-box-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.schema-box-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.schema-arrow {
+    color: var(--accent-primary);
+    font-size: 1.5rem;
+}
+
+/* Labels explicatifs pour les champs */
+.label-with-help {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.label-text {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.label-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--accent-primary);
+    color: white;
+}
+
+.label-badge.required {
+    background: var(--danger);
+}
+
+.label-badge.optional {
+    background: var(--text-muted);
+}
+
+.label-badge.recommended {
+    background: var(--success);
+}
+
+/* Description sous le champ */
+.field-description {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.field-description i {
+    margin-right: 5px;
+    color: var(--accent-primary);
+}
+
+/* Prévisualisation en direct */
+.live-preview {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+    border: 2px dashed var(--accent-secondary);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.live-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    color: var(--accent-secondary);
+    font-weight: 600;
+}
+
+.live-preview-content {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    background: var(--bg-card);
+    padding: 15px;
+    border-radius: 8px;
+    color: var(--text-primary);
+}
+
+/* Onglets de niveau de difficulté */
+.difficulty-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 5px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+}
+
+.difficulty-tab {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.difficulty-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.difficulty-tab.active {
+    background: var(--accent-primary);
+    color: white;
+}
+
+.difficulty-tab.active.beginner {
+    background: var(--success);
+}
+
+.difficulty-tab.active.intermediate {
+    background: var(--warning);
+}
+
+.difficulty-tab.active.expert {
+    background: var(--danger);
+}
+
+/* Accordéon pour les sections */
+.help-accordion {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.help-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.help-accordion-header:hover {
+    background: var(--bg-hover);
+}
+
+.help-accordion-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+}
+
+.help-accordion-toggle {
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+}
+
+.help-accordion.open .help-accordion-toggle {
+    transform: rotate(180deg);
+}
+
+.help-accordion-content {
+    padding: 0 15px;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.help-accordion.open .help-accordion-content {
+    padding: 15px;
+    max-height: 500px;
+}
+
+/* Indicateur de progression du formulaire */
+.form-progress {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 20px;
+}
+
+.form-progress-step {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-secondary);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.form-progress-step.completed {
+    background: var(--success);
+}
+
+.form-progress-step.current {
+    background: var(--accent-primary);
+}
+
+/* Animation de pulsation pour attirer l'attention */
+@keyframes pulse-help {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.pulse-attention {
+    animation: pulse-help 2s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .visual-schema {
+        flex-direction: column;
+    }
+    
+    .schema-arrow {
+        transform: rotate(90deg);
+    }
+    
+    .difficulty-tabs {
+        flex-direction: column;
+    }
+    
+    .help-tooltip {
+        position: fixed;
+        bottom: auto;
+        top: 50%;
+        left: 10px;
+        right: 10px;
+        transform: translateY(-50%);
+    }
+}
