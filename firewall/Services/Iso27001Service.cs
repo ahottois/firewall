@@ -40,10 +40,16 @@ public interface IIso27001Service
 public class Iso27001Service : IIso27001Service
 {
     private readonly ILogger<Iso27001Service> _logger;
-    private List<Iso27001Control> _controls;
+    private readonly List<Iso27001Control> _controls;
+    private readonly Dictionary<string, List<Iso27001Control>> _controlsByCategory;
+    private readonly Dictionary<string, Iso27001Control> _controlsById;
     private List<RiskAssessment> _risks = new();
     private List<SecurityIncident> _incidents = new();
     private List<SecurityPolicy> _policies = new();
+    
+    // Cache du résumé
+    private Iso27001Summary? _cachedSummary;
+    private bool _summaryInvalid = true;
     
     private int _riskIdCounter = 1;
     private int _incidentIdCounter = 1;
@@ -53,19 +59,34 @@ public class Iso27001Service : IIso27001Service
     private const string RisksConfigPath = "iso27001_risks.json";
     private const string IncidentsConfigPath = "iso27001_incidents.json";
     private const string PoliciesConfigPath = "iso27001_policies.json";
+    
+    private static readonly Dictionary<string, string> CategoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["A.5"] = "Controles organisationnels",
+        ["A.6"] = "Controles du personnel",
+        ["A.7"] = "Controles physiques",
+        ["A.8"] = "Controles technologiques"
+    };
 
     public Iso27001Service(ILogger<Iso27001Service> logger)
     {
         _logger = logger;
         _controls = InitializeControls();
+        
+        // Créer les index pour accès rapide
+        _controlsById = _controls.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase);
+        _controlsByCategory = _controls
+            .GroupBy(c => c.Category, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        
         LoadData();
     }
 
     #region Controles ISO 27001:2022
 
-    private List<Iso27001Control> InitializeControls()
+    private static List<Iso27001Control> InitializeControls()
     {
-        // Controles ISO 27001:2022 Annexe A
+        // Controles ISO 27001:2022 Annexe A - Liste statique
         return new List<Iso27001Control>
         {
             // A.5 - Controles organisationnels
@@ -78,7 +99,7 @@ public class Iso27001Service : IIso27001Service
             new() { Id = "A.5.7", Category = "A.5", Title = "Renseignements sur les menaces", Description = "Les informations relatives aux menaces de securite doivent etre collectees et analysees." },
             new() { Id = "A.5.8", Category = "A.5", Title = "Securite dans la gestion de projet", Description = "La securite de l'information doit etre integree dans la gestion de projet." },
             new() { Id = "A.5.9", Category = "A.5", Title = "Inventaire des informations et actifs", Description = "Un inventaire des actifs informationnels doit etre developpe et maintenu." },
-            new() { Id = "A.5.10", Category = "A.5", Title = "Utilisation acceptable des actifs", Description = "Des regles pour l'utilisation acceptable des informations et actifs doivent etre identifiees et documentees." },
+            new() { Id = "A.5.10", Category = "A.5", Title = "Utilisation acceptable des assets", Description = "Des regles pour l'utilisation acceptable des informations et actifs doivent etre identifiees et documentees." },
             new() { Id = "A.5.11", Category = "A.5", Title = "Restitution des actifs", Description = "Les employes et tiers doivent restituer tous les actifs a la fin de leur emploi ou contrat." },
             new() { Id = "A.5.12", Category = "A.5", Title = "Classification des informations", Description = "L'information doit etre classifiee selon les exigences legales et la valeur pour l'organisation." },
             new() { Id = "A.5.13", Category = "A.5", Title = "Marquage des informations", Description = "Un ensemble approprie de procedures pour le marquage des informations doit etre developpe." },
@@ -175,7 +196,7 @@ public class Iso27001Service : IIso27001Service
 
     public Iso27001Control? GetControl(string controlId)
     {
-        return _controls.FirstOrDefault(c => c.Id.Equals(controlId, StringComparison.OrdinalIgnoreCase));
+        return _controlsById.TryGetValue(controlId, out var control) ? control : null;
     }
 
     public async Task UpdateControlStatusAsync(string controlId, Iso27001ControlStatus status, string? evidence = null)
@@ -186,6 +207,7 @@ public class Iso27001Service : IIso27001Service
             control.Status = status;
             control.Evidence = evidence;
             control.LastReviewDate = DateTime.UtcNow;
+            InvalidateSummaryCache();
             await SaveControlsAsync();
             _logger.LogInformation("ISO 27001: Controle {Id} mis a jour - Statut: {Status}", controlId, status);
         }
@@ -193,8 +215,10 @@ public class Iso27001Service : IIso27001Service
 
     public IEnumerable<Iso27001Control> GetControlsByCategory(string category)
     {
-        return _controls.Where(c => c.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
+        return _controlsByCategory.TryGetValue(category, out var controls) ? controls : Enumerable.Empty<Iso27001Control>();
     }
+    
+    private void InvalidateSummaryCache() => _summaryInvalid = true;
 
     #endregion
 
@@ -202,7 +226,7 @@ public class Iso27001Service : IIso27001Service
 
     public IEnumerable<RiskAssessment> GetAllRisks() => _risks;
 
-    public RiskAssessment? GetRisk(int id) => _risks.FirstOrDefault(r => r.Id == id);
+    public RiskAssessment? GetRisk(int id) => _risks.Find(r => r.Id == id);
 
     public async Task<RiskAssessment> AddRiskAsync(RiskAssessment risk)
     {
@@ -217,10 +241,9 @@ public class Iso27001Service : IIso27001Service
 
     public async Task UpdateRiskAsync(RiskAssessment risk)
     {
-        var existing = GetRisk(risk.Id);
-        if (existing != null)
+        var index = _risks.FindIndex(r => r.Id == risk.Id);
+        if (index >= 0)
         {
-            var index = _risks.IndexOf(existing);
             _risks[index] = risk;
             await SaveRisksAsync();
             _logger.LogInformation("ISO 27001: Risque {Id} mis a jour", risk.Id);
@@ -229,10 +252,9 @@ public class Iso27001Service : IIso27001Service
 
     public async Task DeleteRiskAsync(int id)
     {
-        var risk = GetRisk(id);
-        if (risk != null)
+        var removed = _risks.RemoveAll(r => r.Id == id);
+        if (removed > 0)
         {
-            _risks.Remove(risk);
             await SaveRisksAsync();
             _logger.LogInformation("ISO 27001: Risque {Id} supprime", id);
         }
@@ -249,7 +271,7 @@ public class Iso27001Service : IIso27001Service
 
     public IEnumerable<SecurityIncident> GetAllIncidents() => _incidents;
 
-    public SecurityIncident? GetIncident(int id) => _incidents.FirstOrDefault(i => i.Id == id);
+    public SecurityIncident? GetIncident(int id) => _incidents.Find(i => i.Id == id);
 
     public async Task<SecurityIncident> AddIncidentAsync(SecurityIncident incident)
     {
@@ -264,10 +286,9 @@ public class Iso27001Service : IIso27001Service
 
     public async Task UpdateIncidentAsync(SecurityIncident incident)
     {
-        var existing = GetIncident(incident.Id);
-        if (existing != null)
+        var index = _incidents.FindIndex(i => i.Id == incident.Id);
+        if (index >= 0)
         {
-            var index = _incidents.IndexOf(existing);
             _incidents[index] = incident;
             await SaveIncidentsAsync();
             _logger.LogInformation("ISO 27001: Incident {Id} mis a jour - Statut: {Status}", incident.Id, incident.Status);
@@ -285,7 +306,7 @@ public class Iso27001Service : IIso27001Service
 
     public IEnumerable<SecurityPolicy> GetAllPolicies() => _policies;
 
-    public SecurityPolicy? GetPolicy(int id) => _policies.FirstOrDefault(p => p.Id == id);
+    public SecurityPolicy? GetPolicy(int id) => _policies.Find(p => p.Id == id);
 
     public async Task<SecurityPolicy> AddPolicyAsync(SecurityPolicy policy)
     {
@@ -300,10 +321,9 @@ public class Iso27001Service : IIso27001Service
 
     public async Task UpdatePolicyAsync(SecurityPolicy policy)
     {
-        var existing = GetPolicy(policy.Id);
-        if (existing != null)
+        var index = _policies.FindIndex(p => p.Id == policy.Id);
+        if (index >= 0)
         {
-            var index = _policies.IndexOf(existing);
             _policies[index] = policy;
             await SavePoliciesAsync();
             _logger.LogInformation("ISO 27001: Politique {Code} mise a jour", policy.Code);
@@ -316,61 +336,88 @@ public class Iso27001Service : IIso27001Service
 
     public Iso27001Summary GetSummary()
     {
+        // Retourner le cache si valide
+        if (!_summaryInvalid && _cachedSummary != null)
+            return _cachedSummary;
+
+        var summary = BuildSummary();
+        _cachedSummary = summary;
+        _summaryInvalid = false;
+        return summary;
+    }
+
+    private Iso27001Summary BuildSummary()
+    {
+        // Calculer les compteurs en une seule passe
+        int implemented = 0, partial = 0, notImplemented = 0, notApplicable = 0;
+        
+        foreach (var control in _controls)
+        {
+            switch (control.Status)
+            {
+                case Iso27001ControlStatus.Implemented:
+                case Iso27001ControlStatus.Effective:
+                    implemented++;
+                    break;
+                case Iso27001ControlStatus.PartiallyImplemented:
+                    partial++;
+                    break;
+                case Iso27001ControlStatus.NotImplemented:
+                    notImplemented++;
+                    break;
+                case Iso27001ControlStatus.NotApplicable:
+                    notApplicable++;
+                    break;
+            }
+        }
+
         var summary = new Iso27001Summary
         {
             TotalControls = _controls.Count,
-            ImplementedControls = _controls.Count(c => c.Status == Iso27001ControlStatus.Implemented || c.Status == Iso27001ControlStatus.Effective),
-            PartiallyImplementedControls = _controls.Count(c => c.Status == Iso27001ControlStatus.PartiallyImplemented),
-            NotImplementedControls = _controls.Count(c => c.Status == Iso27001ControlStatus.NotImplemented),
-            NotApplicableControls = _controls.Count(c => c.Status == Iso27001ControlStatus.NotApplicable)
+            ImplementedControls = implemented,
+            PartiallyImplementedControls = partial,
+            NotImplementedControls = notImplemented,
+            NotApplicableControls = notApplicable
         };
 
-        var applicable = summary.TotalControls - summary.NotApplicableControls;
+        var applicable = summary.TotalControls - notApplicable;
         if (applicable > 0)
         {
             summary.CompliancePercentage = Math.Round(
-                (double)(summary.ImplementedControls + summary.PartiallyImplementedControls * 0.5) / applicable * 100, 2);
+                (implemented + partial * 0.5) / applicable * 100, 2);
         }
 
-        // Resume par categorie
-        var categories = _controls.GroupBy(c => c.Category);
-        foreach (var category in categories)
+        // Resume par categorie - utiliser le dictionnaire pré-indexé
+        foreach (var (category, controls) in _controlsByCategory)
         {
+            int catImplemented = 0, catNotApplicable = 0;
+            
+            foreach (var control in controls)
+            {
+                if (control.Status is Iso27001ControlStatus.Implemented or Iso27001ControlStatus.Effective)
+                    catImplemented++;
+                else if (control.Status == Iso27001ControlStatus.NotApplicable)
+                    catNotApplicable++;
+            }
+
+            var catApplicable = controls.Count - catNotApplicable;
             var catSummary = new CategorySummary
             {
-                CategoryName = GetCategoryName(category.Key),
-                TotalControls = category.Count(),
-                ImplementedControls = category.Count(c => c.Status == Iso27001ControlStatus.Implemented || c.Status == Iso27001ControlStatus.Effective)
+                CategoryName = CategoryNames.TryGetValue(category, out var name) ? name : category,
+                TotalControls = controls.Count,
+                ImplementedControls = catImplemented,
+                CompliancePercentage = catApplicable > 0 ? Math.Round((double)catImplemented / catApplicable * 100, 2) : 0
             };
             
-            var catApplicable = catSummary.TotalControls - category.Count(c => c.Status == Iso27001ControlStatus.NotApplicable);
-            if (catApplicable > 0)
-            {
-                catSummary.CompliancePercentage = Math.Round((double)catSummary.ImplementedControls / catApplicable * 100, 2);
-            }
-            
-            summary.ByCategory[category.Key] = catSummary;
+            summary.ByCategory[category] = catSummary;
         }
 
         return summary;
     }
 
-    private string GetCategoryName(string category)
-    {
-        return category switch
-        {
-            "A.5" => "Controles organisationnels",
-            "A.6" => "Controles du personnel",
-            "A.7" => "Controles physiques",
-            "A.8" => "Controles technologiques",
-            _ => category
-        };
-    }
-
     public Task<double> CalculateComplianceScoreAsync()
     {
-        var summary = GetSummary();
-        return Task.FromResult(summary.CompliancePercentage);
+        return Task.FromResult(GetSummary().CompliancePercentage);
     }
 
     #endregion
@@ -387,11 +434,9 @@ public class Iso27001Service : IIso27001Service
                 var savedControls = JsonSerializer.Deserialize<List<Iso27001Control>>(json);
                 if (savedControls != null)
                 {
-                    // Fusionner avec les controles initialises
                     foreach (var saved in savedControls)
                     {
-                        var control = _controls.FirstOrDefault(c => c.Id == saved.Id);
-                        if (control != null)
+                        if (_controlsById.TryGetValue(saved.Id, out var control))
                         {
                             control.Status = saved.Status;
                             control.Evidence = saved.Evidence;
@@ -400,6 +445,7 @@ public class Iso27001Service : IIso27001Service
                             control.ImplementationLevel = saved.ImplementationLevel;
                         }
                     }
+                    InvalidateSummaryCache();
                 }
             }
 
@@ -407,21 +453,21 @@ public class Iso27001Service : IIso27001Service
             {
                 var json = File.ReadAllText(RisksConfigPath);
                 _risks = JsonSerializer.Deserialize<List<RiskAssessment>>(json) ?? new();
-                _riskIdCounter = _risks.Any() ? _risks.Max(r => r.Id) + 1 : 1;
+                _riskIdCounter = _risks.Count > 0 ? _risks.Max(r => r.Id) + 1 : 1;
             }
 
             if (File.Exists(IncidentsConfigPath))
             {
                 var json = File.ReadAllText(IncidentsConfigPath);
                 _incidents = JsonSerializer.Deserialize<List<SecurityIncident>>(json) ?? new();
-                _incidentIdCounter = _incidents.Any() ? _incidents.Max(i => i.Id) + 1 : 1;
+                _incidentIdCounter = _incidents.Count > 0 ? _incidents.Max(i => i.Id) + 1 : 1;
             }
 
             if (File.Exists(PoliciesConfigPath))
             {
                 var json = File.ReadAllText(PoliciesConfigPath);
                 _policies = JsonSerializer.Deserialize<List<SecurityPolicy>>(json) ?? new();
-                _policyIdCounter = _policies.Any() ? _policies.Max(p => p.Id) + 1 : 1;
+                _policyIdCounter = _policies.Count > 0 ? _policies.Max(p => p.Id) + 1 : 1;
             }
         }
         catch (Exception ex)
